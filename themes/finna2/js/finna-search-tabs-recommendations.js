@@ -19,7 +19,6 @@ finna.searchTabsRecommendations = (function finnaSearchTabsRecommendations() {
         finna.openUrl.initLinks();
         VuFind.lightbox.bind(container);
         VuFind.itemStatuses.check(container);
-        finna.itemStatus.initDedupRecordSelection(container);
         checkSaveStatuses(container);
       });
   }

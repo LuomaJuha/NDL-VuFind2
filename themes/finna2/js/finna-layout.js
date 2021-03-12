@@ -81,6 +81,7 @@ finna.layout = (function finnaLayout() {
       var rowCount = self.data('rows') || 3;
       // get the line-height of first element to determine each text line height
       truncation[index] = rowHeight[index] * rowCount;
+      self.data('truncation', truncation[index]);
       // truncate only if there's more than one line to hide
       if (self.height() > (truncation[index] + rowHeight[index] + 1)) {
         var topLink = self.height() > (rowHeight[index] * 30);
@@ -88,24 +89,14 @@ finna.layout = (function finnaLayout() {
         var moreLabel = self.data('label') || VuFind.translate('show_more');
         var lessLabel = self.data('label') || VuFind.translate('show_less');
 
-        var moreLink = $('<button type="button" class="more-link">' + moreLabel + ' <i class="fa fa-arrow-down" aria-hidden="true"></i></button>');
-        var lessLink = $('<button type="button" class="less-link">' + lessLabel + ' <i class="fa fa-arrow-up" aria-hidden="true"></i></button>');
+        var moreLink = $('<button type="button" class="more-link js-layout-more-link">' + moreLabel + ' <i class="fa fa-arrow-down" aria-hidden="true"></i></button>');
+        var lessLink = $('<button type="button" class="less-link js-layout-less-link">' + lessLabel + ' <i class="fa fa-arrow-up" aria-hidden="true"></i></button>');
         
         var linkClass = self.data('button-class') || '';
         if (linkClass) {
           moreLink.addClass(linkClass);
           lessLink.addClass(linkClass);
         }
-        lessLink.on('click', function showLess() {
-          self.siblings('.less-link').hide();
-          self.siblings('.more-link').show();
-          self.css('height', truncation[index] - 1 + 'px');   
-        });
-        moreLink.on('click', function showMore() {
-          self.siblings('.more-link').hide();
-          self.siblings('.less-link').show();
-          self.css('height', 'auto');
-        });
         lessLink.hide();
 
         if (self.data('button-placement') === 'top') {
@@ -118,6 +109,23 @@ finna.layout = (function finnaLayout() {
         }
         self.addClass('truncated');
       }
+    });
+  }
+
+  function initTruncateEvents() {
+    $(document).on('click', '.js-layout-more-link', function showMore() {
+      var btn = $(this);
+      var area = btn.siblings('.truncate-field');
+      btn.hide();
+      area.siblings('.less-link').show();
+      area.css('height', 'auto');
+    });
+    $(document).on('click', '.js-layout-less-link', function showLess() {
+      var btn = $(this);
+      var area = btn.siblings('.truncate-field');
+      btn.hide();
+      area.siblings('.more-link').show();
+      area.css('height', +area.data('truncation') - 1 + 'px');   
     });
   }
 
@@ -273,19 +281,16 @@ finna.layout = (function finnaLayout() {
     });
   }
 
-  function initCondensedList(_holder) {
-    var holder = typeof _holder === 'undefined' ? $(document) : _holder;
-
-    holder.find('.condensed-collapse-toggle').off('click').on('click', function onClickCollapseToggle(event) {
+  function initCondensedList() {
+    $(document).on('click', '.condensed-collapse-toggle', function onClickCollapseToggle(event) {
       if ((event.target.nodeName) !== 'A' && (event.target.nodeName) !== 'MARK') {
-        holder = $(this).parent().parent();
+        var holder = $(this).parent().parent();
         holder.toggleClass('open');
 
         var onSlideComplete = null;
         if (holder.hasClass('open') && !holder.hasClass('opened')) {
           holder.addClass('opened');
           VuFind.itemStatuses.check(holder);
-          finna.itemStatus.initDedupRecordSelection(holder);
           onSlideComplete = function handleSlideComplete() {
             holder.find('.recordcover').trigger('unveil');
           };
@@ -734,7 +739,6 @@ finna.layout = (function finnaLayout() {
   var my = {
     getOrganisationPageLink: getOrganisationPageLink,
     isTouchDevice: isTouchDevice,
-    initCondensedList: initCondensedList,
     initTruncate: initTruncate,
     initLocationService: initLocationService,
     initHierarchicalFacet: initHierarchicalFacet,
@@ -749,6 +753,7 @@ finna.layout = (function finnaLayout() {
     initToolTips: initToolTips,
     initImagePaginators: initImagePaginators,
     init: function init() {
+      initTruncateEvents();
       initResizeListener();
       initScrollRecord();
       initJumpMenus();

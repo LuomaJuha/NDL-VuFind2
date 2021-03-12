@@ -1,9 +1,7 @@
 /*global VuFind, finna */
 finna.itemStatus = (function finnaItemStatus() {
-  function initDedupRecordSelection(_holder) {
-    var holder = typeof _holder === 'undefined' ? $(document) : _holder;
-
-    holder.find('.dedup-select').on('change', function onChangeDedupSelection() {
+  function initDedupRecordSelection() {
+    $(document).on('change', '.dedup-select', function onChangeDedupSelection() {
       var id = $(this).val();
       var source = $(this).find('option:selected').data('source');
       finna.common.setCookie('preferredRecordSource', source);
@@ -42,11 +40,8 @@ finna.itemStatus = (function finnaItemStatus() {
   }
 
   var my = {
-    initDedupRecordSelection: initDedupRecordSelection,
     init: function init() {
-      if (!$('.results').hasClass('result-view-condensed')) {
-        initDedupRecordSelection();
-      }
+      initDedupRecordSelection();
     }
   };
 
