@@ -175,6 +175,7 @@ $config = [
     ],
     'js' => [
         'finna-object-editor.js',
+        'finna-snake.js',
         'vendor/event-stub.js:lt IE 9',
         'account_ajax.js',
         'advanced_search.js',
