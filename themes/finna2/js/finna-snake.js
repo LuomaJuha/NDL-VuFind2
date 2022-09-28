@@ -4,26 +4,27 @@ class Snake extends HTMLElement {
     super();
     this.screenWidth = 84; //84
     this.screenHeight = 48; //48
-    this.pixelMultiplier = 5;
+    this.pixelMultiplier = 7;
     this.startPosition = {
       x: this.screenWidth / 2,
       y: this.screenHeight / 2
     };
-
+    this.startPositions = [
+      {x: this.startPosition.x, y: this.startPosition.y},
+      {x: this.startPosition.x - 1, y: this.startPosition.y},
+      {x: this.startPosition.x - 2, y: this.startPosition.y},
+      {x: this.startPosition.x - 3, y: this.startPosition.y},
+      {x: this.startPosition.x - 4, y: this.startPosition.y},
+      {x: this.startPosition.x - 5, y: this.startPosition.y}
+    ];
     this.snake = {
-      body: [
-        {x: this.startPosition.x, y: this.startPosition.y},
-        {x: this.startPosition.x - 1, y: this.startPosition.y},
-        {x: this.startPosition.x - 2, y: this.startPosition.y},
-        {x: this.startPosition.x - 3, y: this.startPosition.y},
-        {x: this.startPosition.x - 4, y: this.startPosition.y},
-        {x: this.startPosition.x - 5, y: this.startPosition.y}
-      ],
+      body: this.startPositions,
     };
     this.direction = {
       x: 1,
       y: 0,
-    }
+    };
+    this.points = 0;
   }
 
   connectedCallback()
@@ -46,7 +47,7 @@ class Snake extends HTMLElement {
     this.setEvents();
     this.drawText('PRESS RIGHT ARROW KEY TO START', 4, 24);
 
-    setInterval(this.gameLoop, 200, this);
+    setInterval(this.gameLoop, 100, this);
   }
 
   setEvents()
@@ -85,12 +86,16 @@ class Snake extends HTMLElement {
       case 'ArrowRight':
         if (!caller.gameStarted) {
           caller.gameStarted = true;
+          caller.points = 0;
         }
         if (caller.direction.x !== -1) {
           caller.moved = true;
           caller.direction = {x: 1, y: 0};
         }
         break;
+      }
+      if (caller.gameEnded) {
+        caller.restartGame();
       }
     });
   }
@@ -104,8 +109,7 @@ class Snake extends HTMLElement {
       return;
     }
     caller.context.beginPath();
-    caller.context.fillStyle = '#739900';
-    caller.context.fillRect(0, 0, caller.canvas.width, caller.canvas.height);
+    caller.clearCanvas();
     caller.context.fillStyle = '#000000';
     if (!caller.apple) {
       caller.createApple();
@@ -121,17 +125,44 @@ class Snake extends HTMLElement {
       return;
     }
     caller.drawSnake();
-    caller.drawText('00000', 0, 4);
+    caller.drawText(`${caller.points}`, 0, 4);
     caller.context.stroke();
     caller.moved = false;
   }
 
+  clearCanvas()
+  {
+    this.context.fillStyle = '#739900';
+    this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  restartGame()
+  {
+    this.clearCanvas();
+    this.startPositions = [
+      {x: this.startPosition.x, y: this.startPosition.y},
+      {x: this.startPosition.x - 1, y: this.startPosition.y},
+      {x: this.startPosition.x - 2, y: this.startPosition.y},
+      {x: this.startPosition.x - 3, y: this.startPosition.y},
+      {x: this.startPosition.x - 4, y: this.startPosition.y},
+      {x: this.startPosition.x - 5, y: this.startPosition.y}
+    ];
+    this.snake.body = this.startPositions;
+    delete this.apple;
+    this.gameEnded = false;
+    this.gameStarted = false;
+    this.moved = false;
+    this.drawText('PRESS RIGHT ARROW KEY TO START', 4, 24);
+  }
+
   createApple()
   {
+    console.log(this.edges);
     this.apple = {
-      x: this.getRandomInt(this.edges.x + 1, this.edges.y),
-      y: this.getRandomInt(this.edges.z + 1, this.edges.w)
+      x: this.getRandomInt(this.edges.z + 1, this.edges.y),
+      y: this.getRandomInt(this.edges.x + 1, this.edges.w)
     };
+    console.log(this.apple);
   }
 
   drawApple()
@@ -155,7 +186,7 @@ class Snake extends HTMLElement {
     head.x += direction.x;
     head.y += direction.y;
     let dead = this.snake.body.find(pos => pos.x === head.x && pos.y === head.y);
-    if (head.x < this.edges.z || head.x >= this.edges.y + head.x) {
+    if (head.x < this.edges.z || head.x >= this.edges.y + this.edges.z) {
       dead = true;
     }
     if (head.y < this.edges.x || head.y >= this.edges.w + this.edges.x) {
@@ -167,6 +198,7 @@ class Snake extends HTMLElement {
     }
     if (head.x === this.apple.x && head.y === this.apple.y) {
       this.snake.grow = true;
+      this.points += 9;
       delete this.apple;
     }
     this.snake.body.unshift(head);
