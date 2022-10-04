@@ -1,10 +1,73 @@
+/* global ObjectEditor */
 class Snake extends HTMLElement {
+
+  get pixelwidth() {
+    return this.getAttribute('pixelwidth');
+  }
+
+  set pixelwidth(newValue) {
+    this.setAttribute('pixelwidth', newValue);
+  }
+
+  get pixelheight() {
+    return this.getAttribute('pixelheight');
+  }
+
+  set pixelheight(newValue) {
+    this.setAttribute('height', newValue);
+  }
+
   constructor()
   {
     super();
-    this.screenWidth = 84; //84
-    this.screenHeight = 48; //48
-    this.pixelMultiplier = 7;
+    this.settings = [
+      {
+        uuid: 1,
+        pixelwidth: 10,
+        pixelheight: 10,
+        pixelMultiplier: 10
+      }
+    ];
+    this.pixelMultiplier = 15;
+
+    this.direction = {
+      x: 1,
+      y: 0,
+    };
+    this.points = 0;
+
+    this.menuOptions = {
+      owner: this,
+      allowedProperties: {
+        basic: [
+          'pixelMultiplier', 'pixelwidth',
+          'pixelheight', 'uuid'
+        ]
+      },
+      menuAreas: {
+        basic: [
+          {
+            name: 'Settings',
+            prefix: 'settings',
+            objects: this.settings,
+            created: []
+          }
+        ]
+      },
+      rangeTypes: [
+        'pixelMultiplier', 'pixelwidth',
+        'pixelheight'
+      ],
+      hiddenProperties: [
+        'uuid'
+      ],
+    };
+  }
+
+  connectedCallback()
+  {
+    this.screenWidth = this.pixelwidth; //84
+    this.screenHeight = this.pixelheight; //48
     this.startPosition = {
       x: this.screenWidth / 2,
       y: this.screenHeight / 2
@@ -20,15 +83,6 @@ class Snake extends HTMLElement {
     this.snake = {
       body: this.startPositions,
     };
-    this.direction = {
-      x: 1,
-      y: 0,
-    };
-    this.points = 0;
-  }
-
-  connectedCallback()
-  {
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.screenWidth * this.pixelMultiplier;
     this.canvas.height = this.screenHeight * this.pixelMultiplier;
@@ -46,7 +100,8 @@ class Snake extends HTMLElement {
     this.canvas.focus();
     this.setEvents();
     this.drawText('PRESS RIGHT ARROW KEY TO START', 4, 24);
-
+    this.objectEditor = new ObjectEditor(this, this.menuOptions);
+    document.getElementById('object-editor-settings').classList.remove('collapse');
     setInterval(this.gameLoop, 100, this);
   }
 
@@ -58,7 +113,7 @@ class Snake extends HTMLElement {
         e.preventDefault();
       }
     }, false);
-    this.canvas.addEventListener('keyup', e => {
+    this.canvas.addEventListener('keydown', e => {
       e.preventDefault();
       e.stopPropagation();
       if (caller.moved) {
@@ -158,10 +213,18 @@ class Snake extends HTMLElement {
   createApple()
   {
     console.log(this.edges);
-    this.apple = {
-      x: this.getRandomInt(this.edges.z + 1, this.edges.y),
-      y: this.getRandomInt(this.edges.x + 1, this.edges.w)
-    };
+    // Gather all the positions for apples
+    const positions = [];
+
+    for (let i = this.edges.x + 1; i < this.edges.w; i++) {
+      for (let j = this.edges.z + 1; j < this.edges.y; j++) {
+        if (!this.snake.body.some(pos => pos.y === i && pos.x === j)) {
+          positions.push({x: j, y: i});
+        }
+      }
+    }
+    const random = this.getRandomInt(0, positions.length)
+    this.apple = positions[random];
     console.log(this.apple);
   }
 
@@ -232,4 +295,5 @@ class Snake extends HTMLElement {
   }
 }
 
+// Use <snake-game> html element
 customElements.define('finna-snake', Snake);
