@@ -49,7 +49,7 @@
   <property name="skip_phpdoc" value="false" />
   <property name="phpdoc_version" value="3.3.1" />
 
-  <property name="version" value="8.1" />
+  <property name="version" value="8.1.1" />
 
   <!-- We only need the -p switch if the password is non-blank -->
   <if>
@@ -337,6 +337,12 @@
     </if>
     <echo message="Installing dependencies..." />
     <exec command="php ${srcdir}/composer.phar install ${composer_extra_params}" passthru="true" checkreturn="true" />
+  </target>
+
+  <!-- Copy files from node modules to themes -->
+  <target name="copynodemodules">
+    <!-- vanilla-cookieconsent -->
+    <copy file="${srcdir}/node_modules/vanilla-cookieconsent/dist/cookieconsent.umd.js" todir="${srcdir}/themes/bootstrap3/js/vendor" />
   </target>
 
   <!-- Install and Activate VuFind -->

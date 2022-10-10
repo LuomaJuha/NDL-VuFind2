@@ -241,6 +241,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     ],
                     'description' => '',
                     'rights' => [],
+                    'downloadable' => false,
                     'pdf' => $pdf
                 ];
             }
@@ -1252,7 +1253,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
 
         if (empty($matches)) {
             // Now check 490 and display it only if 440/800/830 were empty:
-            $secondaryFields = ['490' => ['a', 'x']];
+            $secondaryFields = ['490' => ['a', 'v', 'x']];
             $matches = $this->getSeriesFromMARC($secondaryFields);
         }
 
@@ -2183,6 +2184,18 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $results[] = implode(' ', $subfields);
         }
         return $results;
+    }
+
+    /**
+     * Get standard report numbers from field 027, subfield a.
+     *
+     * @return array
+     */
+    public function getStandardReportNumbers()
+    {
+        return $this->stripTrailingPunctuation(
+            $this->getFieldArray('027', ['a'])
+        );
     }
 
     /**

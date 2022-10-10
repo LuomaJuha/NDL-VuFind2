@@ -811,6 +811,7 @@ class SolrEad3 extends SolrEad
                     }
                 }
             }
+            $formatted['downloadable'] = $this->allowRecordImageDownload($formatted);
             $result['displayImages'][] = $formatted;
         };
         $isExcludedFromOCR = function ($title) {
