@@ -1,4 +1,4 @@
-/* global ObjectEditor */
+/* global */
 class Snake extends HTMLElement {
 
   get pixelwidth() {
@@ -35,33 +35,6 @@ class Snake extends HTMLElement {
       y: 0,
     };
     this.points = 0;
-
-    this.menuOptions = {
-      owner: this,
-      allowedProperties: {
-        basic: [
-          'pixelMultiplier', 'pixelwidth',
-          'pixelheight', 'uuid'
-        ]
-      },
-      menuAreas: {
-        basic: [
-          {
-            name: 'Settings',
-            prefix: 'settings',
-            objects: this.settings,
-            created: []
-          }
-        ]
-      },
-      rangeTypes: [
-        'pixelMultiplier', 'pixelwidth',
-        'pixelheight'
-      ],
-      hiddenProperties: [
-        'uuid'
-      ],
-    };
   }
 
   connectedCallback()
@@ -99,9 +72,6 @@ class Snake extends HTMLElement {
     this.canvas.setAttribute('tabindex', '0');
     this.canvas.focus();
     this.setEvents();
-    this.drawText('PRESS RIGHT ARROW KEY TO START', 4, 24);
-    this.objectEditor = new ObjectEditor(this, this.menuOptions);
-    document.getElementById('object-editor-settings').classList.remove('collapse');
     setInterval(this.gameLoop, 100, this);
   }
 
@@ -116,26 +86,23 @@ class Snake extends HTMLElement {
     this.canvas.addEventListener('keydown', e => {
       e.preventDefault();
       e.stopPropagation();
-      if (caller.moved) {
-        return;
-      }
       switch (e.key) {
       case 'ArrowUp':
         if (caller.direction.y !== 1) {
           caller.moved = true;
-          caller.direction = {x: 0, y: -1};
+          caller.wantedDirection = {x: 0, y: -1};
         }
         break;
       case 'ArrowDown':
         if (caller.direction.y !== -1) {
           caller.moved = true;
-          caller.direction = {x: 0, y: 1};
+          caller.wantedDirection = {x: 0, y: 1};
         }
         break;
       case 'ArrowLeft':
         if (caller.direction.x !== 1) {
           caller.moved = true;
-          caller.direction = {x: -1, y: 0};
+          caller.wantedDirection = {x: -1, y: 0};
         }
         break;
       case 'ArrowRight':
@@ -145,7 +112,7 @@ class Snake extends HTMLElement {
         }
         if (caller.direction.x !== -1) {
           caller.moved = true;
-          caller.direction = {x: 1, y: 0};
+          caller.wantedDirection = {x: 1, y: 0};
         }
         break;
       }
@@ -157,14 +124,17 @@ class Snake extends HTMLElement {
 
   gameLoop(caller)
   {
+    caller.context.beginPath();
+    caller.clearCanvas();
     if (!caller.gameStarted) {
+      caller.drawText('Press right arrow to start', 0, 2);
       return;
     }
     if (caller.gameEnded) {
+      caller.drawText(`Game over, points: ${caller.points}`, 0, 2);
+      caller.drawText(`Press right arrow to restart`, 0, 6);
       return;
     }
-    caller.context.beginPath();
-    caller.clearCanvas();
     caller.context.fillStyle = '#000000';
     if (!caller.apple) {
       caller.createApple();
@@ -175,7 +145,7 @@ class Snake extends HTMLElement {
       caller.snake.addPixel = true;
       caller.snake.grow = false;
     }
-    caller.moveSnake(caller.direction);
+    caller.moveSnake();
     if (caller.gameEnded) {
       return;
     }
@@ -202,17 +172,19 @@ class Snake extends HTMLElement {
       {x: this.startPosition.x - 4, y: this.startPosition.y},
       {x: this.startPosition.x - 5, y: this.startPosition.y}
     ];
+    this.direction = {
+      x: 1,
+      y: 0,
+    };
     this.snake.body = this.startPositions;
     delete this.apple;
     this.gameEnded = false;
     this.gameStarted = false;
     this.moved = false;
-    this.drawText('PRESS RIGHT ARROW KEY TO START', 4, 24);
   }
 
   createApple()
   {
-    console.log(this.edges);
     // Gather all the positions for apples
     const positions = [];
 
@@ -225,7 +197,6 @@ class Snake extends HTMLElement {
     }
     const random = this.getRandomInt(0, positions.length)
     this.apple = positions[random];
-    console.log(this.apple);
   }
 
   drawApple()
@@ -240,14 +211,15 @@ class Snake extends HTMLElement {
   }
   
 
-  moveSnake(direction)
+  moveSnake()
   {
     if (!this.snake.addPixel) {
       this.snake.body.pop();
     }
+    this.direction = Object.assign({}, this.wantedDirection);
     const head = Object.assign({}, this.snake.body[0]);
-    head.x += direction.x;
-    head.y += direction.y;
+    head.x += this.direction.x;
+    head.y += this.direction.y;
     let dead = this.snake.body.find(pos => pos.x === head.x && pos.y === head.y);
     if (head.x < this.edges.z || head.x >= this.edges.y + this.edges.z) {
       dead = true;
@@ -257,7 +229,6 @@ class Snake extends HTMLElement {
     }
     if (dead) {
       this.gameEnded = true;
-      this.drawText('GAME OVER!', 4, 24);
     }
     if (head.x === this.apple.x && head.y === this.apple.y) {
       this.snake.grow = true;
