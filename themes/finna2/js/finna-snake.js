@@ -35,6 +35,10 @@ class Snake extends HTMLElement {
       y: 0,
     };
     this.points = 0;
+    this.deathAnimationCounter = 40;
+    this.deathAnimationInterval = 3;
+    this.deathAnimationIterator = 0;
+    this.showSnake = true;
   }
 
   connectedCallback()
@@ -116,7 +120,7 @@ class Snake extends HTMLElement {
         }
         break;
       }
-      if (caller.gameEnded) {
+      if (caller.gameEnded && caller.deathAnimationIterator > caller.deathAnimationCounter) {
         caller.restartGame();
       }
     });
@@ -130,29 +134,47 @@ class Snake extends HTMLElement {
       caller.drawText('Press right arrow to start', 0, 2);
       return;
     }
+    caller.context.fillStyle = '#000000';
+    caller.context.rect(caller.multiplyPixel(caller.edges.z), caller.multiplyPixel(caller.edges.x), caller.multiplyPixel(caller.edges.y), caller.multiplyPixel(caller.edges.w));
     if (caller.gameEnded) {
       caller.drawText(`Game over, points: ${caller.points}`, 0, 2);
-      caller.drawText(`Press right arrow to restart`, 0, 6);
+      if (caller.deathAnimationIterator > caller.deathAnimationCounter) {
+        caller.drawText(`Press right arrow to restart`, 0, 4);
+      }
+      caller.deathAnimation();
+      caller.context.stroke();
       return;
     }
-    caller.context.fillStyle = '#000000';
+
     if (!caller.apple) {
       caller.createApple();
     }
     caller.drawApple();
-    caller.context.rect(caller.multiplyPixel(caller.edges.z), caller.multiplyPixel(caller.edges.x), caller.multiplyPixel(caller.edges.y), caller.multiplyPixel(caller.edges.w));
+
     if (caller.snake.grow) {
       caller.snake.addPixel = true;
       caller.snake.grow = false;
     }
     caller.moveSnake();
-    if (caller.gameEnded) {
-      return;
-    }
+
     caller.drawSnake();
     caller.drawText(`${caller.points}`, 0, 4);
     caller.context.stroke();
+    if (caller.gameEnded) {
+      return;
+    }
     caller.moved = false;
+  }
+
+  deathAnimation()
+  {
+    if (this.deathAnimationIterator % this.deathAnimationInterval === 0) {
+      this.showSnake = !this.showSnake;
+    }
+    if (this.showSnake) {
+      this.drawSnake();
+    }
+    this.deathAnimationIterator++;
   }
 
   clearCanvas()
@@ -181,13 +203,17 @@ class Snake extends HTMLElement {
     this.gameEnded = false;
     this.gameStarted = false;
     this.moved = false;
+    this.deathAnimationCounter = 40;
+    this.deathAnimationInterval = 3;
+    this.deathAnimationIterator = 0;
+    this.showSnake = true;
   }
 
   createApple()
   {
     // Gather all the positions for apples
     const positions = [];
-
+    this.context.fillStyle = '#000000';
     for (let i = this.edges.x + 1; i < this.edges.w; i++) {
       for (let j = this.edges.z + 1; j < this.edges.y; j++) {
         if (!this.snake.body.some(pos => pos.y === i && pos.x === j)) {
@@ -213,9 +239,6 @@ class Snake extends HTMLElement {
 
   moveSnake()
   {
-    if (!this.snake.addPixel) {
-      this.snake.body.pop();
-    }
     this.direction = Object.assign({}, this.wantedDirection);
     const head = Object.assign({}, this.snake.body[0]);
     head.x += this.direction.x;
@@ -229,6 +252,10 @@ class Snake extends HTMLElement {
     }
     if (dead) {
       this.gameEnded = true;
+      return;
+    }
+    if (!this.snake.addPixel) {
+      this.snake.body.pop();
     }
     if (head.x === this.apple.x && head.y === this.apple.y) {
       this.snake.grow = true;
