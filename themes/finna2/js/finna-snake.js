@@ -175,6 +175,9 @@ class Snake extends HTMLElement {
       this.drawSnake();
     }
     this.deathAnimationIterator++;
+    if (this.deathAnimationIterator >= 90) {
+      this.deathAnimationIterator = 60;
+    }
   }
 
   clearCanvas()
