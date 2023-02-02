@@ -309,6 +309,7 @@ class Snake extends HTMLElement {
         break;
       }
       if (caller.gameEnded && caller.deathAnimationIterator > caller.deathAnimationCounter) {
+        caller.wantedDirection = [];
         caller.restartGame();
       }
     });
@@ -421,7 +422,7 @@ class Snake extends HTMLElement {
     this.gameEnded = false;
     this.gameStarted = false;
     this.moved = false;
-    this.deathAnimationCounter = 40;
+    this.deathAnimationCounter = 8;
     this.deathAnimationInterval = 3;
     this.deathAnimationIterator = 0;
     this.showSnake = true;
