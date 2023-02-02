@@ -28,7 +28,7 @@ class Snake extends HTMLElement {
     };
     this.wantedDirection = [];
     this.points = 0;
-    this.deathAnimationCounter = 40;
+    this.deathAnimationCounter = 8;
     this.deathAnimationInterval = 3;
     this.deathAnimationIterator = 0;
     this.showSnake = true;
