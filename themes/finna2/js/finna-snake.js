@@ -20,14 +20,6 @@ class Snake extends HTMLElement {
   constructor()
   {
     super();
-    this.settings = [
-      {
-        uuid: 1,
-        pixelwidth: 10,
-        pixelheight: 10,
-        pixelMultiplier: 10
-      }
-    ];
     this.pixelMultiplier = 15;
 
     this.direction = {
@@ -39,11 +31,206 @@ class Snake extends HTMLElement {
     this.deathAnimationInterval = 3;
     this.deathAnimationIterator = 0;
     this.showSnake = true;
+
+    this.startAnimationInterval = 10;
+    this.startAnimationCounter = 0;
+    this.snakeFrame = 0;
+
+    this.startScreenSnakeOne = [
+      {x: 5, y: 2},
+      {x: 6, y: 2},
+      {x: 7, y: 2},
+      {x: 8, y: 2},
+      {x: 9, y: 2},
+      {x: 10, y: 2},
+      {x: 4, y: 3},
+      {x: 5, y: 3},
+      {x: 11, y: 3},
+      {x: 3, y: 4},
+      {x: 4, y: 4},
+      {x: 11, y: 4},
+      {x: 12, y: 4},
+      {x: 3, y: 5},
+      {x: 5, y: 5},
+      {x: 8, y: 5},
+      {x: 12, y: 5},
+      {x: 3, y: 6},
+      {x: 12, y: 6},
+      {x: 3, y: 7},
+      {x: 12, y: 7},
+      {x: 3, y: 8},
+      {x: 9, y: 8},
+      {x: 10, y: 8},
+      {x: 12, y: 8},
+      {x: 13, y: 8},
+      {x: 14, y: 8},
+      {x: 3, y: 9},
+      {x: 4, y: 9},
+      {x: 8, y: 9},
+      {x: 9, y: 9},
+      {x: 12, y: 9},
+      {x: 14, y: 9},
+      {x: 15, y: 9},
+      {x: 16, y: 9},
+      {x: 4, y: 10},
+      {x: 5, y: 10},
+      {x: 6, y: 10},
+      {x: 7, y: 10},
+      {x: 8, y: 10},
+      {x: 12, y: 10},
+      {x: 16, y: 10},
+      {x: 17, y: 10},
+      {x: 4, y: 11},
+      {x: 11, y: 11},
+      {x: 12, y: 11},
+      {x: 17, y: 11},
+      {x: 3, y: 12},
+      {x: 4, y: 12},
+      {x: 10, y: 12},
+      {x: 11, y: 12},
+      {x: 18, y: 12},
+      {x: 3, y: 13},
+      {x: 9, y: 13},
+      {x: 14, y: 13},
+      {x: 15, y: 13},
+      {x: 18, y: 13},
+      {x: 3, y: 14},
+      {x: 9, y: 14},
+      {x: 14, y: 14},
+      {x: 18, y: 14},
+      {x: 3, y: 15},
+      {x: 14, y: 15},
+      {x: 15, y: 15},
+      {x: 16, y: 15},
+      {x: 18, y: 15},
+      {x: 3, y: 16},
+      {x: 13, y: 16},
+      {x: 14, y: 16},
+      {x: 16, y: 16},
+      {x: 18, y: 16},
+      {x: 19, y: 16},
+      {x: 4, y: 17},
+      {x: 12, y: 17},
+      {x: 13, y: 17},
+      {x: 16, y: 17},
+      {x: 17, y: 17},
+      {x: 19, y: 17},
+      {x: 4, y: 18},
+      {x: 5, y: 18},
+      {x: 6, y: 18},
+      {x: 9, y: 18},
+      {x: 10, y: 18},
+      {x: 11, y: 18},
+      {x: 12, y: 18},
+      {x: 17, y: 18},
+      {x: 18, y: 18},
+      {x: 19, y: 18},
+      {x: 6, y: 19},
+      {x: 7, y: 19},
+      {x: 8, y: 19},
+      {x: 9, y: 19},
+      {x: 18, y: 19},
+    ];
+
+    this.startScreenSnakeTwo = [
+      {x: 5, y: 4},
+      {x: 6, y: 4},
+      {x: 7, y: 4},
+      {x: 8, y: 4},
+      {x: 9, y: 4},
+      {x: 10, y: 4},
+      {x: 4, y: 5},
+      {x: 5, y: 5},
+      {x: 11, y: 5},
+      {x: 3, y: 6},
+      {x: 4, y: 6},
+      {x: 11, y: 6},
+      {x: 12, y: 6},
+      {x: 3, y: 7},
+      {x: 5, y: 7},
+      {x: 8, y: 7},
+      {x: 12, y: 7},
+      {x: 3, y: 8},
+      {x: 12, y: 8},
+      {x: 3, y: 9},
+      {x: 12, y: 9},
+      {x: 3, y: 10},
+      {x: 9, y: 10},
+      {x: 10, y: 10},
+      {x: 12, y: 8},
+      {x: 13, y: 8},
+      {x: 14, y: 8},
+      {x: 3, y: 11},
+      {x: 4, y: 11},
+      {x: 8, y: 11},
+      {x: 9, y: 11},
+      {x: 12, y: 9},
+      {x: 14, y: 9},
+      {x: 15, y: 9},
+      {x: 16, y: 9},
+      {x: 4, y: 12},
+      {x: 5, y: 12},
+      {x: 6, y: 12},
+      {x: 7, y: 12},
+      {x: 8, y: 12},
+      {x: 12, y: 10},
+      {x: 16, y: 10},
+      {x: 17, y: 10},
+      {x: 4, y: 11},
+      {x: 11, y: 11},
+      {x: 12, y: 11},
+      {x: 17, y: 11},
+      {x: 4, y: 12},
+      {x: 10, y: 12},
+      {x: 11, y: 12},
+      {x: 18, y: 12},
+      {x: 3, y: 13},
+      {x: 9, y: 13},
+      {x: 14, y: 13},
+      {x: 15, y: 13},
+      {x: 18, y: 13},
+      {x: 3, y: 14},
+      {x: 9, y: 14},
+      {x: 14, y: 14},
+      {x: 18, y: 14},
+      {x: 3, y: 15},
+      {x: 14, y: 15},
+      {x: 15, y: 15},
+      {x: 16, y: 15},
+      {x: 18, y: 15},
+      {x: 3, y: 16},
+      {x: 13, y: 16},
+      {x: 14, y: 16},
+      {x: 16, y: 16},
+      {x: 18, y: 16},
+      {x: 19, y: 16},
+      {x: 4, y: 17},
+      {x: 12, y: 17},
+      {x: 13, y: 17},
+      {x: 16, y: 17},
+      {x: 17, y: 17},
+      {x: 19, y: 17},
+      {x: 4, y: 18},
+      {x: 5, y: 18},
+      {x: 6, y: 18},
+      {x: 9, y: 18},
+      {x: 10, y: 18},
+      {x: 11, y: 18},
+      {x: 12, y: 18},
+      {x: 17, y: 18},
+      {x: 18, y: 18},
+      {x: 19, y: 18},
+      {x: 6, y: 19},
+      {x: 7, y: 19},
+      {x: 8, y: 19},
+      {x: 9, y: 19},
+      {x: 18, y: 19},
+    ];
   }
 
   connectedCallback()
   {
-    this.screenWidth = this.pixelwidth; //84
+    this.screenWidth = this.pixelwidth; //84this.startScreenSnakeTwo
     this.screenHeight = this.pixelheight; //48
     this.startPosition = {
       x: this.screenWidth / 2,
@@ -126,12 +313,31 @@ class Snake extends HTMLElement {
     });
   }
 
+  drawStartScreenSnake(snakeObject) {
+    this.context.beginPath();
+    this.clearCanvas();
+    for (let i = 0; i < snakeObject.length; i++) {
+      const pos = snakeObject[i];
+      this.createSnakePixel(pos.x, pos.y);
+    }
+  }
+
   gameLoop(caller)
   {
     caller.context.beginPath();
     caller.clearCanvas();
     if (!caller.gameStarted) {
-      caller.drawText('Press right arrow to start', 0, 2);
+      if (caller.startAnimationCounter > 6) {
+        caller.snakeFrame = caller.snakeFrame === 0 ? 1 : 0;
+        caller.startAnimationCounter = 0;
+      }
+      caller.drawStartScreenSnake(
+        caller.snakeFrame === 0
+          ? caller.startScreenSnakeOne
+          : caller.startScreenSnakeTwo
+      );
+      caller.startAnimationCounter++;
+      caller.drawText('Press right arrow to start', 0, 1);
       return;
     }
     caller.context.fillStyle = '#000000';
@@ -189,6 +395,7 @@ class Snake extends HTMLElement {
   restartGame()
   {
     this.clearCanvas();
+    // Set the starting location and length of the snek
     this.startPositions = [
       {x: this.startPosition.x, y: this.startPosition.y},
       {x: this.startPosition.x - 1, y: this.startPosition.y},
@@ -197,6 +404,7 @@ class Snake extends HTMLElement {
       {x: this.startPosition.x - 4, y: this.startPosition.y},
       {x: this.startPosition.x - 5, y: this.startPosition.y}
     ];
+    // The snake moves to right from start
     this.direction = {
       x: 1,
       y: 0,
@@ -239,13 +447,16 @@ class Snake extends HTMLElement {
     return Math.floor(Math.random() * (x - m) + m); // The maximum is exclusive and the minimum is inclusive
   }
   
-
   moveSnake()
   {
     this.direction = Object.assign({}, this.wantedDirection);
     const head = Object.assign({}, this.snake.body[0]);
     head.x += this.direction.x;
     head.y += this.direction.y;
+    let removed = undefined;
+    if (!this.snake.addPixel) {
+      removed = this.snake.body.pop();
+    }
     let dead = this.snake.body.find(pos => pos.x === head.x && pos.y === head.y);
     if (head.x < this.edges.z || head.x >= this.edges.y + this.edges.z) {
       dead = true;
@@ -255,11 +466,12 @@ class Snake extends HTMLElement {
     }
     if (dead) {
       this.gameEnded = true;
+      if (removed) {
+        this.snake.body.push(removed)
+      }
       return;
     }
-    if (!this.snake.addPixel) {
-      this.snake.body.pop();
-    }
+
     if (head.x === this.apple.x && head.y === this.apple.y) {
       this.snake.grow = true;
       this.points += 9;
@@ -288,7 +500,6 @@ class Snake extends HTMLElement {
   createSnakePixel(x, y) {
     this.context.fillStyle = '#000000';
     this.context.fillRect(this.multiplyPixel(x), this.multiplyPixel(y), this.multiplyPixel(1), this.multiplyPixel(1));
-
   }
 
   multiplyPixel(pixel) {
