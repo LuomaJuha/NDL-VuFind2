@@ -26,6 +26,7 @@ class Snake extends HTMLElement {
       x: 1,
       y: 0,
     };
+    this.wantedDirection = [];
     this.points = 0;
     this.deathAnimationCounter = 40;
     this.deathAnimationInterval = 3;
@@ -281,19 +282,19 @@ class Snake extends HTMLElement {
       case 'ArrowUp':
         if (caller.direction.y !== 1) {
           caller.moved = true;
-          caller.wantedDirection = {x: 0, y: -1};
+          caller.addToMovementList({x: 0, y: -1});
         }
         break;
       case 'ArrowDown':
         if (caller.direction.y !== -1) {
           caller.moved = true;
-          caller.wantedDirection = {x: 0, y: 1};
+          caller.addToMovementList({x: 0, y: 1});
         }
         break;
       case 'ArrowLeft':
         if (caller.direction.x !== 1) {
           caller.moved = true;
-          caller.wantedDirection = {x: -1, y: 0};
+          caller.addToMovementList({x: -1, y: 0});
         }
         break;
       case 'ArrowRight':
@@ -303,7 +304,7 @@ class Snake extends HTMLElement {
         }
         if (caller.direction.x !== -1) {
           caller.moved = true;
-          caller.wantedDirection = {x: 1, y: 0};
+          caller.addToMovementList({x: 1, y: 0});
         }
         break;
       }
@@ -311,6 +312,12 @@ class Snake extends HTMLElement {
         caller.restartGame();
       }
     });
+  }
+
+  addToMovementList(direction) {
+    if (this.wantedDirection.length < 2) {
+      this.wantedDirection.push(direction);
+    }
   }
 
   drawStartScreenSnake(snakeObject) {
@@ -449,7 +456,9 @@ class Snake extends HTMLElement {
   
   moveSnake()
   {
-    this.direction = Object.assign({}, this.wantedDirection);
+    if (this.wantedDirection.length > 0) {
+      this.direction = this.wantedDirection.shift();
+    }
     const head = Object.assign({}, this.snake.body[0]);
     head.x += this.direction.x;
     head.y += this.direction.y;
