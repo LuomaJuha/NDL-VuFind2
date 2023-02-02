@@ -402,7 +402,7 @@ finna.organisationInfoPage = (function finnaOrganisationInfoPage() {
           var serviceText = '';
           var serviceTitle = '<b>' + services[0] + '</b>';
           if (typeof services.desc !== 'undefined' || typeof services.shortDesc !== 'undefined') {
-            serviceText = $('<a class="service-tooltip" data-toggle="tooltip" data-placement="bottom" data-html="true" />').html(serviceTitle);
+            serviceText = $('<button type="button" class="service-tooltip" data-toggle="tooltip" data-placement="bottom" data-html="true" />').html(serviceTitle);
             var serviceDesc = '';
             if (typeof services.desc !== 'undefined') {
               serviceDesc = services.desc;
@@ -422,22 +422,74 @@ finna.organisationInfoPage = (function finnaOrganisationInfoPage() {
     }
   }
 
+  function rot13(string) {
+    return string.replace(/[a-zA-Z]/g, function rot13replace(c) {
+      // eslint-disable-next-line no-param-reassign
+      return String.fromCharCode((c <= 'Z' ? 90 : 122) >= (c = c.charCodeAt(0) + 13) ? c : c - 26);
+    });
+  }
+
+  function decryptEmailAddress(string) {
+    let decrypted = rot13(string);
+    decrypted = decrypted.replace(/\/dot\//g, '.');
+    decrypted = decrypted.replace(/\/at\//g, '@');
+    return decrypted;
+  }
+
+  function updatePersonnel(data) {
+    if (data.details.personnel) {
+      holder.find('.personnel').show();
+      let personnelContainer = $('.personnel-container').empty();
+      data.details.personnel.forEach(function handlePerson(person) {
+        let tr = document.createElement('tr');
+        let td = document.createElement('td');
+        td.append(`${person.firstName || ''} ${person.lastName || ''}`);
+        let span = document.createElement('span');
+        span.append(document.createElement('br'));
+        span.setAttribute('class', 'job-title');
+        span.append(`${person.jobTitle || ''}`);
+        td.append(span);
+        tr.append(td);
+        td = document.createElement('td');
+        td.append(`${person.jobTitle || ''}`);
+        tr.append(td);
+        td = document.createElement('td');
+        td.append(document.createComment('noindex'));
+        td.append(document.createComment('googleoff: all'));
+        if (person.email && person.email !== '') {
+          let div = document.createElement('div');
+          div.append(decryptEmailAddress(person.email));
+          td.append(div);
+        }
+        if (person.phone && person.phone !== '') {
+          let div = document.createElement('div');
+          div.append(person.phone);
+          td.append(div);
+        }
+        td.append(document.createComment('googleon: all'));
+        td.append(document.createComment('/noindex'));
+        tr.append(td);
+        personnelContainer.append(tr);
+      });
+    }
+  }
+
   function updateRSSFeeds(data) {
     var rssAvailable = false;
     if ('rss' in data.details) {
       $(data.details.rss).each(function handleRSSFeed(ind, obj) {
-        var id = obj.id;
-        if (id !== 'news' && id !== 'events') {
+        if (obj.feedType !== 'news' && obj.feedType !== 'events') {
           return false;
         }
-        var feedHolder = holder.find('.feed-container.' + id + '-feed');
+        var feedHolder = holder.find('.feed-container.' + obj.feedType + '-feed');
         feedHolder
-          .empty().show()
-          .data('url', encodeURIComponent(obj.url))
-          .data('feed', 'organisation-info-' + encodeURIComponent(id))
+          .empty()
+          .show()
           .closest('.rss-container').show();
+        // Use dataset to avoid jQuery caching issues:
+        feedHolder[0].dataset.feed = 'organisation-info|' + obj.parent + '|' + obj.id + '|' + obj.orgType + '|' + obj.feedType;
 
-        finna.feed.loadFeedFromUrl(feedHolder);
+        finna.feed.loadFeed(feedHolder);
         rssAvailable = true;
       });
     }
@@ -557,6 +609,7 @@ finna.organisationInfoPage = (function finnaOrganisationInfoPage() {
     widgetHolder.on('detailsLoaded', function onDetailsLoaded(ev, id) {
       var info = service.getDetails(id);
       updateServices(info);
+      updatePersonnel(info);
       var rssAvailable = updateRSSFeeds(info);
       updateGeneralInfo(info, rssAvailable);
     });

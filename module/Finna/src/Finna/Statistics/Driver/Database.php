@@ -100,8 +100,8 @@ class Database implements DriverInterface, LoggerAwareInterface
      * Add a new session to statistics
      *
      * @param string $institution Institution code
-     * @param string $view        View code (empty string for default view)
-     * @param bool   $crawler     Whether the request comes from bot or crawler
+     * @param string $view        View subpath (empty string for default view)
+     * @param int    $type        Request type bitmap
      * @param array  $session     Session data
      *
      * @return void
@@ -109,11 +109,11 @@ class Database implements DriverInterface, LoggerAwareInterface
     public function addNewSession(
         string $institution,
         string $view,
-        bool $crawler,
+        int $type,
         array $session
     ): void {
         $date = date('Y-m-d');
-        $crawler = $crawler ? 1 : 0;
+        $crawler = $type;
         $params = compact('institution', 'view', 'crawler', 'date');
         $this->processAdd($this->sessionTable, $params);
     }
@@ -122,8 +122,8 @@ class Database implements DriverInterface, LoggerAwareInterface
      * Add a page view to statistics
      *
      * @param string $institution Institution code
-     * @param string $view        View code (empty string for default view)
-     * @param bool   $crawler     Whether the request comes from bot or crawler
+     * @param string $view        View subpath (empty string for default view)
+     * @param int    $type        Request type bitmap
      * @param string $controller  Controller
      * @param string $action      Action
      *
@@ -132,12 +132,12 @@ class Database implements DriverInterface, LoggerAwareInterface
     public function addPageView(
         string $institution,
         string $view,
-        bool $crawler,
+        int $type,
         string $controller,
         string $action
     ): void {
         $date = date('Y-m-d');
-        $crawler = $crawler ? 1 : 0;
+        $crawler = $type;
         $params = compact(
             'institution',
             'view',
@@ -153,8 +153,8 @@ class Database implements DriverInterface, LoggerAwareInterface
      * Add a record view to statistics
      *
      * @param string $institution Institution code
-     * @param string $view        View code (empty string for default view)
-     * @param bool   $crawler     Whether the request comes from bot or crawler
+     * @param string $view        View subpath (empty string for default view)
+     * @param int    $type        Request type bitmap
      * @param string $backend     Backend ID
      * @param string $source      Record source
      * @param string $recordId    Record ID
@@ -168,7 +168,7 @@ class Database implements DriverInterface, LoggerAwareInterface
     public function addRecordView(
         string $institution,
         string $view,
-        bool $crawler,
+        int $type,
         string $backend,
         string $source,
         string $recordId,
@@ -179,7 +179,7 @@ class Database implements DriverInterface, LoggerAwareInterface
         $date = date('Y-m-d');
 
         // Summary log:
-        $crawler = $crawler ? 1 : 0;
+        $crawler = $type;
         $params = compact(
             'institution',
             'view',

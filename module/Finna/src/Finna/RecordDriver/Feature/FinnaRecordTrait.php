@@ -137,8 +137,12 @@ trait FinnaRecordTrait
     protected function getArticleOpenUrlParams()
     {
         $params = parent::getArticleOpenUrlParams();
-        if ($doi = $this->tryMethod('getCleanDOI')) {
-            $params['rft.doi'] = $doi;
+        if ($doiFull = $this->tryMethod('getCleanDOI')) {
+            $doi = preg_replace('/^doi:|^info:doi\//', '', $doiFull);
+            $doi = 'info:doi/' . $doi;
+
+            $params['rft_id'] = (array)($params['rft_id'] ?? []);
+            $params['rft_id'][] = $doi;
         }
         if ($mmsId = $this->tryMethod('getAlmaMmsId')) {
             $params['rft.mms_id'] = $mmsId;
@@ -283,12 +287,12 @@ trait FinnaRecordTrait
                 return false;
             }
         }
-        if (!empty($image['pdf'])) {
-            $formats = $this->mainConfig->Content->pdfCoverImageDownload ?? [];
-            $formats = explode(',', $formats);
+        if (!empty($image['pdf'])
+            && !empty($this->mainConfig->Content->pdfCoverImageDownload)
+        ) {
             return !empty(
                 array_intersect(
-                    $formats,
+                    explode(',', $this->mainConfig->Content->pdfCoverImageDownload),
                     $this->getFormats()
                 )
             );

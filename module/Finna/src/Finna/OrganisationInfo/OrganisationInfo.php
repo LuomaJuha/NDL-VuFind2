@@ -5,7 +5,7 @@
  *
  * PHP version 7
  *
- * Copyright (C) The National Library of Finland 2016-2019.
+ * Copyright (C) The National Library of Finland 2016-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -29,6 +29,8 @@
  * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
  */
 namespace Finna\OrganisationInfo;
+
+use Laminas\Mvc\Controller\Plugin\Url;
 
 /**
  * Service for querying Kirjastohakemisto database.
@@ -93,23 +95,33 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
     protected $cleanHtml;
 
     /**
+     * URL plugin
+     *
+     * @var Url
+     */
+    protected $urlPlugin;
+
+    /**
      * Constructor.
      *
      * @param \Laminas\Config\Config             $config        Configuration
      * @param \VuFind\Cache\Manager              $cacheManager  Cache manager
      * @param \Laminas\View\Renderer\PhpRenderer $viewRenderer  View renderer
      * @param \VuFind\Date\Converter             $dateConverter Date converter
+     * @param Url                                $url           URL plugin
      */
     public function __construct(
         \Laminas\Config\Config $config,
         \VuFind\Cache\Manager $cacheManager,
         \Laminas\View\Renderer\PhpRenderer $viewRenderer,
-        \VuFind\Date\Converter $dateConverter
+        \VuFind\Date\Converter $dateConverter,
+        Url $url
     ) {
         $this->config = $config;
         $this->cacheManager = $cacheManager;
         $this->viewRenderer = $viewRenderer;
         $this->dateConverter = $dateConverter;
+        $this->urlPlugin = $url;
         $this->cleanHtml = $viewRenderer->plugin('cleanHtml');
     }
 
@@ -295,6 +307,7 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
             $allServices = !empty($params['allServices']);
             $fullDetails = !empty($params['fullDetails']);
             $response = $this->detailsAction(
+                $parent,
                 $id,
                 $target,
                 $schedules,
@@ -369,7 +382,7 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
             $id = $item['finnaId'];
             $data = "{$url}?" . http_build_query(['id' => $id]);
             if ($link) {
-                $logo = null;
+                $logo = '';
                 if (isset($response['items'][0]['logo'])) {
                     $logos = $response['items'][0]['logo'];
                     foreach (['small', 'medium'] as $size) {
@@ -382,8 +395,10 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
                 $data = $this->viewRenderer->partial(
                     'Helpers/organisation-page-link.phtml',
                     [
-                       'url' => $data, 'label' => 'organisation_info_link',
-                       'logo' => $logo, 'name' => $parentName
+                       'url' => $data,
+                       'label' => 'organisation_info_link',
+                       'logo' => $this->proxifyImageUrl($logo),
+                       'name' => $parentName
                     ]
                 );
             }
@@ -423,15 +438,17 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
             $id = $json['finna_org_id'];
             $data = "{$url}?" . http_build_query(['id' => $id]);
             if ($link) {
-                $logo = $json['image'] ?? null;
+                $logo = $json['image'] ?? '';
                 $lang = $this->getLanguage();
                 $name = $json['name'][$lang]
                         ?? $this->translator->translate("source_{$parent}");
                 $data = $this->viewRenderer->partial(
                     'Helpers/organisation-page-link.phtml',
                     [
-                    'url' => $data, 'label' => 'organisation_info_link',
-                    'logo' => $logo, 'name' => $name
+                    'url' => $data,
+                    'label' => 'organisation_info_link',
+                    'logo' => $this->proxifyImageUrl($logo),
+                    'name' => $name
                     ]
                 );
             }
@@ -492,8 +509,11 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
                 $consortium['homepage'] = $response['homepage'];
             }
             if (!empty($response['logo'])) {
-                $consortium['logo']['small'] = $response['logo']['small']['url']
-                ?? $response['logo']['medium']['url'];
+                $consortium['logo']['small'] = $this->proxifyImageUrl(
+                    $response['logo']['small']['url']
+                    ?? $response['logo']['medium']['url']
+                    ?? ''
+                );
             }
 
             $consortium['finna'] = [
@@ -548,7 +568,9 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
     /**
      * Query organisation details.
      *
-     * @param int     $id          Organisation
+     * @param string  $parent      Consortium Finna ID in Kirjastohakemisto or
+     * in Museoliitto. Use a comma delimited string to check multiple Finna IDs.
+     * @param int     $id          Service Point ID
      * @param string  $target      page|widget
      * @param boolean $schedules   Include opening times
      * @param string  $startDate   Start date (YYYY-MM-DD) of opening times
@@ -559,6 +581,7 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
      * @return array|bool array of results or false on error.
      */
     protected function detailsAction(
+        $parent,
         $id,
         $target,
         $schedules,
@@ -575,8 +598,8 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
         $with = 'schedules';
         if ($fullDetails) {
             $with .=
-                ',phoneNumbers,emailAddresses,mailAddress,pictures,links,services,
-                customData,schedules';
+                ',phoneNumbers,emailAddresses,mailAddress,pictures,links,services,'
+                . 'customData,schedules,persons';
         }
 
         $params = [
@@ -612,6 +635,8 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
         // Details
         $response = $response['items'][0];
         $result = $this->parseDetails(
+            $parent,
+            $id,
             $target,
             $response,
             $schedules,
@@ -843,7 +868,10 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
     /**
      * Parse organisation details.
      *
-     * @param string  $target             page|widge
+     * @param string  $parent             Consortium Finna ID in Kirjastohakemisto or
+     * in Museoliitto. Use a comma delimited string to check multiple Finna IDs.
+     * @param int     $id                 Organisation
+     * @param string  $target             page|widget
      * @param object  $response           JSON-object
      * @param boolean $schedules          Include schedules in the response?
      * @param boolean $includeAllServices Include services in the response?
@@ -851,6 +879,8 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
      * @return array
      */
     protected function parseDetails(
+        $parent,
+        $id,
         $target,
         $response,
         $schedules,
@@ -908,7 +938,9 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
         if (!empty($response['pictures'])) {
             $pics = [];
             foreach ($response['pictures'] as $pic) {
-                $pics[] = $pic['files']['medium'];
+                $medium = $pic['files']['medium'];
+                $medium['url'] = $this->proxifyImageUrl($medium['url']);
+                $pics[] = $medium;
             }
             if (!empty($pics)) {
                 $result['pictures'] = $pics;
@@ -955,13 +987,16 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
                         ? $service['standardName'] : $service['name'];
                     $data = [$name];
                     $shortDesc = ($this->cleanHtml)(
-                        $service['shortDescription'],
+                        $service['shortDescription'] ?? '',
                         true
                     );
                     if ($shortDesc) {
                         $data['shortDesc'] = $shortDesc;
                     }
-                    $longDesc = ($this->cleanHtml)($service['description'], true);
+                    $longDesc = ($this->cleanHtml)(
+                        $service['description'] ?? '',
+                        true
+                    );
                     if ($longDesc) {
                         $data['desc'] = $longDesc;
                     }
@@ -988,13 +1023,41 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
             }
         }
 
+        if (!empty($response['persons'])) {
+            $personnel = [];
+            foreach ($response['persons'] as $person) {
+                if (!empty($email = $person['email'] ?? '')) {
+                    $email = str_replace('@', '/at/', $email);
+                    $email = str_replace('.', '/dot/', $email);
+                    $email = str_rot13($email);
+                }
+                $personnel[] = [
+                    'firstName' => $person['firstName'] ?? '',
+                    'lastName' => $person['lastName'] ?? '',
+                    'jobTitle' => $person['jobTitle'] ?? '',
+                    'email' => $email,
+                    'phone' => $person['phone'] ?? '',
+                ];
+            }
+            usort(
+                $personnel,
+                function ($person1, $person2) {
+                    return strnatcasecmp($person1['lastName'], $person2['lastName']);
+                }
+            );
+            $result['personnel'] = $personnel;
+        }
+
         if (isset($response['customData'])) {
             $rssLinks = [];
             foreach ($response['customData'] as $link) {
                 if (in_array($link['id'], ['news', 'events'])) {
                     $rssLinks[] = [
-                       'id' => $link['id'],
-                       'url' => $link['value']
+                        'parent' => $parent,
+                        'id' => $id,
+                        'orgType' => 'library',
+                        'feedType' => $link['id'],
+                        'url' => $link['value']
                     ];
                 }
             }
@@ -1152,7 +1215,7 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
                 = $key['link_info']['link_url_' . $language . ''];
         }
         if (!empty($json['image'])) {
-            $consortium['logo']['small'] = $json['image'];
+            $consortium['logo']['small'] = $this->proxifyImageUrl($json['image']);
         }
         // Details info
         $details = [
@@ -1245,17 +1308,17 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
                 0 => [
                     'url' =>
                     isset($json['image2']) && strlen($json['image2']) > 30
-                        ? $json['image2'] : ''
+                        ? $this->proxifyImageUrl($json['image2']) : ''
                 ],
                 1 => [
                     'url' =>
                     isset($json['image3']) && strlen($json['image3']) > 30
-                        ? $json['image3'] : ''
+                        ? $this->proxifyImageUrl($json['image3']) : ''
                 ],
                 2 => [
                     'url' =>
                     isset($json['image4']) && strlen($json['image4']) > 30
-                        ? $json['image4'] : ''
+                        ? $this->proxifyImageUrl($json['image4']) : ''
                 ]
             ],
             'scheduleDescriptions' => [
@@ -1302,5 +1365,34 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
             }
         }
         return $return;
+    }
+
+    /**
+     * Proxify an image url for loading via the OrganisationInfo controller
+     *
+     * @param string $url Image URL
+     *
+     * @return string
+     */
+    protected function proxifyImageUrl(string $url): string
+    {
+        // Ensure that we don't proxify an empty or already proxified URL:
+        if (!$url) {
+            return '';
+        }
+        $check = $this->urlPlugin->fromRoute('organisation-info-image');
+        if (strncasecmp($url, $check, strlen($check)) === 0) {
+            return $url;
+        }
+
+        return $this->urlPlugin->fromRoute(
+            'organisation-info-image',
+            [],
+            [
+                'query' => [
+                    'image' => $url,
+                ]
+            ]
+        );
     }
 }

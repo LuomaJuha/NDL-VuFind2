@@ -29,6 +29,8 @@
 namespace Finna\RecordDriver\Feature;
 
 use VuFind\RecordDriver\Feature\VersionAwareInterface;
+use VuFindSearch\Command\RetrieveCommand;
+use VuFindSearch\Command\WorkExpressionsCommand;
 
 /**
  * Additional functionality for Finna Solr records.
@@ -178,14 +180,16 @@ trait SolrFinnaTrait
      * Get record rating.
      *
      * @return array Keys 'average' and 'count'
+     *
+     * @deprecated Use getRatingData
      */
     public function getAverageRating()
     {
-        $table = $this->getDbTable('Comments');
-        return $table->getAverageRatingForResource(
-            $this->getUniqueId(),
-            $this->getSourceIdentifier()
-        );
+        $rating = $this->getRatingData();
+        return [
+            'count' => $rating['count'],
+            'average' => $rating['rating']
+        ];
     }
 
     /**
@@ -420,25 +424,12 @@ trait SolrFinnaTrait
         }
 
         if (!empty($this->fields['dedup_id_str_mv'])) {
-            $records = $this->searchService->retrieve(
+            $command = new RetrieveCommand(
                 $this->getSourceIdentifier(),
                 $this->fields['dedup_id_str_mv'][0]
-            )->getRecords();
-        } else {
-            $safeId = addcslashes($this->getUniqueID(), '"');
-            $query = new \VuFindSearch\Query\Query(
-                'local_ids_str_mv:"' . $safeId . '"'
             );
-            $params = new \VuFindSearch\ParamBag(
-                ['hl' => 'false', 'spellcheck' => 'false', 'sort' => '']
-            );
-            $records = $this->searchService->search(
-                $this->getSourceIdentifier(),
-                $query,
-                0,
-                1,
-                $params
-            )->getRecords();
+            $records = $this->searchService->invoke($command)->getResult()
+                ->getRecords();
         }
         if (!isset($records[0])) {
             $this->cache[__FUNCTION__] = [];
@@ -717,13 +708,29 @@ trait SolrFinnaTrait
     /**
      * Is rating allowed.
      *
-     * @return boolean
+     * @return bool
      */
-    public function ratingAllowed()
+    public function isRatingAllowed(): bool
     {
+        if (!parent::isRatingAllowed()) {
+            return false;
+        }
+
         $allowed = ['0/Book/', '0/Journal/', '0/Sound/', '0/Video/'];
         $list = array_intersect($allowed, $this->getFormats());
         return !empty($list);
+    }
+
+    /**
+     * Is rating allowed.
+     *
+     * @return bool
+     *
+     * @deprecated Use isRatingAllowed
+     */
+    public function ratingAllowed()
+    {
+        return false;
     }
 
     /**
@@ -800,6 +807,32 @@ trait SolrFinnaTrait
             );
         }
         return in_array($format, $this->undisplayableFormats);
+    }
+
+    /**
+     * Add or update user's rating for the record.
+     *
+     * @param int  $userId ID of the user posting the rating
+     * @param ?int $rating The user-provided rating, or null to clear any existing
+     * rating
+     *
+     * @return void
+     */
+    public function addOrUpdateRating(int $userId, ?int $rating): void
+    {
+        parent::addOrUpdateRating($userId, $rating);
+
+        // Also update ratings of any duplicates:
+        $mergedData = $this->getMergedRecordData();
+        if (empty($mergedData['records'])) {
+            return;
+        }
+        $source = $this->getSourceIdentifier();
+        $resources = $this->getDbTable('Resource');
+        foreach ($mergedData['records'] as $record) {
+            $resource = $resources->findResource($record['id'], $source);
+            $resource->addOrUpdateRating($userId, $rating);
+        }
     }
 
     /**
@@ -883,11 +916,20 @@ trait SolrFinnaTrait
     /**
      * Get information on records deduplicated with this one
      *
+     * @param bool $load Whether to try to load dedup data if it's not already
+     * available
+     *
      * @return array Array keyed by source id containing record id
      */
-    public function getDedupData()
+    public function getDedupData(bool $load = false)
     {
         $results = parent::getDedupData();
+        if (!$results && $load) {
+            $mergedData = $this->getMergedRecordData();
+            foreach ($mergedData['records'] ?? [] as $record) {
+                $results[$record['source']] = ['id' => $record['id']];
+            }
+        }
         if (!empty($this->recordConfig->Record->sort_sources)) {
             uksort(
                 $results,
@@ -1139,12 +1181,13 @@ trait SolrFinnaTrait
             $params = new \VuFindSearch\ParamBag();
             $params->add('rows', 0);
             $this->addVersionsFilters($params);
-            $results = $this->searchService->workExpressions(
+            $command = new WorkExpressionsCommand(
                 $this->getSourceIdentifier(),
                 $this->getUniqueID(),
                 $workKeys,
                 $params
             );
+            $results = $this->searchService->invoke($command)->getResult();
             $this->otherVersionsCount = $results->getTotal();
         }
         return $this->otherVersionsCount;
@@ -1177,12 +1220,14 @@ trait SolrFinnaTrait
             $params->add('rows', $count);
             $params->add('start', $offset);
             $this->addVersionsFilters($params);
-            $this->otherVersions = $this->searchService->workExpressions(
+            $command = new WorkExpressionsCommand(
                 $this->getSourceIdentifier(),
                 $includeSelf ? '' : $this->getUniqueID(),
                 $workKeys,
                 $params
             );
+            $this->otherVersions = $this->searchService->invoke($command)
+                ->getResult();
         }
         return $this->otherVersions;
     }

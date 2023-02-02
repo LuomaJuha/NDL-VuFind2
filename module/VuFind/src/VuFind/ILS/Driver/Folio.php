@@ -93,6 +93,23 @@ class Folio extends AbstractAPI implements
     protected $dateConverter;
 
     /**
+     * Default availability messages, in case they are not defined in Folio.ini
+     *
+     * @var string[]
+     */
+    protected $defaultAvailabilityStatuses = ['Open - Awaiting pickup'];
+
+    /**
+     * Default in_transit messages, in case they are not defined in Folio.ini
+     *
+     * @var string[]
+     */
+    protected $defaultInTransitStatuses = [
+        'Open - In transit',
+        'Open - Awaiting delivery'
+    ];
+
+    /**
      * Constructor
      *
      * @param \VuFind\Date\Converter $dateConverter  Date converter object
@@ -227,9 +244,6 @@ class Folio extends AbstractAPI implements
             'password' => $this->config['API']['password'],
         ];
         $response = $this->makeRequest('POST', '/authn/login', json_encode($auth));
-        if ($response->getStatusCode() >= 400) {
-            throw new ILSException($response->getBody());
-        }
         $this->token = $response->getHeaders()->get('X-Okapi-Token')
             ->getFieldValue();
         $this->sessionCache->folio_token = $this->token;
@@ -248,7 +262,7 @@ class Folio extends AbstractAPI implements
      */
     protected function checkTenantToken()
     {
-        $response = $this->makeRequest('GET', '/users');
+        $response = $this->makeRequest('GET', '/users', [], [], [401, 403]);
         if ($response->getStatusCode() >= 400) {
             $this->token = null;
             $this->renewTenantToken();
@@ -605,6 +619,17 @@ class Folio extends AbstractAPI implements
                 $locationData = $this->getLocationData($locationId);
                 $locationName = $locationData['name'];
                 $locationCode = $locationData['code'];
+                // concatenate enumeration fields if present
+                $enum = implode(
+                    ' ',
+                    array_filter(
+                        [
+                            $item->volume ?? null,
+                            $item->enumeration ?? null,
+                            $item->chronology ?? null
+                        ]
+                    )
+                );
                 $callNumberData = $this->chooseCallNumber(
                     $holdingCallNumberPrefix,
                     $holdingCallNumber,
@@ -628,6 +653,7 @@ class Folio extends AbstractAPI implements
                     'item_id' => $item->id,
                     'holding_id' => $holding->id,
                     'number' => count($items) + 1,
+                    'enumchron' => $enum,
                     'barcode' => $item->barcode ?? '',
                     'status' => $item->status->name,
                     'duedate' => $dueDateValue,
@@ -713,9 +739,6 @@ class Folio extends AbstractAPI implements
             '/authn/login',
             json_encode($credentials)
         );
-        if ($response->getStatusCode() >= 400) {
-            throw new ILSException($response->getBody());
-        }
         $debugMsg = 'User logged in. User: ' . $username . '.';
         // We've authenticated the user with Okapi, but we only have their
         // username; set up a query to retrieve full info below.
@@ -774,7 +797,7 @@ class Folio extends AbstractAPI implements
     {
         $response = $this->makeRequest('GET', '/users', compact('query'));
         $json = json_decode($response->getBody());
-        return count($json->users) === 1 ? $json->users[0] : null;
+        return count($json->users ?? []) === 1 ? $json->users[0] : null;
     }
 
     /**
@@ -1022,7 +1045,7 @@ class Folio extends AbstractAPI implements
     public function renewMyItems($renewDetails)
     {
         $renewalResults = ['details' => []];
-        foreach ($renewDetails['details'] as $loanId) {
+        foreach ($renewDetails['details'] ?? [] as $loanId) {
             $requestbody = [
                 'itemId' => $loanId,
                 'userId' => $renewDetails['patron']['id']
@@ -1031,7 +1054,9 @@ class Folio extends AbstractAPI implements
                 $response = $this->makeRequest(
                     'POST',
                     '/circulation/renew-by-id',
-                    json_encode($requestbody)
+                    json_encode($requestbody),
+                    [],
+                    true
                 );
                 if ($response->isSuccess()) {
                     $json = json_decode($response->getBody());
@@ -1159,20 +1184,50 @@ class Folio extends AbstractAPI implements
             '/request-storage/requests',
             $query
         ) as $hold) {
-            $requestDate = date_create($hold->requestDate);
+            $requestDate = $this->dateConverter->convertToDisplayDate(
+                "Y-m-d H:i",
+                $hold->requestDate
+            );
             // Set expire date if it was included in the response
             $expireDate = isset($hold->requestExpirationDate)
-                ? date_create($hold->requestExpirationDate) : null;
+                ? $this->dateConverter->convertToDisplayDate(
+                    "Y-m-d H:i",
+                    $hold->requestExpirationDate
+                )
+                : null;
+            // Set lastPickup Date if provided, format to j M Y
+            $lastPickup = isset($hold->holdShelfExpirationDate)
+                ? $this->dateConverter->convertToDisplayDate(
+                    "Y-m-d H:i",
+                    $hold->holdShelfExpirationDate
+                )
+                : null;
+
             $holds[] = [
                 'type' => $hold->requestType,
-                'create' => date_format($requestDate, "j M Y"),
-                'expire' => isset($expireDate)
-                    ? date_format($expireDate, "j M Y") : "",
-                'id' => $this->getBibId(null, null, $hold->itemId),
+                'create' => $requestDate,
+                'expire' => $expireDate ?? "",
+                'id' => $this->getBibId(
+                    $hold->instanceId,
+                    $hold->holdingsRecordId,
+                    $hold->itemId
+                ),
                 'item_id' => $hold->itemId,
                 'reqnum' => $hold->id,
                 // Title moved from item to instance in Lotus release:
                 'title' => $hold->instance->title ?? $hold->item->title ?? '',
+                'available' => in_array(
+                    $hold->status,
+                    $this->config['Holds']['available']
+                    ?? $this->defaultAvailabilityStatuses
+                ),
+                'in_transit' => in_array(
+                    $hold->status,
+                    $this->config['Holds']['in_transit']
+                    ?? $this->defaultInTransitStatuses
+                ),
+                'last_pickup_date' => $lastPickup,
+                'position' => $hold->position ?? null,
             ];
         }
         return $holds;
@@ -1200,8 +1255,22 @@ class Folio extends AbstractAPI implements
         } catch (Exception $e) {
             $this->throwAsIlsException($e, 'hold_date_invalid');
         }
-        $requestBody = [
-            'itemId' => $holdDetails['item_id'],
+        $isTitleLevel = ($holdDetails['level'] ?? '') === 'title';
+        if ($isTitleLevel) {
+            $instance = $this->getInstanceByBibId($holdDetails['id']);
+            $baseParams = [
+                'instanceId' => $instance->id,
+                'requestLevel' => 'Title'
+            ];
+        } else {
+            // Note: early Lotus releases require instanceId and holdingsRecordId
+            // to be set here as well, but the requirement was lifted in a hotfix
+            // to allow backward compatibility. If you need compatibility with one
+            // of those versions, you can add additional identifiers here, but
+            // applying the latest hotfix is a better solution!
+            $baseParams = ['itemId' => $holdDetails['item_id']];
+        }
+        $requestBody = $baseParams + [
             'requestType' => $holdDetails['status'] == 'Available'
                 ? 'Page' : $default_request,
             'requesterId' => $holdDetails['patron']['id'],
@@ -1210,10 +1279,15 @@ class Folio extends AbstractAPI implements
             'requestExpirationDate' => $requiredBy,
             'pickupServicePointId' => $holdDetails['pickUpLocation']
         ];
+        if (!empty($holdDetails['comment'])) {
+            $requestBody['patronComments'] = $holdDetails['comment'];
+        }
         $response = $this->makeRequest(
             'POST',
             '/circulation/requests',
-            json_encode($requestBody)
+            json_encode($requestBody),
+            [],
+            true
         );
         if ($response->isSuccess()) {
             $json = json_decode($response->getBody());
@@ -1282,24 +1356,26 @@ class Folio extends AbstractAPI implements
             // Change status to Closed and add cancellationID
             $request_json->status = 'Closed - Cancelled';
             $request_json->cancellationReasonId
-                = $this->config['Holds']['cancellation_reason'];
-            $cancel_response = $this->makeRequest(
-                'PUT',
-                '/circulation/requests/' . $requestId,
-                json_encode($request_json)
-            );
-            if ($cancel_response->getStatusCode() == 204) {
-                $count++;
-                $cancelResult['items'][$request_json->itemId] = [
-                    'success' => true,
-                    'status' => 'hold_cancel_success'
-                ];
-            } else {
-                $cancelResult['items'][$request_json->itemId] = [
-                    'success' => false,
-                    'status' => 'hold_cancel_fail'
-                ];
+                = $this->config['Holds']['cancellation_reason']
+                ?? '75187e8d-e25a-47a7-89ad-23ba612338de';
+            $success = false;
+            try {
+                $cancel_response = $this->makeRequest(
+                    'PUT',
+                    '/circulation/requests/' . $requestId,
+                    json_encode($request_json),
+                    [],
+                    true
+                );
+                $success = $cancel_response->getStatusCode() === 204;
+            } catch (\Exception $e) {
+                // Do nothing; the $success flag is already false by default.
             }
+            $count += $success ? 1 : 0;
+            $cancelResult['items'][$request_json->itemId] = [
+                'success' => $success,
+                'status' => $success ? 'hold_cancel_success' : 'hold_cancel_fail',
+            ];
         }
         $cancelResult['count'] = $count;
         return $cancelResult;
@@ -1457,11 +1533,9 @@ class Folio extends AbstractAPI implements
             'reserves',
             '/coursereserves/reserves'
         ) as $item) {
-            try {
-                $bibId = $this->getBibId(null, null, $item->itemId);
-            } catch (\Exception $e) {
-                $bibId = null;
-            }
+            $idProperty = $this->getBibIdType() === 'hrid'
+                ? 'instanceHrid' : 'instanceId';
+            $bibId = $item->copiedItem->$idProperty ?? null;
             if ($bibId !== null) {
                 $courseData = $this->getCourseDetails(
                     $item->courseListingId ?? null

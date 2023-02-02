@@ -265,7 +265,10 @@ finna.feed = (function finnaFeed() {
         if (onFeedLoaded) {
           onFeedLoaded();
         }
-        finna.common.observeImages(holder[0].querySelectorAll('img[data-src]'));
+        VuFind.observerManager.observe(
+          'LazyImages',
+          holder[0].querySelectorAll('img[data-src]')
+        );
       })
       .fail(function loadFeedFail(response/*, textStatus, err*/) {
         var err = '<!-- Feed could not be loaded';
@@ -278,44 +281,27 @@ finna.feed = (function finnaFeed() {
   }
 
   function loadFeed(holder, onFeedLoaded) {
-    var container = holder instanceof jQuery ? holder : $(holder);
-    // Clear the internal jQuery memory of data feed so proper data being taken
-    container.removeData('feed');
-    var id = container.data('feed');
-    if (typeof id == 'undefined') {
+    var container = $(holder);
+    // Use dataset to avoid jQuery caching issues:
+    var id = container[0].dataset.feed;
+    if (typeof id === 'undefined') {
       return;
     }
     processLoadFeed(container, {method: 'getFeed', id: id}, onFeedLoaded);
   }
 
-  function loadFeedFromUrl(holder) {
-    var feedUrl = holder.data('url');
-    var id = holder.data('feed');
-
-    if (typeof feedUrl == 'undefined' || typeof id == 'undefined') {
-      return;
-    }
-    processLoadFeed(
-      holder,
-      {
-        method: 'getOrganisationPageFeed',
-        url: feedUrl,
-        id: id
-      }
-    );
-  }
-
   function initComponents() {
-    $('.feed-container[data-init!="0"]').each(function setupLoadFeed() {
-      $(this).one('inview', function loadEachFeed() {
-        loadFeed($(this));
-      });
-    });
+    VuFind.observerManager.createIntersectionObserver(
+      'FeedElements',
+      (element) => {
+        loadFeed($(element));
+      },
+      document.querySelectorAll('.feed-container:not([data-init="0"])')
+    );
   }
 
   var my = {
     loadFeed: loadFeed,
-    loadFeedFromUrl: loadFeedFromUrl,
     init: function init() {
       initComponents();
     }

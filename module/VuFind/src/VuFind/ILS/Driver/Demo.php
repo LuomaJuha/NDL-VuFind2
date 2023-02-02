@@ -8,7 +8,7 @@
  *
  * PHP version 7
  *
- * Copyright (C) Villanova University 2007.
+ * Copyright (C) Villanova University 2007, 2022.
  * Copyright (C) The National Library of Finland 2014.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,6 +38,7 @@ use Laminas\Http\Request as HttpRequest;
 use Laminas\Session\Container as SessionContainer;
 use VuFind\Date\DateException;
 use VuFind\Exception\ILS as ILSException;
+use VuFindSearch\Command\RandomCommand;
 use VuFindSearch\Query\Query;
 use VuFindSearch\Service as SearchService;
 
@@ -155,6 +156,26 @@ class Demo extends AbstractBase implements \VuFind\I18n\HasSorterInterface
     protected $instructors = ["Instructor A", "Instructor B", "Instructor C"];
 
     /**
+     * Item and pick up locations
+     *
+     * @var array
+     */
+    protected $locations = [
+        [
+            'locationID' => 'A',
+            'locationDisplay' => 'Campus A'
+        ],
+        [
+            'locationID' => 'B',
+            'locationDisplay' => 'Campus B'
+        ],
+        [
+            'locationID' => 'C',
+            'locationDisplay' => 'Campus C'
+        ]
+    ];
+
+    /**
      * Default pickup location
      *
      * @var string
@@ -248,7 +269,7 @@ class Demo extends AbstractBase implements \VuFind\I18n\HasSorterInterface
      */
     protected function getFakeLoc($returnText = true)
     {
-        $locations = $this->getPickUpLocations();
+        $locations = $this->locations;
         $loc = rand() % count($locations);
         return $returnText
             ? $locations[$loc]['locationDisplay']
@@ -353,7 +374,8 @@ class Demo extends AbstractBase implements \VuFind\I18n\HasSorterInterface
     {
         $source = $this->getRecordSource();
         $query = $this->config['Records']['query'] ?? '*:*';
-        $result = $this->searchService->random($source, new Query($query), 1);
+        $command = new RandomCommand($source, new Query($query), 1);
+        $result = $this->searchService->invoke($command)->getResult();
         if (count($result) === 0) {
             throw new \Exception("Problem retrieving random record from $source.");
         }
@@ -1386,26 +1408,25 @@ class Demo extends AbstractBase implements \VuFind\I18n\HasSorterInterface
     public function getPickUpLocations($patron = false, $holdDetails = null)
     {
         $this->checkIntermittentFailure();
-        $result = [
-            [
-                'locationID' => 'A',
-                'locationDisplay' => 'Campus A'
-            ],
-            [
-                'locationID' => 'B',
-                'locationDisplay' => 'Campus B'
-            ],
-            [
-                'locationID' => 'C',
-                'locationDisplay' => 'Campus C'
-            ]
-        ];
+        $result = $this->locations;
         if (($holdDetails['reqnum'] ?? '') == 1) {
             $result[] = [
                 'locationID' => 'D',
                 'locationDisplay' => 'Campus D'
             ];
         }
+
+        if (isset($this->config['Holds']['excludePickupLocations'])) {
+            $excluded
+                = explode(':', $this->config['Holds']['excludePickupLocations']);
+            $result = array_filter(
+                $result,
+                function ($loc) use ($excluded) {
+                    return !in_array($loc['locationID'], $excluded);
+                }
+            );
+        }
+
         return $result;
     }
 
