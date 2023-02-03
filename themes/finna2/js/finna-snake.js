@@ -260,6 +260,25 @@ class Snake extends HTMLElement {
       z: 2,
       w: this.screenHeight - 6
     }
+    this.keysPressed = {
+      up: 0,
+      down: 0,
+      left: 0,
+      right: 0
+    };
+    this.keyDirections = {
+      up: {x: 0, y: -1},
+      down: {x: 0, y: 1},
+      left: {x: -1, y: 0},
+      right: {x: 1, y: 0}
+    };
+    this.keyDirectionNegatives = {
+      up: {x: 0, y: 1},
+      down: {x: 0, y: -1},
+      left: {x: 1, y: 0},
+      right: {x: -1, y: 0}
+    };
+    this.keyOrder = [];
     this.appendChild(this.canvas);
     this.canvas.setAttribute('tabindex', '0');
     this.canvas.focus();
@@ -280,37 +299,51 @@ class Snake extends HTMLElement {
       e.stopPropagation();
       switch (e.key) {
       case 'ArrowUp':
-        if (caller.direction.y !== 1) {
-          caller.moved = true;
-          caller.addToMovementList({x: 0, y: -1});
-        }
+        caller.keysPressed.up = 1;
+        caller.keyOrder.push('up');
         break;
       case 'ArrowDown':
-        if (caller.direction.y !== -1) {
-          caller.moved = true;
-          caller.addToMovementList({x: 0, y: 1});
-        }
+        caller.keysPressed.down = 1;
+        caller.keyOrder.push('down');
         break;
       case 'ArrowLeft':
-        if (caller.direction.x !== 1) {
-          caller.moved = true;
-          caller.addToMovementList({x: -1, y: 0});
-        }
+        caller.keysPressed.left = 1;
+        caller.keyOrder.push('left');
         break;
       case 'ArrowRight':
+        caller.keysPressed.right = 1;
+        caller.keyOrder.push('right');
         if (!caller.gameStarted) {
           caller.gameStarted = true;
           caller.points = 0;
-        }
-        if (caller.direction.x !== -1) {
-          caller.moved = true;
-          caller.addToMovementList({x: 1, y: 0});
         }
         break;
       }
       if (caller.gameEnded && caller.deathAnimationIterator > caller.deathAnimationCounter) {
         caller.wantedDirection = [];
         caller.restartGame();
+      }
+    });
+    this.canvas.addEventListener('keyup', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      switch (e.key) {
+      case 'ArrowUp':
+        caller.keysPressed.up = 0;
+        caller.keyOrder = caller.keyOrder.filter(i => i !== 'up');
+        break;
+      case 'ArrowDown':
+        caller.keysPressed.down = 0;
+        caller.keyOrder = caller.keyOrder.filter(i => i !== 'down');
+        break;
+      case 'ArrowLeft':
+        caller.keysPressed.left = 0;
+        caller.keyOrder = caller.keyOrder.filter(i => i !== 'left');
+        break;
+      case 'ArrowRight':
+        caller.keysPressed.right = 0;
+        caller.keyOrder = caller.keyOrder.filter(i => i !== 'right');
+        break;
       }
     });
   }
@@ -454,11 +487,28 @@ class Snake extends HTMLElement {
     let x = Math.floor(max);
     return Math.floor(Math.random() * (x - m) + m); // The maximum is exclusive and the minimum is inclusive
   }
+
+  checkMovement() {
+    for (let i = 0; i < this.keyOrder.length; i++) {
+      if (this.keysPressed[this.keyOrder[i]] === 1) {
+
+        const result = Object.assign({}, this.keyDirections[this.keyOrder[i]]);
+        this.keysPressed[this.keyOrder[i]] = 0;
+        if (this.direction.x === 0 && result.x === 0) {
+          return this.direction;
+        } else if (this.direction.y === 0 && result.y === 0) {
+          return this.direction;
+        }
+        return result;
+      }
+    }
+    return this.direction;
+  }
   
   moveSnake()
   {
-    if (this.wantedDirection.length > 0) {
-      this.direction = this.wantedDirection.shift();
+    if (this.keyOrder.length > 0) {
+      this.direction = this.checkMovement();
     }
     const head = Object.assign({}, this.snake.body[0]);
     head.x += this.direction.x;
