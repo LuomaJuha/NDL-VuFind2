@@ -620,6 +620,7 @@ urls:
     $ref: '#/components/schemas/Url'
 year:
   vufind.method: getYear
+  vufind.default: true
   description: >
     Main year (publication, production etc.) -- used also in main_date_str facet
   type: string
