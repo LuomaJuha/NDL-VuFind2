@@ -408,6 +408,9 @@ class ModelViewerClass extends HTMLElement {
 
   connectedCallback()
   {
+    if (this.loaded) {
+      return;
+    }
     this.menuOptions.translations = this.translations;
     this.getSize();
     const canvasWrapper = document.createElement('div');
@@ -421,7 +424,6 @@ class ModelViewerClass extends HTMLElement {
       this.preview.alt = '';
       this.root.append(this.preview);
     }
-
     this.loadInfo = document.createElement('button');
     this.loadInfo.classList.add('state', 'btn', 'btn-primary');
     this.loadInfo.textContent = this.translations['view model'] || 'View model';
@@ -640,6 +642,7 @@ class ModelViewerClass extends HTMLElement {
 
   loadGLTF()
   {
+    THREE.Cache.enabled = true;
     this.loadInfo.textContent = this.translations['loading file'] || 'Model loading.';
     if (!loader) {
       loader = new THREE.GLTFLoader();

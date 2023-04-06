@@ -14,6 +14,10 @@ var defaults = {
   }
 };
 
+var cache = {
+
+};
+
 var translations = {
   image: '',
   close: '',
@@ -920,17 +924,22 @@ FinnaPaginator.prototype.setTrigger = function setTrigger(imagePopup) {
   });
   if (_.viewer) {
     _.viewer.parentNode.removeChild(_.viewer);
-    _.viewer = undefined;
+    _.viewer = null;
   }
   if (imageType === 'model') {
-    _.viewer = document.createElement('finna-model-viewer');
-    _.viewer.proxy = `${VuFind.path}/AJAX/JSON?${imagePopup.data('params')}`;
-    _.viewer.texture = `${VuFind.path}${imagePopup.data('texture')}`;
-    _.viewer.scripts = `${VuFind.path}${imagePopup.data('scripts')}`;
-    _.viewer.translations = _.settings.modelTranslations;
-    _.viewer.debug = _.settings.viewerDebug;
-    if (imagePopup.attr('href')) {
-      _.viewer.previewsrc = imagePopup.attr('href');
+    var cacheKey = `${VuFind.path}/AJAX/JSON?${imagePopup.data('params')}`;
+    if (typeof cache[cacheKey] !== 'undefined' && cache[cacheKey].loaded) {
+      _.viewer = cache[cacheKey];
+    } else {
+      cache[cacheKey] = _.viewer = document.createElement('finna-model-viewer');
+      _.viewer.proxy = `${VuFind.path}/AJAX/JSON?${imagePopup.data('params')}`;
+      _.viewer.texture = `${VuFind.path}${imagePopup.data('texture')}`;
+      _.viewer.scripts = `${VuFind.path}${imagePopup.data('scripts')}`;
+      _.viewer.translations = _.settings.modelTranslations;
+      _.viewer.debug = _.settings.viewerDebug;
+      if (imagePopup.attr('href')) {
+        _.viewer.previewsrc = imagePopup.attr('href');
+      }
     }
     _.trigger.append(_.viewer);
     _.trigger.trigger('removeclick.finna');

@@ -48,6 +48,10 @@ class ObjectEditor {
     this.createMenu();
   }
 
+  dispose() {
+    
+  }
+
   createInput(inputType, name, value) {
     var input = document.createElement('input');
     input.type = inputType;
