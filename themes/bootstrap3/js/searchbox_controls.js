@@ -144,7 +144,6 @@ VuFind.register('searchbox_controls', function SearchboxControls() {
     _textInput = document.getElementById('searchForm_lookfor');
     _resetButton = document.getElementById('searchForm-reset');
 
-    // Text input and reset button must both be present
     if (!_textInput || !_resetButton) {
       return;
     }
