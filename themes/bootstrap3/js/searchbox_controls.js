@@ -147,9 +147,15 @@ VuFind.register('searchbox_controls', function SearchboxControls() {
     if (!_textInput || !_resetButton) {
       return;
     }
+  
+    _textInput.addEventListener("input", function resetOnInput(event) {
+      _handleInputChange(event.target.value, false);
+    });
+  
     _resetButton.addEventListener('click', function resetOnClick() {
       _handleInputChange('');
     });
+  
     if (typeof window.SimpleKeyboard !== 'undefined') {
       _initKeyboard();
     }
