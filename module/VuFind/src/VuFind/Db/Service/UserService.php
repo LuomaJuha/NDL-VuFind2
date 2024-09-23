@@ -182,7 +182,7 @@ class UserService extends AbstractDbService implements
      * persist the data.
      *
      * @param UserEntityInterface $user         User entity to update
-     * @param string              $email        New email address
+     * @param ?string             $email        New email address
      * @param bool                $userProvided Was this email provided by the user (true) or
      * an automated lookup (false)?
      *
@@ -190,7 +190,7 @@ class UserService extends AbstractDbService implements
      */
     public function updateUserEmail(
         UserEntityInterface $user,
-        string $email,
+        ?string $email,
         bool $userProvided = false
     ): void {
         // Only change the email if it is a non-empty value and was user provided

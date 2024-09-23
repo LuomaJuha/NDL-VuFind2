@@ -122,7 +122,7 @@ interface UserServiceInterface extends DbServiceInterface
      * persist the data.
      *
      * @param UserEntityInterface $user         User entity to update
-     * @param string              $email        New email address
+     * @param ?string             $email        New email address
      * @param bool                $userProvided Was this email provided by the user (true) or
      * an automated lookup (false)?
      *
@@ -130,7 +130,7 @@ interface UserServiceInterface extends DbServiceInterface
      */
     public function updateUserEmail(
         UserEntityInterface $user,
-        string $email,
+        ?string $email,
         bool $userProvided = false
     ): void;
 
