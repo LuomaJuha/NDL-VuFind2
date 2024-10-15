@@ -36,14 +36,39 @@
             <?=$this->icon('public') ?>
           <?php endif; ?>
           <div class="pull-right">(<?=$current['count']?>)</div>
-          <?php if ($active): ?>
-            <button class="pull-right remove-favorite-list remove"><?=$this->icon('list-remove') ?></button>
-          <?php endif; ?>
         </div>
       </a>
       <?php if ($active): ?>
         <?php $url = $this->url('list-page', ['lid' => $list->getId()], ['force_canonical' => true]) ?>
         <?= $this->partial('myresearch/list-visibility.phtml', ['listUrl' => $url, 'public' => $list->isPublic()]); ?>
+        <div class="delete-list-wrapper">
+          <?=
+            $this->component('dialog-btn', [
+              'buttonLabel' => 'delete_list',
+              'buttonClass' => 'btn btn-link',
+              'buttonIcon' => 'list-remove',
+              'closeId' => 'list_dialog_close_btn_' . $list->getId(),
+              'content' => $this->component('confirm-form', [
+                'cancelId' => 'list_dialog_close_btn_' . $list->getId(),
+                'name' => 'deleteFavoriteList',
+                'action' => $this->url('myresearch-deletelist'),
+                'header' => 'confirm_delete_list_brief',
+                'inputs' => [
+                  $this->component('input-element', [
+                    'type' => 'hidden',
+                    'name' => 'listId',
+                    'value' => $list->getId(),
+                  ]),
+                  $this->component('input-element', [
+                    'type' => 'hidden',
+                    'name' => 'confirm',
+                    'value' => true,
+                  ]),
+                ],
+              ]),
+            ]);
+          ?>
+        </div>
       <?php endif; ?>
     </li>
   <?php endforeach; ?>

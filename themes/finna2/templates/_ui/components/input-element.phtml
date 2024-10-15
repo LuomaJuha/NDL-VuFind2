@@ -1,0 +1,37 @@
+<?php
+  $inputId = $this->id ?? 'input_' . $this->_invocation;
+  $inputType = $this->type ?? 'text';
+  $inputAttrs = [
+    'type' => $inputType,
+    'id' => $inputId,
+    'name' => $this->name ?? 'input_name_' . $this->_invocation,
+    'class' => $this->class ?? 'form-control',
+  ];
+  if ($this->inputAttrs ?? false) {
+    $inputAttrs = array_merge($inputAttrs, $this->inputAttrs);
+  }
+  if ($this->value ?? false) {
+    $inputAttrs['value'] = $this->value;
+  }
+  if ('hidden' !== $inputType) {
+    $labelAttrs = [
+      'for' => $inputId,
+      'class' => 'col-form-label',
+    ];
+    if ($this->description ?? false) {
+      $descriptionId = 'input_description_' . $this->_invocation;
+      $descriptionAttrs = [
+        'class' => 'form-text',
+        'id' => $descriptionId,
+      ];
+      $inputAttrs['aria-describedby'] = $descriptionId;
+    }
+  }
+?>
+<?php if ('hidden' !== $inputType): ?>
+  <label<?=$this->htmlAttributes($labelAttrs)?>><?=$this->transEsc($this->label)?></label>
+<?php endif; ?>
+<input<?=$this->htmlAttributes($inputAttrs)?>/>
+<?php if ('hidden' !== $inputType && $this->description): ?>
+  <span<?=$this->htmlAttributes($descriptionAttrs)?>><?=$this->transEsc('description')?></span>
+<?php endif; ?>

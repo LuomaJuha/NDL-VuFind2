@@ -271,6 +271,7 @@ return [
         'components/finna-md-editable.js',
         'components/finna-tabs-nav.js',
         'components/finna-truncate.js',
+        'components/finna-confirm-form.js',
     ],
     'less' => [
         'active' => false,

@@ -1,0 +1,49 @@
+<?php
+  $formId = $this->formId ?? 'confirm_form_' . $this->_invocation;
+  $cancelId = $this->cancelId ?? 'confirm_form_cancel_' . $this->_invocation;
+  $formAttrs = [
+    'name' => $this->name ?? 'confirmDialogForm',
+    'method' => $this->method ?? 'post',
+    'class' => $this->class ?? '',
+    'id' => $formId,
+  ];
+  if ($this->action ?? false) {
+    $formAttrs['action'] = $this->action;
+  }
+  $confirmAttrs = [
+    'type' => 'submit',
+    'name' => 'submitDialogForm',
+    'class' => 'btn btn-primary',
+  ];
+  $cancelAttrs = [
+    'type' => 'button',
+    'class' => 'btn btn-secondary',
+    'id' => $cancelId,
+  ];
+  $csrfValidation = $this->csrf ?? false;
+?>
+<form<?= $this->htmlAttributes($formAttrs)?>>
+  <div class="form-group">
+    <span class="confirm-form-header"><?=$this->transEsc($this->header ?? 'Select')?></span>
+  </div>
+  <?php foreach ($this->inputs ?? [] as $element): ?>
+    <div class="form-group">
+      <?=$element?>
+    </div>
+  <?php endforeach; ?>
+  <?php if ($csrfValidation): ?>
+    <div class="form-group">
+      <?=
+        $this->component('input-element', [
+          'type' => 'hidden',
+          'name' => 'csrf',
+          'value' => $this->auth()->getManager()->getCsrfHash(),
+        ]);
+      ?>
+    </div>
+  <?php endif; ?>
+  <div class="form-group">
+    <button<?=$this->htmlAttributes($confirmAttrs)?>><?=$this->confirmLabelHtml ?? $this->transEsc('confirm_dialog_yes')?></button>
+    <button<?=$this->htmlAttributes($cancelAttrs)?>><?=$this->cancelLabelHtml ?? $this->transEsc('confirm_dialog_no')?></button>
+  </div>
+</form>

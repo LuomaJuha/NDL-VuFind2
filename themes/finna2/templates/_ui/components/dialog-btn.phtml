@@ -1,0 +1,58 @@
+<?php
+  $buttonId = $this->buttonId ?? 'dialog_button_' . $this->_invocation;
+  $dialogId = 'dialog_button_confirm_' . $this->_invocation;
+  $closeId = $this->closeId ?? 'dialog_button_cancel_' . $this->_invocation;
+  if (null === ($buttonClass = $this->buttonClass)) {
+    if ($this->buttonLink) {
+      $buttonClass = 'btn btn-link';
+    } else {
+      $buttonClass = 'btn btn-default';
+    }
+  }
+
+  $buttonAttrs = [
+    'id' => $buttonId,
+    'class' => "$buttonClass",
+    'type' => 'button',
+    'aria-haspopup' => 'true',
+  ];
+
+  $dialogAttrs = [
+    'data-modal' => $this->modal ?? false,
+    'id' => $dialogId,
+    'class' => 'dialog-btn-dialog',
+  ];
+  // Allow label with or without icon, or a raw html one:
+  if ($this->buttonIcon && $this->buttonLabel) {
+    $buttonLabelHtml = $this->icon($this->buttonIcon, 'icon-link__icon') . ' '
+      . '<span class="icon-link__label">' . $this->transEsc($this->buttonLabel) . '</span>';
+  } else {
+    $buttonLabelHtml = $this->buttonLabelHtml ?? $this->transEsc($this->buttonLabel);
+  }
+?>
+<div class="btn-group">
+  <button<?=$this->htmlAttributes($buttonAttrs)?>><?=$buttonLabelHtml?></button>
+  <dialog<?=$this->htmlAttributes($dialogAttrs)?>>
+    <?=$this->content ?? ''?>
+  </dialog>
+</div>
+<?php
+  $script = <<<JS
+      document.addEventListener('DOMContentLoaded', () => {
+        const button = document.getElementById('{$buttonId}');
+        const dialog = document.getElementById('{$dialogId}');
+        const cancel = document.getElementById('{$closeId}');
+        button.addEventListener('click', () => {
+          if (dialog.dataset.modal) {
+            dialog.showModal();
+          } else {
+            dialog.show();
+          }
+        });
+        cancel.addEventListener('click', () => {
+          dialog.close();
+        });
+      });
+      JS;
+?>
+<?=$this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
