@@ -20,7 +20,7 @@
             'download' => '',
             'rel' => 'nofollow',
         ]; ?>
-        <a href="<?=$this->url('record-downloadfile', [], ['query' => ['id' => $this->driver->getUniqueID(), 'index' => $i, 'format' => $document['format'], 'type' => 'document']])?>" <?=$this->htmlAttributes($aAttrs)?>>
+        <a href="<?=$this->url('file-load', [], ['query' => ['id' => $this->driver->getUniqueID(), 'index' => $i, 'format' => $document['format'], 'type' => 'document']])?>" <?=$this->htmlAttributes($aAttrs)?>>
             <?=$this->icon('download')?>
             <?=$this->escapeHtml($description)?>
         </a>
