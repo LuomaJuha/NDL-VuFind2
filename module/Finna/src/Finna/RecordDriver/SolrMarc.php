@@ -793,7 +793,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc implements \Laminas\Log\Log
      *
      * @return array
      */
-    public function getMappedComponentParts(): array
+    public function getMappedEmbeddedComponentParts(): array
     {
         $mappedComponentParts = array_map(
             fn ($part) => $this->mapComponentPart($part),
@@ -804,6 +804,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc implements \Laminas\Log\Log
 
     /**
      * Map component parts to datasource specific mappings. Return empty array if mapping does not match.
+     * Mappings can be added for each key present in component part array
      *
      * @param array $part Component part
      *
@@ -811,22 +812,23 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc implements \Laminas\Log\Log
      */
     protected function mapComponentPart(array $part): array
     {
-        $mappings = $this->datasourceSettings[$this->getDataSource()]['mapped_component_parts_mappings'] ?? [];
-        $otherAuthors = $part['otherAuthors'] ?? false;
-        if (!$otherAuthors) {
-            return [];
-        }
-        foreach ($otherAuthors as $author) {
-            if ($linkNote = $mappings[$author] ?? null) {
-                $part['value'] = $part['title'];
-                $part['title'] = $linkNote;
-                if ($part['id']) {
-                    $link = ['type' => 'bib', 'value' => $part['id']];
-                } elseif ($part['linkingId']) {
-                    $link = ['type' => 'linkingId', 'value' => $part['linkingId']];
+        foreach ($part as $key => $value) {
+            $mappings = $this->datasourceSettings[$this->getDataSource()]['component_parts_mappings_' . $key] ?? [];
+            if (!$mappings) {
+                continue;
+            }
+            foreach ($value as $compare) {
+                if ($linkNote = $mappings[$compare]) {
+                    $part['value'] = $part['title'];
+                    $part['title'] = $linkNote;
+                    if ($part['id']) {
+                        $link = ['type' => 'bib', 'value' => $part['id']];
+                    } elseif ($part['linkingId']) {
+                        $link = ['type' => 'linkingId', 'value' => $part['linkingId']];
+                    }
+                    $part['link'] = $link;
+                    return $part;
                 }
-                $part['link'] = $link;
-                return $part;
             }
         }
         return [];
