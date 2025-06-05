@@ -986,6 +986,14 @@ class DefaultRecord extends \VuFind\RecordDataFormatter\Specs\DefaultRecord
             ]
         );
         $setTemplateLine(
+            'Mapped Component Parts',
+            'getMappedComponentParts',
+            'data-allRecordLinks.phtml',
+            [
+                'context' => ['class' => 'mapped-component-parts', 'title' => ''],
+            ]
+        );
+        $setTemplateLine(
             'Online Access',
             true,
             'data-onlineAccess.phtml',

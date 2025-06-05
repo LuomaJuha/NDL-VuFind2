@@ -789,6 +789,50 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc implements \Laminas\Log\Log
     }
 
     /**
+     * Map component parts from field 979. Mapping rules are defined in datasources.ini for each datasource.
+     *
+     * @return array
+     */
+    public function getMappedComponentParts(): array
+    {
+        $mappedComponentParts = array_map(
+            fn ($part) => $this->mapComponentPart($part),
+            $this->getEmbeddedComponentParts()
+        );
+        return array_filter(array_values($mappedComponentParts));
+    }
+
+    /**
+     * Map component parts to datasource specific mappings. Return empty array if mapping does not match.
+     *
+     * @param array $part Component part
+     *
+     * @return array
+     */
+    protected function mapComponentPart(array $part): array
+    {
+        $mappings = $this->datasourceSettings[$this->getDataSource()]['mapped_component_parts_mappings'] ?? [];
+        $otherAuthors = $part['otherAuthors'] ?? false;
+        if (!$otherAuthors) {
+            return [];
+        }
+        foreach ($otherAuthors as $author) {
+            if ($linkNote = $mappings[$author] ?? null) {
+                $part['value'] = $part['title'];
+                $part['title'] = $linkNote;
+                if ($part['id']) {
+                    $link = ['type' => 'bib', 'value' => $part['id']];
+                } elseif ($part['linkingId']) {
+                    $link = ['type' => 'linkingId', 'value' => $part['linkingId']];
+                }
+                $part['link'] = $link;
+                return $part;
+            }
+        }
+        return [];
+    }
+
+    /**
      * Get extended composition information from field 382.
      *
      * Returns an array where each entry contains a set of subfields with a type code
