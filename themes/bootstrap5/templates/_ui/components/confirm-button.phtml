@@ -20,6 +20,7 @@
   ];
   if ($link = $this->buttonLink) {
     $buttonAttrs['href'] = $link;
+    $buttonAttrs['role'] = 'button';
   } else {
     $buttonAttrs['type'] = 'submit';
   }
