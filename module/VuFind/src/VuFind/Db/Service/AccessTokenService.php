@@ -47,6 +47,14 @@ class AccessTokenService extends AbstractDbService implements
     Feature\DeleteExpiredInterface
 {
     /**
+     * Type of an access token.
+     *
+     * @var string
+     */
+    public const TYPE_API_KEY = 'api_key',
+        TYPE_OPEN_ID_NONCE = 'openid_nonce';
+
+    /**
      * Create an access_token entity object.
      *
      * @return AccessTokenEntityInterface
@@ -90,6 +98,25 @@ class AccessTokenService extends AbstractDbService implements
     }
 
     /**
+     * Get access token with provided data.
+     *
+     * @param string $data Data to look for.
+     * @param string $type Type of token to look for.
+     *
+     * @return ?AccessTokenEntityInterface
+     */
+    public function getByDataAndType(string $data, string $type): ?AccessTokenEntityInterface
+    {
+        $dql = 'SELECT at '
+            . 'FROM ' . AccessTokenEntityInterface::class . ' at '
+            . 'WHERE at.data = :data '
+            . 'AND at.type = :type';
+        $query = $this->entityManager->createQuery($dql);
+        $query->setParameters(compact('data', 'type'));
+        return $query->getOneOrNullResult();
+    }
+
+    /**
      * Add or replace an OpenID nonce for a user
      *
      * @param int     $userId User ID
@@ -99,8 +126,7 @@ class AccessTokenService extends AbstractDbService implements
      */
     public function storeNonce(int $userId, ?string $nonce): void
     {
-        $type = 'openid_nonce';
-        $token = $this->getByIdAndType((string)$userId, $type);
+        $token = $this->getByIdAndType((string)$userId, self::TYPE_OPEN_ID_NONCE);
         $token->setUser($this->entityManager->getReference(User::class, $userId));
         $token->setData($nonce);
         $this->persistEntity($token);
@@ -115,8 +141,7 @@ class AccessTokenService extends AbstractDbService implements
      */
     public function getNonce(int $userId): ?string
     {
-        $type = 'openid_nonce';
-        $token = $this->getByIdAndType((string)$userId, $type, false);
+        $token = $this->getByIdAndType((string)$userId, self::TYPE_OPEN_ID_NONCE, false);
         return $token?->getData();
     }
 
@@ -131,10 +156,12 @@ class AccessTokenService extends AbstractDbService implements
     public function deleteExpired(DateTime $dateLimit, ?int $limit = null): int
     {
         $subQueryBuilder = $this->entityManager->createQueryBuilder();
+        // Delete all but API keys here, as those are not really expired.
         $subQueryBuilder->select('CONCAT(a.id, a.type)')
             ->from(AccessTokenEntityInterface::class, 'a')
-            ->where('a.created < :latestCreated')
-            ->setParameter('latestCreated', $dateLimit->format('Y-m-d H:i:s'));
+            ->where('a.created < :latestCreated AND NOT a.type = :exclude')
+            ->setParameter('latestCreated', $dateLimit->format('Y-m-d H:i:s'))
+            ->setParameter('exclude', self::TYPE_API_KEY);
         if ($limit) {
             $subQueryBuilder->setMaxResults($limit);
         }
