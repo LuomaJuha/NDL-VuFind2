@@ -12,4 +12,7 @@
 
   <?=$this->auth()->getPasswordRecoveryForm() ?>
 </form>
+<?php if ($this->resolver('content/Additions/recover-post.phtml')): ?>
+  <?=$this->render('content/Additions/recover-post.phtml')?>
+<?php endif; ?>
 <!-- END of: finna - myresearch/recover.phtml -->
