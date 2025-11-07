@@ -11,38 +11,16 @@ trait RecordMediaTrait
       return $this->cache[$cacheKey];
     }
     $onlineURLs = $this->driver->tryMethod('getOnlineURLs', [], []);
-    $videos = $this->getVideos($onlineURLs);
-    $audios = $this->getAudios($onlineURLs);
-
     $mergedDataURLs = $this->driver->tryMethod('getMergedRecordData')['urls'] ?? [];
-    $videos = [...$videos, ...$this->getVideos($mergedDataURLs)];
-    $audios = [...$audios, ...$this->getAudios($mergedDataURLs)];
-
     $urls = $this->getLinkDetails($openUrlActive);
-    $videos = [...$videos, ...$this->getVideos($urls)];
-    $audios = [...$audios, ...$this->getAudios($urls)];
-    $models = $this->driver->tryMethod('getModels', [], []);
+    $combinedURLs = array_merge($urls, $mergedDataURLs, $onlineURLs);
 
-    // Try to filter out duplicate urls here from onlineURLs, mergedDataURLs and urls.
-    $filteredURLs = [];
-    foreach ($onlineURLs as $url) {
-      foreach ($mergedDataURLs as $mergedURL) {
-        if ($url['url'] === $mergedURL['url']) {
-          continue 2;
-        }
-      }
-      $filteredURLs[] = $url;
-    }
-    $audios = $this->getAudios($filteredURLs);
-    $videos = $this->getVideos($filteredURLs);
+    $audios = $this->getAudios($combinedURLs);
+    $videos = $this->getVideos($combinedURLs);
     $models = $this->driver->tryMethod('getModels', [], []);
-
     $medias = compact('audios', 'videos', 'models');
-    return $this->cache[$cacheKey] = [
-      'medias' => $medias,
-      'hasDigitalObjects' => $audios || $videos || $models,
-      'nonMediaURLs' => $filteredURLs,
-    ]; 
+    $hasDigitalObjects = $audios || $videos || $models;
+    return $this->cache[$cacheKey] = compact('medias', 'hasDigitalObjects');
   }
   public function getAudios(&$urls): array
   {

@@ -2,6 +2,8 @@
 <?php
   $params = $this->searchMemory()->getLastSearchParams($this->searchClassId);
   $img = $this->recordImage($this->record($this->driver));
+  $mediaUrls = $this->record($this->driver)->getMediaURLs();
+  var_dump($mediaUrls);
   $urls = $this->record($this->driver)->getLinkDetails();
   if (!empty($urls)) {
     $videoUrls = [];
