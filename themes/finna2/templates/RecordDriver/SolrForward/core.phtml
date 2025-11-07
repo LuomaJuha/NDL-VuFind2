@@ -4,6 +4,7 @@
 
   $openUrl = $this->openUrl($this->driver, 'record');
   $openUrlActive = $openUrl->isActive();
+  $mediaUrls = $this->record($this->driver)->getMediaURLs($openUrlActive);
   // Account for replace_other_urls setting
   $urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
   $onlineURLs = $this->driver->getOnlineURLs();

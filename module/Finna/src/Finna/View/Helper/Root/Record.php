@@ -68,6 +68,7 @@ use function is_string;
  */
 class Record extends \VuFind\View\Helper\Root\Record
 {
+    use Feature\RecordMediaTrait;
     /**
      * Record loader
      *
