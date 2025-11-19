@@ -5,7 +5,7 @@ $thumbnail-width-large:  200px !default;
 
 /* Results */
 /* --- Layout --- */
-@include media-breakpoint-up(sm) {
+@include media-breakpoint-up(md) {
   .mainbody { width: 75%; }
   .sidebar { width: 25%; }
   .sidebar.left { float: left; }
