@@ -404,15 +404,15 @@
     <?php endif; ?>
 
     <?php if ($this->developerSettings()->isEnabled()): ?>
-      <div class="myresearch-profile-list library-profile">
-        <?php if ($this->permission()->allowDisplay('feature.Developer')): ?>
+      <?php if ($this->permission()->allowDisplay('feature.Developer')): ?>
+        <div class="myresearch-profile-list library-profile">
           <div class="my-profile-row">
             <a class="btn btn-default" href="<?=$this->url('developersettings-displaysettings');?>"><?=$this->icon('options') . ' ' . $this->transEsc('Developer::settings');?></a>
           </div>
-        <?php elseif ($block = $this->permission()->getAlternateContent('feature.Developer')): ?>
-          <?=$block?>
-        <?php endif; ?>
-      </div>
+        </div>
+      <?php elseif ($block = $this->permission()->getAlternateContent('feature.Developer')): ?>
+        <?=$block?>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>
