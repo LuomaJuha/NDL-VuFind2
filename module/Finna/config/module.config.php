@@ -1260,5 +1260,18 @@ $config['router']['routes']['solrauthrecord-feedback'] = [
         ],
     ],
 ];
-
+$config['router']['routes']['record-modal'] = [
+    'type'    => 'Laminas\Router\Http\Segment',
+    'options' => [
+        'route'    => '/Record/[:id]/Modal',
+        'constraints' => [
+            'controller' => '[a-zA-Z][a-zA-Z0-9_-]*',
+            'action'     => '[a-zA-Z][a-zA-Z0-9_-]*',
+        ],
+        'defaults' => [
+            'controller' => 'Record',
+            'action'     => 'Modal',
+        ],
+    ],
+];
 return $config;
