@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Related Records: Solr-based similarity
+ * Related Records: Solr-based similarity.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2009, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Related_Records
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:related_records_modules Wiki
  */
+
 namespace VuFind\Related;
 
 use VuFindSearch\Command\SimilarCommand;
 
 /**
- * Related Records: Solr-based similarity
+ * Related Records: Solr-based similarity.
  *
  * @category VuFind
  * @package  Related_Records
@@ -41,21 +43,21 @@ use VuFindSearch\Command\SimilarCommand;
 class Similar implements RelatedInterface
 {
     /**
-     * Similar records
+     * Similar records.
      *
      * @var array
      */
     protected $results;
 
     /**
-     * Search service
+     * Search service.
      *
      * @var \VuFindSearch\Service
      */
     protected $searchService;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \VuFindSearch\Service $search Search service
      */

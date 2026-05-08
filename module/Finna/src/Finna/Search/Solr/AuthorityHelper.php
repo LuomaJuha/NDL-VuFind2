@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Helper for Authority recommendations.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,7 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Solr;
+
+use VuFind\RecordDriver\DefaultRecord;
+
+use function in_array;
+use function is_string;
 
 /**
  * Helper for Authority recommendations.
@@ -46,7 +53,7 @@ class AuthorityHelper
     public const AUTHOR2_ID_FACET = 'author2_id_str_mv';
 
     /**
-     * Index field for author id-role combinations
+     * Index field for author id-role combinations.
      *
      * @var string
      */
@@ -96,58 +103,59 @@ class AuthorityHelper
     public const LINK_TYPE_SEARCH_SUBJECT = 'search-subject';
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var \VuFind\Record\Loader
      */
     protected $recordLoader;
 
     /**
-     * Search runner
+     * Search runner.
      *
      * @var \VuFind\Search\SearchRunner
      */
     protected $searchRunner;
 
     /**
-     * Translator
+     * Translator.
      *
      * @var \VuFind\Translator
      */
     protected $translator;
 
     /**
-     * Authority config
+     * Authority config.
      *
-     * @var \Laminas\Config\Config|null
+     * @var \VuFind\Config\Config|null
      */
     protected $authorityConfig;
 
     /**
-     * Authority search config
+     * Authority search config.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $authoritySearchConfig;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \VuFind\Record\Loader              $recordLoader          Record loader
      * @param \VuFind\Search\SearchRunner        $searchRunner          Search runner
      * @param \VuFind\View\Helper\Root\Translate $translator            Translator
      * view helper
-     * @param \Laminas\Config\Config             $config                Config
-     * config
-     * @param \Laminas\Config\Config             $authoritySearchConfig Authority
-     * search config
+     * @param \VuFind\Config\Config              $config                Config
+     *                                                                  config
+     * @param \VuFind\Config\Config              $authoritySearchConfig Authority
+     *                                                                  search
+     *                                                                  config
      */
     public function __construct(
         \VuFind\Record\Loader $recordLoader,
         \VuFind\Search\SearchRunner $searchRunner,
         \VuFind\View\Helper\Root\Translate $translator,
-        \Laminas\Config\Config $config,
-        \Laminas\Config\Config $authoritySearchConfig
+        \VuFind\Config\Config $config,
+        \VuFind\Config\Config $authoritySearchConfig
     ) {
         $this->recordLoader = $recordLoader;
         $this->searchRunner = $searchRunner;
@@ -240,16 +248,17 @@ class AuthorityHelper
         return [
             AuthorityHelper::AUTHOR_ID_ROLE_FACET,
             AuthorityHelper::AUTHOR2_ID_FACET,
-            AuthorityHelper::TOPIC_ID_FACET
+            AuthorityHelper::TOPIC_ID_FACET,
         ];
     }
 
     /**
      * Format facet value (display text).
      *
-     * @param string  $value        Facet value
-     * @param boolean $extendedInfo Wheter to return an array with
-     * 'id', 'displayText' and 'role' fields.
+     * @param string $value        Facet value
+     * @param bool   $extendedInfo Wheter to return an array with
+     *                             'id', 'displayText' and 'role'
+     *                             fields.
      *
      * @return mixed string|array
      */
@@ -277,34 +286,34 @@ class AuthorityHelper
         $id = $value;
         $role = null;
         $separator = self::AUTHOR_ID_ROLE_SEPARATOR;
-        if (strpos($value, $separator) !== false) {
+        if (str_contains($value, $separator)) {
             [$id, $role] = explode($separator, $value, 2);
         }
         return [$id, $role];
     }
 
     /**
-     * Return biblio records that are linked to author.
+     * Return biblio records that are linked to an authority.
      *
-     * @param string $id        Authority id
+     * @param string $id        Authority id(s)
      * @param string $field     Solr field to search by (author, topic)
-     * @param bool   $onlyCount Return only record count
-     * (does not fetch record data from index)
+     * @param bool   $onlyCount Return only record count (does not fetch record data from index)
      *
      * @return \VuFind\Search\Results|int
      */
     public function getRecordsByAuthorityId(
-        $id,
-        $field = AuthorityHelper::AUTHOR2_ID_FACET,
-        $onlyCount = false
+        string $id,
+        string $field = AuthorityHelper::AUTHOR2_ID_FACET,
+        bool $onlyCount = false
     ) {
         $query = $this->getRecordsByAuthorityQuery($id, $field);
         $results = $this->searchRunner->run(
-            ['lookfor' => $query, 'fl' => 'id'],
+            [],
             'Solr',
-            function ($runner, $params, $searchId) use ($onlyCount) {
+            function ($runner, $params, $searchId) use ($onlyCount, $query): void {
                 $params->setLimit($onlyCount ? 0 : 100);
                 $params->setPage(1);
+                $params->addFilter($query);
                 $options = $params->getOptions();
                 $options->disableHighlighting();
                 $options->spellcheckEnabled(false);
@@ -314,16 +323,45 @@ class AuthorityHelper
     }
 
     /**
+     * Return identifiers for an authority record.
+     *
+     * @param DefaultRecord $record Authority record
+     *
+     * @return array
+     */
+    public function getIdentifiersForAuthority(DefaultRecord $record)
+    {
+        $ids = [$record->getUniqueID()];
+        foreach ($record->tryMethod('getOtherIdentifiers', [], []) as $id) {
+            if (preg_match('/^https?:/', $id['data'])) {
+                // Never prefix http(s) url's
+                $ids[] = $id['data'];
+            } else {
+                $ids[] = '(' . $id['detail'] . ')' . $id['data'];
+            }
+        }
+        return $ids;
+    }
+
+    /**
      * Return query for fetching biblio records by authority id.
      *
-     * @param string $id    Authority id
-     * @param string $field Solr field to search by (author, topic)
+     * @param string|array $id    Authority id
+     * @param string       $field Solr field to search by (author, topic)
      *
      * @return string
      */
     public function getRecordsByAuthorityQuery($id, $field)
     {
-        return "$field:\"$id\"";
+        $escapeAndQuote = function ($s): string {
+            return '"' . addcslashes($s, '"') . '"';
+        };
+
+        if (is_string($id)) {
+            return "$field:" . $escapeAndQuote($id);
+        }
+        $ids = array_map($escapeAndQuote, $id);
+        return "$field:(" . implode(' OR ', $ids) . ')';
     }
 
     /**
@@ -356,7 +394,7 @@ class AuthorityHelper
                 $setting,
                 [
                     self::LINK_TYPE_PAGE, self::LINK_TYPE_SEARCH,
-                    self::LINK_TYPE_SEARCH_SUBJECT
+                    self::LINK_TYPE_SEARCH_SUBJECT,
                 ]
             )
             ? $setting : null;
@@ -372,7 +410,9 @@ class AuthorityHelper
      */
     protected function formatDisplayText($record, $role = null)
     {
-        $displayText = $record->getTitle();
+        $displayText = $record instanceof \VuFind\RecordDriver\Missing
+            ? $this->translator->translate('not_applicable')
+            : $record->getTitle();
         if ($role) {
             $role = mb_strtolower(
                 $this->translator->translate("CreatorRoles::$role")

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * External Authentication/Authorization Controller
+ * External Authentication/Authorization Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace VuFind\Controller;
 
-use Laminas\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareInterface;
 
 /**
- * External Authentication/Authorization Controller
+ * External Authentication/Authorization Controller.
  *
  * Provides authorization support for external systems, e.g. EZproxy
  *
@@ -52,7 +54,7 @@ class ExternalAuthController extends AbstractBase implements LoggerAwareInterfac
     protected $ezproxyRequiredPermission = 'ezproxy.authorized';
 
     /**
-     * Provides an EZproxy session to an authorized user
+     * Provides an EZproxy session to an authorized user.
      *
      * @return mixed
      *
@@ -60,23 +62,21 @@ class ExternalAuthController extends AbstractBase implements LoggerAwareInterfac
      */
     public function ezproxyLoginAction()
     {
-        $config = $this->getConfig();
-        if (empty($config->EZproxy->host)) {
+        $config = $this->getConfigArray();
+        if (empty($config['EZproxy']['host'])) {
             throw new \Exception('EZproxy host not defined in configuration');
         }
 
         $user = $this->getUser();
 
-        $authService = $this->serviceLocator
-            ->get(\LmcRbacMvc\Service\AuthorizationService::class);
+        $authService = $this->getService(\Lmc\Rbac\Mvc\Service\AuthorizationService::class);
         if ($authService->isGranted($this->ezproxyRequiredPermission)) {
             // Access granted, redirect to EZproxy
-            if (empty($config->EZproxy->disable_ticket_auth_logging)) {
-                $logger = $this->serviceLocator->get(\VuFind\Log\Logger::class);
-                $logger->log(
-                    \Laminas\Log\Logger::INFO,
-                    "EZproxy login to '" . $config->EZproxy->host
-                    . "' for '" . ($user ? $user->username : 'anonymous')
+            if (empty($config['EZproxy']['disable_ticket_auth_logging'])) {
+                $logger = $this->getService(\VuFind\Log\Logger::class);
+                $logger->info(
+                    "EZproxy login to '" . $config['EZproxy']['host']
+                    . "' for '" . ($user ? $user->getUsername() : 'anonymous')
                     . "' from IP address "
                     . $this->request->getServer()->get('REMOTE_ADDR')
                 );
@@ -85,8 +85,8 @@ class ExternalAuthController extends AbstractBase implements LoggerAwareInterfac
                 'url',
                 $this->params()->fromQuery('url')
             );
-            $username = !empty($config->EZproxy->anonymous_ticket) || !$user
-                ? 'anonymous' : $user->username;
+            $username = (!empty($config['EZproxy']['anonymous_ticket']) || !$user)
+                ? 'anonymous' : $user->getUsername();
             return $this->redirect()->toUrl(
                 $this->createEzproxyTicketUrl($username, $url)
             );
@@ -106,7 +106,7 @@ class ExternalAuthController extends AbstractBase implements LoggerAwareInterfac
     }
 
     /**
-     * Create a ticket login URL for EZproxy
+     * Create a ticket login URL for EZproxy.
      *
      * @param string $user User name to pass on to EZproxy
      * @param string $url  The original URL
@@ -119,21 +119,20 @@ class ExternalAuthController extends AbstractBase implements LoggerAwareInterfac
      */
     protected function createEzproxyTicketUrl($user, $url)
     {
-        $config = $this->getConfig();
-        if (empty($config->EZproxy->secret)) {
+        $config = $this->getConfigArray();
+        if (empty($config['EZproxy']['secret'])) {
             throw new \Exception('EZproxy secret not defined in configuration');
         }
 
         $packet = '$u' . time() . '$e';
-        $hash = new \Laminas\Crypt\Hash();
-        $algorithm = !empty($config->EZproxy->secret_hash_method)
-            ? $config->EZproxy->secret_hash_method : 'SHA512';
-        $ticket = $config->EZproxy->secret . $user . $packet;
-        $ticket = $hash->compute($algorithm, $ticket);
+        $algorithm = !empty($config['EZproxy']['secret_hash_method'])
+            ? $config['EZproxy']['secret_hash_method'] : 'SHA512';
+        $ticket = $config['EZproxy']['secret'] . $user . $packet;
+        $ticket = hash($algorithm, $ticket);
         $ticket .= $packet;
         $params = http_build_query(
             ['user' => $user, 'ticket' => $ticket, 'url' => $url]
         );
-        return $config->EZproxy->host . "/login?$params";
+        return $config['EZproxy']['host'] . "/login?$params";
     }
 }

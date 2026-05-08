@@ -11,7 +11,7 @@
     <div class="media-<?=$thumbnailAlignment ?>">
       <?=$this->record($this->driver)->renderTemplate('record-image-information.phtml', [
         'img' => $img, 'imageClick' => 'none', 'imageRightsLabel' => 'Image Rights Authority',
-        'numOfImages' => ['mobile' => 4, 'normal' => 4]
+        'numOfImages' => ['mobile' => 4, 'normal' => 4],
       ]);?>
 
       <?php if ($this->record($this->driver)->getOrganisationMenuPosition() === 'inline'): ?>
@@ -28,10 +28,10 @@
   }
 ?>
 
-<div class="media" vocab="http://schema.org/" resource="#record">
+<div class="media">
   <div class="visible-xs">
     <p class="format"><?=$this->transEsc($formats[0])?></p>
-    <h1 property="name" class="record-title"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
+    <h1 class="record-title"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
   </div>
   <?php if ($thumbnail && $thumbnailAlignment == 'left'): ?>
     <?=$thumbnail ?>
@@ -39,25 +39,30 @@
   <div class="media-body record-information">
       <div class="hidden-xs">
         <p class="format"><?=$this->transEsc($formats[0])?></p>
-        <h1 property="name" class="record-title"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
+        <h1 class="record-title"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
       </div>
+
+      <?=$this->record($this->driver)->renderTemplate('cached-record-warning.phtml', ['driver' => $this->driver])?>
+      <?=$this->record($this->driver)->getLabelList() ?>
+
       <?php if ($occupations = $this->driver->getOccupations()): ?>
         <div class="occupation"><?=implode(', ', $occupations)?></div>
       <?php elseif ($corporateType = $this->driver->getCorporateType()): ?>
         <div class="corporate-type"><?=$corporateType?></div>
       <?php endif; ?>
-      <?/* Display anchor links to authority records tabs */?>
+      <?php /* Display anchor links to authority records tabs */?>
       <?php if ($authSummary = $this->record($this->driver)->getAuthoritySummary(true)): ?>
         <div class="authority-records-summary">
           <?= $authSummary ?>
         </div>
       <?php endif; ?>
 
-      <?php $summ = $this->driver->getSummary(); if (!empty($summ)): ?>
+      <?php $summ = $this->driver->getSummary();
+      if (!empty($summ)): ?>
       <div class="truncate-field wide recordSummary">
         <p class="summary">
         <?php foreach ($summ as $field): ?>
-          <?=$this->cleanHtml($field)?><br/>
+          <?=$this->cleanHtml($field)?><br>
         <?php endforeach; ?>
         </p>
       </div>
@@ -66,11 +71,11 @@
       <?php if ($this->userlist()->getMode() !== 'disabled'): ?>
         <?php /* Display the lists that this record is saved to */ ?>
         <div class="savedLists" id="savedLists">
-          <strong><?=$this->transEsc("Saved in")?>:</strong>
+          <strong><?=$this->transEsc('Saved in')?>:</strong>
         </div>
       <?php endif; ?>
 
-      <?/* Display Main Details */?>
+      <?php /* Display Main Details */?>
       <?=
         $this->record($this->driver)->renderTemplate(
             'core-fields.phtml',
@@ -79,9 +84,9 @@
             ]
         );
       ?>
-      <?/* End Main Details */?>
+      <?php /* End Main Details */?>
 
-      <?php if ($template = $this->content()->findTemplateForLng("content/Additions/record-post-metadata")): ?>
+      <?php if ($template = $this->content()->findTemplateForLng('content/Additions/record-post-metadata')): ?>
       <div>
         <?=$this->render($template)?>
       </div>

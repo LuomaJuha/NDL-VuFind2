@@ -1,0 +1,139 @@
+.navbar {
+  max-width: map-get($container-max-widths, "xl"); // dont fully scale the navigation bar text
+  min-height: $navbar-height;
+}
+.navbar li .dropdown-menu > li > a {
+  white-space: normal;
+}
+// Fix dropdowns in navbar for wide screen
+@include media-breakpoint-up(md) {
+  .navbar li:not(#language_menu) .dropdown-menu > li > a {
+    width: 280px;
+  }
+}
+
+.navbar-nav {
+  margin: calc((#{$navbar-padding-vertical} / 2) - #{$navbar-padding-horizontal});
+  > li {
+    > a {
+      font-size: $navbar-font-size;
+    }
+    > .dropdown-menu {
+      margin-top: 0px;
+    }
+  }
+  .collapse-open-icon {
+    font-size: $font-size-icon-tiny;
+  }
+}
+@include media-breakpoint-down(sm) {
+  .navbar-nav {
+    margin: 0px;
+  }
+}
+
+.navbar-header .navbar-brand {
+  display: flex;
+  align-items: center;
+  max-width: 150px;
+  padding: 0px;
+  .navbar-logo {
+    width: auto;
+    height: $navbar-logo-height;
+    margin-right: 10px;
+    font-size: $navbar-logo-height;
+    color: $logo-color;
+    object-fit: contain;
+  }
+}
+@include media-breakpoint-down(md) {
+  .navbar-header {
+    padding-left: 10px;
+    .navbar-brand {
+      min-height: $navbar-height;
+    }
+  }
+}
+
+.navbar .navbar-main {
+  .dropdown .dropdown-menu > li > a > :not(.description) {
+    font-weight: bold;
+  }
+  .dropdown .dropdown-menu > li > a > .description {
+    display: block;
+    width: 100%;
+    font-size: 0.9em; 
+    white-space: normal;
+  }
+}
+@include media-breakpoint-down(md) {
+  .navbar .navbar-main .dropdown-menu {
+    border: none;
+  }
+}
+
+.navbar-collapse {
+  border-top: 3px solid $primary;
+}
+@include media-breakpoint-down(sm) {
+  #header-collapse {
+    padding-right: 0px;
+    padding-left: 0px;
+  }
+}
+@include media-breakpoint-up(md) {
+  .navbar-collapse {
+    border-top: none;
+    box-shadow: none;
+  }
+}
+
+.navbar-toggler {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width: $navbar-height;
+  height: $navbar-height;
+  padding: 0px;
+  margin: 0px;
+  color: $btn-primary-color;
+  background-color: $primary;
+  border-radius: 0;
+  &:focus {
+    background: darken($primary, 10%);
+  }
+  .mobilemenu-bars,
+  .mobilemenu-close {
+    font-size: 24px;
+  }
+  &.collapsed .mobilemenu-close {
+    display: none;
+  }
+  &:not(.collapsed) .mobilemenu-bars {
+    display: none;
+  }
+  &.activated {
+    animation: bg-blinker .4s ease-in-out .2s 1;
+  }
+  @keyframes bg-blinker {
+    50%  {
+      background-color: screen($primary, rgba(255, 255, 255, 0.4));
+    }
+  }
+}
+
+// Login button within mobile menu
+.navbar-nav {
+  .nav-login {
+    line-height: 64px;
+    text-align: center;
+  }
+  > li.nav-login {
+    border-bottom: none;
+  }
+}
+@include media-breakpoint-down(md) {
+  .navbar-nav.nav-login {
+    display: none;
+  }
+}

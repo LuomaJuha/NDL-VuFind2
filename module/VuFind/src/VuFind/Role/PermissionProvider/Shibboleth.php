@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Shibboleth permission provider for VuFind.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2007.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Authorization
@@ -27,6 +28,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Role\PermissionProvider;
 
 use Laminas\Http\PhpEnvironment\Request;
@@ -46,24 +48,24 @@ use VuFind\Auth\Shibboleth as ShibbolethAuth;
 class Shibboleth extends ServerParam
 {
     /**
-     * Request object
+     * Request object.
      *
      * @var Request
      */
     protected $request;
 
     /**
-     * Server param with the identity provider entityID
+     * Server param with the identity provider entityID.
      *
      * @var string
      */
     protected $idpServerParam;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param Request                $request Request object
-     * @param \Laminas\Config\Config $config  VuFind configuration
+     * @param Request               $request Request object
+     * @param \VuFind\Config\Config $config  VuFind configuration
      */
     public function __construct(Request $request, $config)
     {

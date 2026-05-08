@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Mailer Class for SMS messages
+ * VuFind Mailer Class for SMS messages.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2009.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  SMS
@@ -25,12 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\SMS;
 
-use VuFind\Exception\Mail as MailException;
+use VuFind\Exception\SMS as SMSException;
+
+use function count;
+use function in_array;
 
 /**
- * VuFind Mailer Class for SMS messages
+ * VuFind Mailer Class for SMS messages.
  *
  * @category VuFind
  * @package  SMS
@@ -41,43 +46,39 @@ use VuFind\Exception\Mail as MailException;
 class Mailer extends AbstractBase
 {
     /**
-     * Default carriers, usually overridden by contents of web/conf/sms.ini.
+     * Default carriers, usually overridden by contents of sms.ini.
      *
      * @var array
      */
     protected $carriers = [
         'virgin' => ['name' => 'Virgin Mobile', 'domain' => 'vmobl.com'],
-        'att' => ['name' => 'AT&T', 'domain' => 'mms.att.net'],
         'verizon' => ['name' => 'Verizon', 'domain' => 'vtext.com'],
-        'nextel' => ['name' => 'Nextel', 'domain' => 'messaging.nextel.com'],
-        'sprint' => ['name' => 'Sprint', 'domain' => 'messaging.sprintpcs.com'],
         'tmobile' => ['name' => 'T Mobile', 'domain' => 'tmomail.net'],
-        'alltel' => ['name' => 'Alltel', 'domain' => 'message.alltel.com'],
-        'Cricket' => ['name' => 'Cricket', 'domain' => 'mms.mycricket.com']
+        'Cricket' => ['name' => 'Cricket', 'domain' => 'mms.mycricket.com'],
     ];
 
     /**
-     * Default "from" address
+     * Default "from" address.
      *
      * @var string
      */
     protected $defaultFrom;
 
     /**
-     * VuFind Mailer object
+     * VuFind Mailer object.
      *
      * @var \VuFind\Mailer\Mailer
      */
     protected $mailer;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config $config  SMS configuration
-     * @param array                  $options Additional options: defaultFrom
+     * @param \VuFind\Config\Config $config  SMS configuration
+     * @param array                 $options Additional options: defaultFrom
      * (optional) and mailer (must be a \VuFind\Mailer\Mailer object)
      */
-    public function __construct(\Laminas\Config\Config $config, $options = [])
+    public function __construct(\VuFind\Config\Config $config, $options = [])
     {
         // Set up parent object first:
         parent::__construct($config);
@@ -97,7 +98,8 @@ class Mailer extends AbstractBase
             = $options['defaultFrom'] ?? '';
 
         // Make sure mailer dependency has been injected:
-        if (!isset($options['mailer'])
+        if (
+            !isset($options['mailer'])
             || !($options['mailer'] instanceof \VuFind\Mailer\Mailer)
         ) {
             throw new \Exception(
@@ -108,7 +110,7 @@ class Mailer extends AbstractBase
     }
 
     /**
-     * Get a list of carriers supported by the module.  Returned as an array of
+     * Get a list of carriers supported by the module. Returned as an array of
      * associative arrays indexed by carrier ID and containing "name" and "domain"
      * keys.
      *
@@ -127,14 +129,17 @@ class Mailer extends AbstractBase
      * @param string $from     The email address to use as sender
      * @param string $message  The message to send
      *
-     * @throws \VuFind\Exception\Mail
+     * @throws \VuFind\Exception\SMS
      * @return void
      */
     public function text($provider, $to, $from, $message)
     {
         $knownCarriers = array_keys($this->carriers);
         if (empty($provider) || !in_array($provider, $knownCarriers)) {
-            throw new MailException('Unknown Carrier');
+            throw new SMSException(
+                'Unknown Carrier',
+                SMSException::ERROR_UNKNOWN_CARRIER
+            );
         }
 
         $to = $this->filterPhoneNumber($to)

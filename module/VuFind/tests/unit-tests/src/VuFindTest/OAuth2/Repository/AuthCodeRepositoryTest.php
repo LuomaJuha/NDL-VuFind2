@@ -1,8 +1,9 @@
 <?php
+
 /**
  * OAuth2 AuthCodeRepository tests.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,9 +26,8 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
-namespace VuFindTest\OAuth2\Repository;
 
-use VuFind\OAuth2\Repository\AuthCodeRepository;
+namespace VuFindTest\OAuth2\Repository;
 
 /**
  * OAuth2 AuthCodeRepository tests.
@@ -38,16 +38,16 @@ use VuFind\OAuth2\Repository\AuthCodeRepository;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
-class AuthCodeRepositoryTest extends AbstractTokenRepositoryTest
+class AuthCodeRepositoryTest extends AbstractTokenRepositoryTestCase
 {
     /**
-     * Test auth code repository
+     * Test auth code repository.
      *
      * @return void
      */
     public function testAuthCodeRepository(): void
     {
-        $repo = new AuthCodeRepository($this->getMockAccessTokenTable());
+        $repo = $this->getAuthCodeRepository();
 
         $token = $repo->getNewAuthCode();
         $tokenId = $this->createTokenId();
@@ -62,8 +62,8 @@ class AuthCodeRepositoryTest extends AbstractTokenRepositoryTest
                     'type' => 'oauth2_auth_code',
                     'revoked' => false,
                     'data' => json_encode($token),
-                    'user_id' => null
-                ]
+                    'user_id' => null,
+                ],
             ],
             $this->accessTokenTable
         );
@@ -77,8 +77,8 @@ class AuthCodeRepositoryTest extends AbstractTokenRepositoryTest
                     'type' => 'oauth2_auth_code',
                     'revoked' => true,
                     'data' => json_encode($token),
-                    'user_id' => null
-                ]
+                    'user_id' => null,
+                ],
             ],
             $this->accessTokenTable
         );

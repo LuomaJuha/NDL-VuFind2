@@ -1,0 +1,341 @@
+<?php
+
+/**
+ * Model for AIPA LRMI records.
+ *
+ * PHP version 8
+ *
+ * Copyright (C) The National Library of Finland 2022-2025.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2,
+ * as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
+ *
+ * @category VuFind
+ * @package  RecordDrivers
+ * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
+ * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
+ */
+
+namespace Finna\RecordDriver;
+
+use Finna\RecordDriver\Feature\ContainerFormatInterface;
+use Finna\RecordDriver\Feature\ContainerFormatTrait;
+use Finna\RecordDriver\Feature\EncapsulatedRecordInterface;
+use Finna\RecordDriver\Feature\EncapsulatedRecordTrait;
+use FinnaXml\XmlDoc;
+use NatLibFi\FinnaCodeSets\FinnaCodeSets;
+
+use function in_array;
+use function is_callable;
+
+/**
+ * Model for AIPA LRMI records.
+ *
+ * @category VuFind
+ * @package  RecordDrivers
+ * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
+ * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
+ */
+class AipaLrmi extends SolrLrmi implements
+    ContainerFormatInterface,
+    EncapsulatedRecordInterface
+{
+    use ContainerFormatTrait;
+    use EncapsulatedRecordTrait;
+
+    /**
+     * Finna Code Sets library instance.
+     *
+     * @var FinnaCodeSets
+     */
+    protected FinnaCodeSets $codeSets;
+
+    /**
+     * Fields filtered from the record by getFilteredXmlElement method.
+     *
+     * @var array
+     */
+    protected $filterFields = [
+        'abstract',
+        'description',
+        'assignmentIdeas',
+        'learningResource/studyObjectives',
+        'learningResource/educationalLevel/name',
+        'learningResource/educationalLevel/inDefinedTermSet/name',
+        'learningResource/educationalAlignment/educationalSubject/educationalFramework',
+        'learningResource/educationalAlignment/educationalSubject/targetName',
+        'learningResource/teaches/name',
+    ];
+
+    /**
+     * Attach Finna Code Sets library instance.
+     *
+     * @param FinnaCodeSets $codeSets Finna Code Sets library instance
+     *
+     * @return void
+     */
+    public function attachCodeSetsLibrary(FinnaCodeSets $codeSets): void
+    {
+        $this->codeSets = $codeSets;
+    }
+
+    /**
+     * Get an array of formats/extents for the record.
+     *
+     * @return array
+     */
+    public function getPhysicalDescriptions(): array
+    {
+        return [];
+    }
+
+    /**
+     * Return educational levels.
+     *
+     * @return array
+     */
+    public function getEducationalLevels()
+    {
+        $xml = $this->getXmlRecord();
+        $levels = [];
+        foreach ($xml->learningResource->educationalLevel ?? [] as $level) {
+            $levels[] = (string)$level->name;
+        }
+        return $levels;
+    }
+
+    /**
+     * Get educational subjects.
+     *
+     * @return array
+     */
+    public function getEducationalSubjects()
+    {
+        $xml = $this->getXmlRecord();
+        $subjects = [];
+        foreach ($xml->learningResource->educationalAlignment ?? [] as $alignment) {
+            foreach ($alignment->educationalSubject ?? [] as $subject) {
+                $subjects[] = (string)$subject->targetName;
+            }
+        }
+        return $subjects;
+    }
+
+    /**
+     * Return an array of image URLs associated with this record with keys:
+     * - url         Image URL
+     * - description Description text
+     * - rights      Rights
+     *   - copyright   Copyright (e.g. 'CC BY 4.0') (optional)
+     *   - description Human readable description (array)
+     *   - link        Link to copyright info
+     *
+     * @param string $language   Language for copyright information
+     * @param bool   $includePdf Whether to include first PDF file when no image
+     * links are found
+     *
+     * @return mixed
+     */
+    public function getAllImages($language = 'fi', $includePdf = false)
+    {
+        // AIPA LRMI records do not directly contain PDF files.
+        return parent::getAllImages($language, false);
+    }
+
+    /**
+     * Get educational aim.
+     *
+     * @return array
+     */
+    public function getEducationalAim()
+    {
+        $xml = $this->getXmlRecord();
+        $contentsAndObjectives = [];
+        foreach ($xml->learningResource->teaches ?? [] as $teaches) {
+            $contentsAndObjectives[] = (string)$teaches->name;
+        }
+        return $contentsAndObjectives;
+    }
+
+    /**
+     * Get all authors apart from presenters.
+     *
+     * Only returns non-presenter authors if they differ from the container record.
+     * This is a strict comparison: even the same authors in a different order is
+     * considered a difference.
+     *
+     * @return array
+     */
+    public function getNonPresenterAuthors(): array
+    {
+        $nonPresenterAuthors = parent::getNonPresenterAuthors();
+        if (!is_callable([$this->getContainerRecord(), 'getNonPresenterAuthors'])) {
+            return $nonPresenterAuthors;
+        }
+        $containerNonPresenterAuthors
+            = $this->getContainerRecord()->getNonPresenterAuthors();
+        foreach ($nonPresenterAuthors as $i => $author) {
+            if (
+                !empty(array_diff_assoc(
+                    $nonPresenterAuthors[$i],
+                    $containerNonPresenterAuthors[$i] ?? []
+                ))
+            ) {
+                return $nonPresenterAuthors;
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Return study objectives, or null if not found in record.
+     *
+     * @return ?string
+     */
+    public function getStudyObjectives(): ?string
+    {
+        $studyObjectives = null;
+        $xml = $this->getXmlRecord();
+        foreach ($xml->learningResource as $learningResource) {
+            if ($learningResource->studyObjectives) {
+                if (null === $studyObjectives) {
+                    $studyObjectives = '';
+                }
+                $studyObjectives .= (string)$learningResource->studyObjectives;
+            }
+        }
+        return $studyObjectives;
+    }
+
+    /**
+     * Return assignment ideas, or null if not found in record.
+     *
+     * @return ?string
+     */
+    public function getAssignmentIdeas(): ?string
+    {
+        $xml = $this->getXmlRecord();
+        if ($xml->assignmentIdeas) {
+            return (string)$xml->assignmentIdeas;
+        }
+        return null;
+    }
+
+    /**
+     * Get rich educational data, or false if not possible.
+     *
+     * @return array|false
+     */
+    public function getEducationalData(): array|false
+    {
+        $xml = $this->getXmlRecord();
+        try {
+            $educationalLevels = [];
+            $educationalSubjects = [];
+            $teaches = [];
+            foreach ($xml->learningResource->educationalLevel ?? [] as $level) {
+                $educationalLevels[(string)$level->termCode]
+                    = (string)$level->inDefinedTermSet->url;
+            }
+            foreach ($xml->learningResource->educationalAlignment ?? [] as $alignment) {
+                foreach ($alignment->educationalSubject ?? [] as $subject) {
+                    $educationalSubjects[(string)$subject->identifier]
+                        = (string)$subject->targetUrl;
+                }
+            }
+            foreach ($xml->learningResource->teaches ?? [] as $xmlTeaches) {
+                $teaches[(string)$xmlTeaches->identifier]
+                    = (string)$xmlTeaches->inDefinedTermSet->url;
+            }
+            return $this->codeSets->getEducationalData()->getLrmiEducationalData(
+                $educationalLevels,
+                $educationalSubjects,
+                $teaches
+            );
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Return record type.
+     *
+     * @return string
+     */
+    public function getType(): string
+    {
+        return (string)($this->getXmlRecord()->type ?? 'content');
+    }
+
+    /**
+     * Returns the tag name of XML elements containing an encapsulated record.
+     *
+     * @return string
+     */
+    protected function getEncapsulatedRecordElementTagName(): string
+    {
+        return "{{$this->lrmiNs}}material";
+    }
+
+    /**
+     * Return format for an encapsulated record.
+     *
+     * @param mixed $item Encapsulated record item
+     *
+     * @return string
+     */
+    protected function getEncapsulatedRecordFormat($item): string
+    {
+        return 'CuratedRecord';
+    }
+
+    /**
+     * Return full record as a filtered XmlDoc for public APIs.
+     *
+     * @return XmlDoc
+     */
+    public function getFilteredXmlElement(): XmlDoc
+    {
+        $record = parent::getFilteredXmlElement();
+        $record->filter(
+            function (array $node, string $path) use ($record): bool {
+                $path = implode(
+                    '/',
+                    array_map(
+                        [$record, 'localName'],
+                        explode('/', $path)
+                    )
+                );
+                return in_array($path, $this->filterFields);
+            }
+        );
+
+        return $this->filterEncapsulatedRecords($record);
+    }
+
+    /**
+     * Helper method for filtering fields.
+     *
+     * @param XmlDoc $xmlDoc       Document
+     * @param array  $filterFields Fields to filter (paths with local names of nodes)
+     *
+     * @return void
+     */
+    protected function doFilterFields(
+        XmlDoc $xmlDoc,
+        array $filterFields
+    ): void {
+    }
+}

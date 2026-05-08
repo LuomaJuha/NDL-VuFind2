@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Additional functionality for ILS/MultiILS authentication.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library 2015.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Authentication
@@ -25,8 +26,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:authentication_handlers Wiki
  */
+
 namespace Finna\Auth;
 
+use VuFind\Db\Entity\UserEntityInterface;
 use VuFind\Exception\Auth as AuthException;
 
 /**
@@ -41,24 +44,7 @@ use VuFind\Exception\Auth as AuthException;
 trait ILSFinna
 {
     /**
-     * Check if ILS supports password recovery
-     *
-     * @param string $target Login target (MultiILS)
-     *
-     * @return string
-     */
-    public function ilsSupportsPasswordRecovery($target)
-    {
-        $catalog = $this->getCatalog();
-        $recoveryConfig = $catalog->checkFunction(
-            'recoverPassword',
-            ['cat_username' => "$target.123"]
-        );
-        return $recoveryConfig ? true : false;
-    }
-
-    /**
-     * Check if ILS supports self-registration
+     * Check if ILS supports self-registration.
      *
      * @param string $target Login target (MultiILS)
      *
@@ -75,7 +61,7 @@ trait ILSFinna
     }
 
     /**
-     * Make sure passwords match and fulfill ILS policy
+     * Make sure passwords match and fulfill ILS policy.
      *
      * @param array $params request parameters
      *
@@ -92,14 +78,15 @@ trait ILSFinna
      * @param string $username    User name
      * @param string $password    Password
      * @param string $loginMethod Login method
+     * @param bool   $rememberMe  Whether to remember the login
      *
      * @throws AuthException
-     * @return \VuFind\Db\Row\User Processed User object.
+     * @return UserEntityInterface Processed User object.
      */
-    protected function handleLogin($username, $password, $loginMethod)
+    protected function handleLogin($username, $password, $loginMethod, $rememberMe)
     {
         $username = str_replace(' ', '', $username);
-        return parent::handleLogin($username, $password, $loginMethod);
+        return parent::handleLogin($username, $password, $loginMethod, $rememberMe);
     }
 
     /**
@@ -108,7 +95,7 @@ trait ILSFinna
      * @param array $info User details returned by ILS driver.
      *
      * @throws AuthException
-     * @return \VuFind\Db\Row\User Processed User object.
+     * @return UserEntityInterface Processed User object.
      */
     protected function processILSUser($info)
     {
@@ -120,47 +107,20 @@ trait ILSFinna
             }
         }
 
-        // Figure out which field of the response to use as an identifier; fail
-        // if the expected field is missing or empty:
-        $config = $this->getConfig();
-        $usernameField = $config->Authentication->ILS_username_field
-            ?? 'cat_username';
-        if (!isset($info[$usernameField]) || empty($info[$usernameField])) {
-            throw new AuthException('authentication_error_technical');
-        }
-
-        // Check to see if we already have an account for this user:
-        $userTable = $this->getUserTable();
-        if (!empty($info['id'])) {
-            $user = $userTable->getByCatalogId($info['id'], false);
-            if (empty($user)) {
-                $user = $userTable->getByUsername($info[$usernameField]);
-                $user->saveCatalogId($info['id']);
+        // Add institution prefix to id
+        if (isset($info['id'])) {
+            $config = $this->getConfig()->toArray();
+            if ($institution = $config['Site']['institution'] ?? null) {
+                $info['id'] = "$institution:" . $info['id'];
             }
-        } else {
-            $user = $userTable->getByUsername($info[$usernameField]);
         }
 
-        // No need to store the ILS password in VuFind's main password field:
-        $user->password = '';
-
-        // Update user information based on ILS data:
-        $fields = ['firstname', 'lastname', 'major', 'college'];
-        foreach ($fields as $field) {
-            $user->$field = $info[$field] ?? ' ';
-        }
-        $user->updateEmail($info['email'] ?? '');
+        $user = parent::processILSUser($info);
 
         // Set home library if not already set
-        if (!empty($info['home_library']) && empty($user->home_library)) {
-            $user->home_library = $info['home_library'];
+        if (!empty($info['home_library']) && empty($user->getHomeLibrary())) {
+            $this->authenticator->updateUserHomeLibrary($user, $info['home_library']);
         }
-
-        // Update the user in the database, then return it to the caller:
-        $user->saveCredentials(
-            $info['cat_username'] ?? ' ',
-            $info['cat_password'] ?? ' '
-        );
 
         return $user;
     }

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Console service for protecting lists.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,61 +17,66 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Lists;
 
-use VuFind\Db\Row\RowGateway;
+use Finna\Db\Entity\UserListEntityInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
+use VuFind\Db\Entity\EntityInterface;
+
+use function assert;
 
 /**
- * Console service for protecting lists
+ * Console service for protecting lists.
  *
  * @category VuFind
  * @package  Service
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+#[AsCommand(
+    name: 'lists/protect'
+)]
 class Protect extends \FinnaConsole\Command\AbstractRecordUpdateCommand
 {
     /**
-     * Table display name
+     * Table display name.
      *
      * @var string
      */
     protected $tableName = 'list';
 
     /**
-     * Command description
+     * Command description.
      *
      * @var string
      */
     protected $description = 'Protect lists in the database';
 
     /**
-     * Update a record
+     * Update a record.
      *
-     * @param RowGateway $record Record
+     * @param EntityInterface $record Record
      *
      * @return bool Whether changes were made
      */
-    protected function changeRecord(RowGateway $record): bool
+    protected function changeRecord(EntityInterface $record): bool
     {
-        if ($record->finna_protected === 1) {
+        assert($record instanceof UserListEntityInterface);
+        if ($record->getFinnaProtected()) {
             return false;
         }
-        $record->finna_protected = 1;
-        // Fake a user to pass owner check:
-        $user = new \StdClass();
-        $user->id = $record->user_id;
-        $record->save($user);
+        $record->setFinnaProtected(true);
         return true;
     }
 }

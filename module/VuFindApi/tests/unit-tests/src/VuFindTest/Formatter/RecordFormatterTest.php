@@ -3,7 +3,7 @@
 /**
  * Unit tests for record formatter.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -26,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindTest\Formatter;
 
 use VuFind\I18n\TranslatableString;
@@ -53,20 +54,20 @@ class RecordFormatterTest extends \PHPUnit\Framework\TestCase
             'cleanDOI' => [
                 'vufind.method' => 'getCleanDOI',
                 'description' => 'First valid DOI',
-                'type' => 'string'
+                'type' => 'string',
             ],
             'dedupIds' => [
                 'vufind.method' => 'Formatter::getDedupIds',
                 'description' => 'IDs of all records deduplicated',
                 'type' => 'array',
-                'items' => ['type' => 'string']
+                'items' => ['type' => 'string'],
             ],
             'fullRecord' => ['vufind.method' => 'Formatter::getFullRecord'],
             'rawData' => ['vufind.method' => 'Formatter::getRawData'],
             'buildings' => ['vufind.method' => 'getBuildings'],
             'recordPage' => ['vufind.method' => 'Formatter::getRecordPage'],
             'subjectsExtended' => [
-                'vufind.method' => 'Formatter::getExtendedSubjectHeadings'
+                'vufind.method' => 'Formatter::getExtendedSubjectHeadings',
             ],
             'authors' => ['vufind.method' => 'getDeduplicatedAuthors'],
         ];
@@ -84,8 +85,7 @@ class RecordFormatterTest extends \PHPUnit\Framework\TestCase
         $hm->setService('translate', new \VuFind\View\Helper\Root\Translate());
         $mockRecordLinker
             = $container->get(\VuFind\View\Helper\Root\RecordLinker::class);
-        $mockRecordLinker->expects($this->any())->method('getUrl')
-            ->will($this->returnValue('http://record'));
+        $mockRecordLinker->method('getUrl')->willReturn('http://record');
         $hm->setService('recordLinker', $mockRecordLinker);
         return $hm;
     }
@@ -152,7 +152,7 @@ class RecordFormatterTest extends \PHPUnit\Framework\TestCase
         $expectedRaw = $driver->getRawData();
         unset($expectedRaw['spelling']);
         $expectedRaw['Buildings'] = [
-            'foo', ['value' => 'bar', 'translated' => 'xyzzy']
+            'foo', ['value' => 'bar', 'translated' => 'xyzzy'],
         ];
         $expected = [
             [
@@ -195,12 +195,12 @@ class RecordFormatterTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'cleanDOI' => [
                 'description' => 'First valid DOI',
-                'type' => 'string'
+                'type' => 'string',
             ],
             'dedupIds' => [
                 'description' => 'IDs of all records deduplicated',
                 'type' => 'array',
-                'items' => ['type' => 'string']
+                'items' => ['type' => 'string'],
             ],
             'fullRecord' => [],
             'rawData' => [],

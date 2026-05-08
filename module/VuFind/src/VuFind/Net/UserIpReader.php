@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Service to retrieve user IP address.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Net
@@ -25,9 +26,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Net;
 
 use Laminas\Stdlib\Parameters;
+
+use function count;
 
 /**
  * Service to retrieve user IP address.
@@ -41,7 +45,7 @@ use Laminas\Stdlib\Parameters;
 class UserIpReader
 {
     /**
-     * Server parameters
+     * Server parameters.
      *
      * @var Parameters
      */
@@ -56,14 +60,14 @@ class UserIpReader
     protected $allowForwardedIps;
 
     /**
-     * IP addresses to exclude from consideration
+     * IP addresses to exclude from consideration.
      *
      * @var array
      */
     protected $ipFilter;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param Parameters  $server            Server parameters
      * @param string|bool $allowForwardedIps Forwarded header configuration string
@@ -112,19 +116,14 @@ class UserIpReader
                 // Also note that we need to use array_shift/array_pop/current here
                 // in place of specific indexes, because the filtering above may have
                 // left non-consecutive keys in place.
-                switch (strtolower(rtrim($behavior, ':'))) {
-                case 'first':
-                    if (!empty($parts)) {
-                        return array_shift($parts);
-                    }
-                case 'last':
-                    if (!empty($parts)) {
-                        return array_pop($parts);
-                    }
-                default:
-                    if (count($parts) === 1) {
-                        return current($parts);
-                    }
+                $finalBehavior = strtolower(rtrim($behavior, ':'));
+                $partCount = count($parts);
+                if ($finalBehavior === 'first' && $partCount > 0) {
+                    return array_shift($parts);
+                } elseif ($finalBehavior === 'last' && $partCount > 0) {
+                    return array_pop($parts);
+                } elseif ($partCount === 1) {
+                    return current($parts);
                 }
             }
         }

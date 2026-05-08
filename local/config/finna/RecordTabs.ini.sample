@@ -58,6 +58,7 @@ tabs[Details] = StaffViewMARC
 defaultTab = null
 
 [Finna\RecordDriver\SolrEad]
+tabs[Holdings] = HoldingsArchive
 tabs[HierarchyTree] = HierarchyTree
 tabs[UserComments] = UserComments
 tabs[Reviews] = Reviews
@@ -66,7 +67,7 @@ tabs[Details] = StaffViewArray
 defaultTab = null
 
 [Finna\RecordDriver\SolrEad3]
-tabs[ExternalData] = ExternalData
+tabs[Holdings] = HoldingsArchive
 tabs[HierarchyTree] = HierarchyTree
 tabs[UserComments] = UserComments
 tabs[Reviews] = Reviews
@@ -119,7 +120,6 @@ defaultTab = null
 ; by a tab. Settings are named by the tab name (X above) and may be repeated if
 ; multiple scripts are required.
 [TabScripts]
-Versions[] = openurl.js
 Versions[] = combined-search.js
 Versions[] = check_item_statuses.js
 Versions[] = record_versions.js

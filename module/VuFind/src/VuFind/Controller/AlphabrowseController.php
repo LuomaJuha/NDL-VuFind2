@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AlphaBrowse Module Controller
+ * AlphaBrowse Module Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,15 +27,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/indexing:alphabetical_heading_browse Wiki
  */
+
 namespace VuFind\Controller;
 
-use Laminas\Config\Config;
 use Laminas\View\Model\ViewModel;
+use VuFind\Config\Config;
 use VuFind\Exception\BadRequest;
 use VuFindSearch\ParamBag;
 
+use function in_array;
+use function intval;
+
 /**
- * AlphabrowseController Class
+ * AlphabrowseController Class.
  *
  * Controls the alphabetical browsing feature
  *
@@ -50,7 +55,7 @@ class AlphabrowseController extends AbstractBase
     use Feature\AlphaBrowseTrait;
 
     /**
-     * Default browse types
+     * Default browse types.
      *
      * @var array
      */
@@ -58,46 +63,42 @@ class AlphabrowseController extends AbstractBase
         'topic'  => 'By Topic',
         'author' => 'By Author',
         'title'  => 'By Title',
-        'lcc'    => 'By Call Number'
+        'lcc'    => 'By Call Number',
     ];
 
     /**
-     * Default extras
+     * Default extras.
      *
      * @var array
      */
     protected $defaultExtras = [
         'title' => 'author:format:publishDate',
         'lcc' => 'title',
-        'dewey' => 'title'
+        'dewey' => 'title',
     ];
 
     /**
      * Get browse types from config file, or use defaults if unavailable.
      *
-     * @param Config $config Configuration
+     * @param array $config Configuration
      *
      * @return array
      */
-    protected function getTypes(Config $config): array
+    protected function getTypes(array $config): array
     {
-        return empty($config->AlphaBrowse_Types)
-            ? $this->defaultTypes
-            : $config->AlphaBrowse_Types->toArray();
+        return empty($config['AlphaBrowse_Types']) ? $this->defaultTypes : $config['AlphaBrowse_Types'];
     }
 
     /**
      * Load any extras from config file, or use defaults if unavailable.
      *
-     * @param Config $config Configuration
+     * @param array $config Configuration
      *
      * @return array
      */
-    protected function getExtras(Config $config): array
+    protected function getExtras(array $config): array
     {
-        return isset($config->AlphaBrowse_Extras)
-            ? $config->AlphaBrowse_Extras->toArray()
-            : $this->defaultExtras;
+        return $config['AlphaBrowse_Extras'] ?? $this->defaultExtras;
     }
 
     /**
@@ -172,11 +173,36 @@ class AlphabrowseController extends AbstractBase
                 $view->prevpage = $page - 1;
             }
         }
+
+        if ($view->source === 'topic') {
+            $this->applyTopicDelimiters($result);
+        }
+
         $view->result = $result;
 
         // set up highlighting: page 0 contains match location
         if ($highlighting && $page == 0 && isset($view->result['Browse'])) {
             $this->applyHighlighting($view, $rowsBefore);
+        }
+    }
+
+    /**
+     * Applies topic delimiters to the 'heading' field of each item in the browse results.
+     *
+     * @param array $result The result array containing 'Browse' items to be modified.
+     *
+     * @return void
+     */
+    protected function applyTopicDelimiters(&$result): void
+    {
+        $config = $this->getConfigArray();
+
+        foreach ($result['Browse']['items'] as &$item) {
+            $item['heading'] = str_replace(
+                "\u{2002}",
+                ($config['AlphaBrowse']['topic_browse_separator'] ?? ' > '),
+                $item['heading']
+            );
         }
     }
 
@@ -214,18 +240,18 @@ class AlphabrowseController extends AbstractBase
     }
 
     /**
-     * Gathers data for the view of the AlphaBrowser and does some initialization
+     * Gathers data for the view of the AlphaBrowser and does some initialization.
      *
      * @return ViewModel
      */
     public function homeAction(): ViewModel
     {
         // Load config parameters
-        $config = $this->getConfig();
-        $rowsBefore = ctype_digit((string)($config->AlphaBrowse->rows_before ?? '-'))
-            ? (int)$config->AlphaBrowse->rows_before : 0;
-        $limit  = ctype_digit((string)($config->AlphaBrowse->page_size ?? '-'))
-            ? (int)$config->AlphaBrowse->page_size : 20;
+        $config = $this->getConfigArray();
+        $rowsBefore = ctype_digit((string)($config['AlphaBrowse']['rows_before'] ?? '-'))
+            ? (int)$config['AlphaBrowse']['rows_before'] : 0;
+        $limit  = ctype_digit((string)($config['AlphaBrowse']['page_size'] ?? '-'))
+            ? (int)$config['AlphaBrowse']['page_size'] : 20;
 
         // Process incoming parameters:
         $source = $this->params()->fromQuery('source', false);
@@ -234,8 +260,7 @@ class AlphabrowseController extends AbstractBase
 
         // Load highlighting configuration while accounting for special case:
         // highlighting is pointless if there's no user input:
-        $highlighting = empty($from)
-            ? false : $config->AlphaBrowse->highlighting ?? false;
+        $highlighting = empty($from) ? false : $config['AlphaBrowse']['highlighting'] ?? false;
 
         // Set up any extra parameters to pass
         $extras = $this->getExtras($config);

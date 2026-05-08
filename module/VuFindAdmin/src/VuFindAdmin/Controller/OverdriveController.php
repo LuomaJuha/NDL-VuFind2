@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Admin Tag Controller
+ * Admin Overdrive Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFindAdmin\Controller;
 
 /**
- * Class controls distribution of tags and resource tags.
+ * Admin Overdrive Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -39,36 +41,13 @@ namespace VuFindAdmin\Controller;
 class OverdriveController extends AbstractAdmin
 {
     /**
-     * Params
-     *
-     * @var array
-     */
-    protected $params;
-
-    /**
-     * Get the url parameters
-     *
-     * @param string $param A key to check the url params for
-     *
-     * @return string
-     */
-    protected function getParam($param)
-    {
-        return $this->params[$param] ?? $this->params()->fromPost(
-            $param,
-            $this->params()->fromQuery($param, null)
-        );
-    }
-
-    /**
-     * Tag Details
+     * Overdrive Details.
      *
      * @return \Laminas\View\Model\ViewModel
      */
     public function homeAction()
     {
-        $connector  = $this->serviceLocator
-            ->get(\VuFind\DigitalContent\OverdriveConnector::class);
+        $connector  = $this->getService(\VuFind\DigitalContent\OverdriveConnector::class);
 
         $view = $this->createViewModel();
         $view->setTemplate('admin/overdrive/home');

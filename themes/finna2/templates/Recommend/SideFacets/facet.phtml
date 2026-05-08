@@ -17,7 +17,7 @@
   $plotFrom = null;
   $daterangeFacetField = null;
   $options = $results->getOptions();
-  if (in_array($backendId, ['Solr', 'Primo', 'Blender', 'R2'])) {
+  if (in_array($backendId, ['Solr', 'Primo', 'Blender'])) {
     if (is_callable([$options, 'getDateRangeSearchField'])) {
       $daterangeFacetField = $options->getDateRangeSearchField();
     }
@@ -57,7 +57,7 @@
   }
 ?>
 <?php if (isset($newItemsFacets[$facet])): ?>
-  <?=$this->context($this)->renderInContext('Recommend/SideFacets/new-item-facet.phtml', ['results' => $results, 'title' => $facet, 'newItemsFacets' => $newItemsFacets, 'datePickerLang' => $datePickerLang]); ?>
+  <?=$this->context($this)->renderInContext('Recommend/SideFacets/new-item-facet.phtml', ['results' => $results, 'title' => $facet, 'newItemsFacets' => $newItemsFacets]); ?>
 <?php elseif ($daterangeFacet): ?>
   <div class="list-group-item daterange">
     <?=$this->partial('Recommend/DateRangeVisAjax.phtml', [
@@ -71,19 +71,19 @@
       'backend' => $backendId,
       'daterangeFacet' => $daterangeFacetField,
       'plotFrom' => $plotFrom,
-      'plotImmediately' => !in_array($facet, $collapsedFacets) ? 'true' : 'false'
+      'plotImmediately' => $this->plotImmediately ?? !in_array($facet, $collapsedFacets),
     ]);
     ?>
   </div>
 <?php elseif (isset($rangeFacets[$facet])): ?>
-  <?=$this->context($this)->renderInContext('Recommend/SideFacets/range-facet.phtml', ['results' => $results, 'title' => $facet, 'facet' => $rangeFacets[$facet]]); ?>
+  <?=$this->context($this)->renderInContext('Recommend/SideFacets/range-facet.phtml', ['results' => $results, 'title' => $facet, 'facet' => $rangeFacets[$facet], 'submitLabel' => 'Update',]); ?>
 <?php elseif ($facet == 'usage_rights_str_mv'): ?>
   <?php $contextVars = [
       'options' => $options,
       'allowExclude' => $this->recommend->excludeAllowed($facet),
       'facets_before_more' => $this->recommend->getShowMoreSetting($facet),
       'showMoreInLightbox' => $this->recommend->getShowInLightboxSetting($facet),
-      'results' => $results
+      'results' => $results,
   ]; ?>
   <?=$this->context($this)->renderInContext('Recommend/SideFacets/usage-rights-facet.phtml', array_merge($contextVars, ['title' => $facet, 'cluster' => $this->cluster])); ?>
 <?php else: ?>
@@ -96,7 +96,7 @@
     'sortOptions' => $hierarchicalFacetSortOptions[$facet] ?? '',
     'sortOptions' => $hierarchicalFacetSortOptions[$facet] ?? $hierarchicalFacetSortOptions['*'] ?? null,
     'collapsedFacets' => $collapsedFacets,
-    'results' => $results
+    'results' => $results,
   ]; ?>
   <?php if (in_array($facet, $hierarchicalFacets)): ?>
     <?php

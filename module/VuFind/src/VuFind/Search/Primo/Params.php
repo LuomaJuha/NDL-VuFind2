@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Primo Central Search Parameters
+ * Primo Central Search Parameters.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Primo
@@ -26,12 +27,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search\Primo;
 
 use VuFindSearch\ParamBag;
 
+use function in_array;
+
 /**
- * Primo Central Search Parameters
+ * Primo Central Search Parameters.
  *
  * @category VuFind
  * @package  Search_Primo
@@ -61,7 +65,7 @@ class Params extends \VuFind\Search\Base\Params
 
     /**
      * Mappings of specific Primo facet values (spelling errors and other special
-     * cases present at least in CDI)
+     * cases present at least in CDI).
      *
      * @var array
      */
@@ -69,6 +73,7 @@ class Params extends \VuFind\Search\Base\Params
         'reference_entrys' => 'Reference Entries',
         'newsletterarticle' => 'Newsletter Articles',
         'archival_material_manuscripts' => 'Archival Materials / Manuscripts',
+        'magazinearticle' => 'Magazine Articles',
     ];
 
     /**
@@ -130,7 +135,7 @@ class Params extends \VuFind\Search\Base\Params
     }
 
     /**
-     * Return the current filters as an array
+     * Return the current filters as an array.
      *
      * @return array
      */
@@ -148,11 +153,50 @@ class Params extends \VuFind\Search\Base\Params
                 $facetOp = '~' === $prefix ? 'OR' : 'NOT';
                 $field = substr($field, 1);
             }
-            $result[$field] = [
+            $result[] = [
+                'field' => $field,
                 'facetOp' => $facetOp,
-                'values' => $filter
+                'values' => $filter,
             ];
         }
         return $result;
+    }
+
+    /**
+     * Return an array structure containing information about all current filters.
+     *
+     * @param bool $excludeCheckboxFilters Should we exclude checkbox filters from
+     * the list (to be used as a complement to getCheckboxFacets()).
+     *
+     * @return array                       Field, values and translation status
+     */
+    public function getFilterList($excludeCheckboxFilters = false)
+    {
+        $result = parent::getFilterList($excludeCheckboxFilters);
+        if (isset($result['citing'])) {
+            unset($result['citing']);
+        }
+        if (isset($result['citedby'])) {
+            unset($result['citedby']);
+        }
+        return $result;
+    }
+
+    /**
+     * Get a user-friendly string to describe the provided facet field.
+     *
+     * @param string $field               Facet field name.
+     * @param string $value               Facet value.
+     * @param string $default             Default field name (null for default behavior).
+     * @param bool   $allowCheckboxFacets Should checkbox facet labels be allowed too?
+     *
+     * @return string Human-readable description of field.
+     */
+    public function getFacetLabel($field, $value = null, $default = null, $allowCheckboxFacets = true)
+    {
+        if (in_array($field, ['citing', 'citedby'])) {
+            return $field;
+        }
+        return parent::getFacetLabel($field, $value, $default, $allowCheckboxFacets);
     }
 }

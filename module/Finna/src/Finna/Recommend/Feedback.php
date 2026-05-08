@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Feedback Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\Recommend;
 
 use Finna\Cookie\RecommendationMemory;
@@ -97,7 +99,7 @@ class Feedback implements RecommendInterface
     }
 
     /**
-     * Called after the Search Results object has performed its main search.  This
+     * Called after the Search Results object has performed its main search. This
      * may be used to extract necessary information from the Search Results object
      * or to perform completely unrelated processing.
      *
@@ -136,8 +138,8 @@ class Feedback implements RecommendInterface
                 'original'
                     => $this->recData[RecommendationMemory::ORIGINAL],
                 'recommendation_type'
-                    => $this->recData[RecommendationMemory::RECOMMENDATION_TYPE]
-            ]
+                    => $this->recData[RecommendationMemory::RECOMMENDATION_TYPE],
+            ],
         ];
     }
 }

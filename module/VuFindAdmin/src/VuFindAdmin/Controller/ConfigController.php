@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Admin Configuration Controller
+ * Admin Configuration Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFindAdmin\Controller;
 
 /**
@@ -39,7 +41,7 @@ namespace VuFindAdmin\Controller;
 class ConfigController extends AbstractAdmin
 {
     /**
-     * Configuration management
+     * Configuration management.
      *
      * @return \Laminas\View\Model\ViewModel
      */
@@ -47,11 +49,10 @@ class ConfigController extends AbstractAdmin
     {
         $view = $this->createViewModel();
         $view->setTemplate('admin/config/home');
-        $resolver = $this->serviceLocator->get(\VuFind\Config\PathResolver::class);
+        $resolver = $this->getService(\VuFind\Config\PathResolver::class);
         $view->baseConfigPath = $resolver->getBaseConfigPath('');
-        $conf = $this->getConfig();
-        $view->showInstallLink
-            = isset($conf->System->autoConfigure) && $conf->System->autoConfigure;
+        $conf = $this->getConfigArray();
+        $view->showInstallLink = $conf['System']['autoConfigure'] ?? false;
         return $view;
     }
 
@@ -62,7 +63,7 @@ class ConfigController extends AbstractAdmin
      */
     public function enableautoconfigAction()
     {
-        $resolver = $this->serviceLocator->get(\VuFind\Config\PathResolver::class);
+        $resolver = $this->getService(\VuFind\Config\PathResolver::class);
         if (!($configFile = $resolver->getLocalConfigPath('config.ini'))) {
             $this->flashMessenger()->addErrorMessage(
                 'Could not enable auto-configuration; local '
@@ -72,19 +73,23 @@ class ConfigController extends AbstractAdmin
         }
         $writer = new \VuFind\Config\Writer($configFile);
         $writer->set('System', 'autoConfigure', 1);
-        if ($writer->save()) {
-            $this->flashMessenger()
-                ->addMessage('Auto-configuration enabled.', 'success');
+        $success = false;
+        try {
+            $success = $writer->save();
+        } catch (\Exception $e) {
+            // Failure -- leave $success set to false.
+        }
+        if ($success) {
+            $this->flashMessenger()->addSuccessMessage('Auto-configuration enabled.');
 
             // Reload config now that it has been edited (otherwise, old setting
             // will persist in cache):
-            $this->serviceLocator->get(\VuFind\Config\PluginManager::class)
-                ->reload('config');
+            $this->getService(\VuFind\Config\ConfigManagerInterface::class)
+                ->getConfig('config', forceReload: true);
         } else {
-            $this->flashMessenger()->addMessage(
+            $this->flashMessenger()->addErrorMessage(
                 'Could not enable auto-configuration; check permissions on '
-                . $configFile . '.',
-                'error'
+                . $configFile . '.'
             );
         }
         return $this->forwardTo('AdminConfig', 'Home');

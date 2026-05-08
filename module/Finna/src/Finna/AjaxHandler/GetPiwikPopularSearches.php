@@ -1,8 +1,9 @@
 <?php
+
 /**
- * GetPiwikPopularSearches AJAX handler
+ * GetPiwikPopularSearches AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018-2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,17 +26,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
-use Laminas\Config\Config;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\View\Renderer\RendererInterface;
 use VuFind\Cache\Manager as CacheManager;
+use VuFind\Config\Config;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * GetPiwikPopularSearches AJAX handler
+ * GetPiwikPopularSearches AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -43,37 +45,38 @@ use VuFind\Session\Settings as SessionSettings;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetPiwikPopularSearches extends \VuFind\AjaxHandler\AbstractBase
-    implements TranslatorAwareInterface, \VuFindHttp\HttpServiceAwareInterface,
-    \Laminas\Log\LoggerAwareInterface
+class GetPiwikPopularSearches extends \VuFind\AjaxHandler\AbstractBase implements
+    TranslatorAwareInterface,
+    \VuFindHttp\HttpServiceAwareInterface,
+    \Psr\Log\LoggerAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
     use \VuFind\Log\LoggerAwareTrait;
     use \VuFindHttp\HttpServiceAwareTrait;
 
     /**
-     * Cache manager
+     * Cache manager.
      *
      * @var CacheManager
      */
     protected $cacheManager;
 
     /**
-     * Config
+     * Config.
      *
      * @var Config
      */
     protected $config;
 
     /**
-     * View renderer
+     * View renderer.
      *
      * @var RendererInterface
      */
     protected $renderer;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param SessionSettings   $ss       Session settings
      * @param CacheManager      $cm       Cache manager
@@ -103,7 +106,8 @@ class GetPiwikPopularSearches extends \VuFind\AjaxHandler\AbstractBase
     {
         $this->disableSessionWrites();  // avoid session write timing bug
 
-        if (empty($this->config->Piwik->url)
+        if (
+            empty($this->config->Piwik->url)
             || empty($this->config->Piwik->site_id)
             || empty($this->config->Piwik->token_auth)
         ) {
@@ -118,7 +122,7 @@ class GetPiwikPopularSearches extends \VuFind\AjaxHandler\AbstractBase
             'period'       => 'range',
             'date'         => date('Y-m-d', strtotime('-30 days')) . ',' .
                               date('Y-m-d'),
-            'token_auth'   => $this->config->Piwik->token_auth
+            'token_auth'   => $this->config->Piwik->token_auth,
         ];
         $url = $this->config->Piwik->url;
 
@@ -131,7 +135,8 @@ class GetPiwikPopularSearches extends \VuFind\AjaxHandler\AbstractBase
         // Minutes
         $maxAge = $this->config->Piwik->querycachetime ?? 60;
 
-        if (is_readable($cacheFile)
+        if (
+            is_readable($cacheFile)
             && time() - filemtime($cacheFile) < $maxAge * 60
         ) {
             // Load local cache if available

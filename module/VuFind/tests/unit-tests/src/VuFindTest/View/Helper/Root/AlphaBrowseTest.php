@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AlphaBrowse view helper Test Class
+ * AlphaBrowse view helper Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\View\Helper\Root;
 
 use Laminas\View\Helper\Url;
 use VuFind\View\Helper\Root\AlphaBrowse;
 
 /**
- * AlphaBrowse view helper Test Class
+ * AlphaBrowse view helper Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -44,6 +46,8 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
     /**
      * Get mock URL helper.
      *
+     * @param string $expectedQuery Expected query
+     *
      * @return Url
      */
     protected function getMockUrlHelper($expectedQuery): Url
@@ -51,17 +55,17 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
         $mock = $this->createMock(Url::class);
         $mock->expects($this->once())->method('__invoke')
             ->with(
-                $this->equalTo('search-results'),
-                $this->equalTo([]),
-                $this->equalTo(['query' => $expectedQuery])
-            )->will($this->returnValue('foo'));
+                'search-results',
+                [],
+                ['query' => $expectedQuery]
+            )->willReturn('foo');
         return $mock;
     }
 
     /**
      * Get configured AlphaBrowse helper for testing.
      *
-     * @param Url $ url      URL helper
+     * @param Url   $url     URL helper
      * @param array $options Extra options
      *
      * @return AlphaBrowse
@@ -87,7 +91,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
             ]
         );
         $helper = $this->getHelper($url);
-        $item = ['heading' => 'xyzzy', 'count' => 2];
+        $item = ['heading' => 'xyzzy', 'sort_key' => 'xyzzy', 'count' => 2];
         $this->assertEquals('foo', $helper->getUrl('title', $item));
     }
 
@@ -108,7 +112,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
             ]
         );
         $helper = $this->getHelper($url);
-        $item = ['heading' => 'xyzzy', 'count' => 1];
+        $item = ['heading' => 'xyzzy', 'sort_key' => 'xyzzy', 'count' => 1];
         $this->assertEquals('foo', $helper->getUrl('title', $item));
     }
 
@@ -127,7 +131,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
             ]
         );
         $helper = $this->getHelper($url);
-        $item = ['heading' => '"xyzzy"', 'count' => 100];
+        $item = ['heading' => '"xyzzy"', 'sort_key' => '"xyzzy"', 'count' => 100];
         $this->assertEquals('foo', $helper->getUrl('title', $item));
     }
 
@@ -146,7 +150,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
             ]
         );
         $helper = $this->getHelper($url, ['bypass_default_filters' => false]);
-        $item = ['heading' => 'xyzzy', 'count' => 100];
+        $item = ['heading' => 'xyzzy', 'sort_key' => 'xyzzy', 'count' => 100];
         $this->assertEquals('foo', $helper->getUrl('title', $item));
     }
 }

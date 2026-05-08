@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Base Search Object Parameters Test
+ * Base Search Object Parameters Test.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2022.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -28,14 +29,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\Search\Base;
 
-use VuFind\Config\PluginManager;
+use minSO;
+use VuFind\Config\ConfigManagerInterface;
 use VuFind\Search\Base\Options;
 use VuFind\Search\Base\Params;
+use VuFind\Search\QueryAdapter;
+use VuFindSearch\Query\Query;
 
 /**
- * Base Search Object Parameters Test
+ * Base Search Object Parameters Test.
  *
  * @category VuFind
  * @package  Tests
@@ -47,44 +52,27 @@ use VuFind\Search\Base\Params;
  */
 class ParamsTest extends \PHPUnit\Framework\TestCase
 {
-    use \VuFindTest\Feature\ConfigPluginManagerTrait;
+    use \VuFindTest\Feature\ConfigRelatedServicesTrait;
+    use \VuFindTest\Feature\SearchObjectsTrait;
     use \VuFindTest\Feature\ReflectionTrait;
 
     /**
-     * Get mock Options object
+     * Get mock Params object.
      *
-     * @param PluginManager $configManager Config manager for Options object (null
-     * for new mock)
-     *
-     * @return Options
-     */
-    protected function getMockOptions(PluginManager $configManager = null): Options
-    {
-        return $this->getMockForAbstractClass(
-            Options::class,
-            [$configManager ?? $this->getMockConfigPluginManager([])]
-        );
-    }
-
-    /**
-     * Get mock Params object
-     *
-     * @param Options       $options       Options object to send to Params
-     * constructor (null for new mock)
-     * @param PluginManager $configManager Config manager for Params object (null
+     * @param Options                $options       Options object to send to Params
+     *                                              constructor (null for new mock)
+     * @param ConfigManagerInterface $configManager Config manager for Params object (null
      * for new mock)
      *
      * @return Params
      */
     protected function getMockParams(
         ?Options $options = null,
-        ?PluginManager $configManager = null
+        ?ConfigManagerInterface $configManager = null
     ): Params {
-        $configManager = $configManager ?? $this->getMockConfigPluginManager([]);
-        return $this->getMockForAbstractClass(
-            Params::class,
-            [$options ?? $this->getMockOptions($configManager), $configManager]
-        );
+        $configManager ??= $this->getMockConfigManager();
+        return new class ($options ?? $this->getBaseOptionsObject($configManager), $configManager) extends Params {
+        };
     }
 
     /**
@@ -156,7 +144,7 @@ class ParamsTest extends \PHPUnit\Framework\TestCase
                         'displayText' => 'baz',
                         'field' => 'format',
                         'operator' => 'OR',
-                    ]
+                    ],
                 ],
                 'building_label' => [
                     [
@@ -170,8 +158,8 @@ class ParamsTest extends \PHPUnit\Framework\TestCase
                         'displayText' => 'sub',
                         'field' => 'building',
                         'operator' => 'NOT',
-                    ]
-                ]
+                    ],
+                ],
             ],
             $params->getFilterList()
         );
@@ -192,8 +180,8 @@ class ParamsTest extends \PHPUnit\Framework\TestCase
                         'displayText' => 'sub',
                         'field' => 'building',
                         'operator' => 'NOT',
-                    ]
-                ]
+                    ],
+                ],
 
             ],
             $params->getFilterList()
@@ -209,8 +197,8 @@ class ParamsTest extends \PHPUnit\Framework\TestCase
                         'displayText' => 'sub',
                         'field' => 'building',
                         'operator' => 'NOT',
-                    ]
-                ]
+                    ],
+                ],
 
             ],
             $params->getFilterList()
@@ -270,7 +258,7 @@ class ParamsTest extends \PHPUnit\Framework\TestCase
             $params,
             'facetAliases',
             [
-                'foo_old' => 'foo'
+                'foo_old' => 'foo',
             ]
         );
 
@@ -322,5 +310,39 @@ class ParamsTest extends \PHPUnit\Framework\TestCase
                 'ophtalmologie*'
             )
         );
+    }
+
+    /**
+     * Test query adapters.
+     *
+     * @return void
+     */
+    public function testQueryAdapters(): void
+    {
+        $params = $this->getMockParams();
+        $params->setQuery(new Query('foo'));
+        $params->setLimit(50);
+
+        $minified = $this->createMock(minSO::class);
+        $params->minify($minified);
+        $this->assertEquals(
+            [
+                [
+                    'l' => 'foo',
+                    'i' => null,
+                    's' => 'b',
+                ],
+            ],
+            $minified->t
+        );
+        $this->assertEquals(50, $minified->scp['limit']);
+
+        $customAdapter = $this->createMock(QueryAdapter::class);
+        $customAdapter->expects($this->once())
+            ->method('minify')
+            ->willReturn('CUSTOM');
+        $params->setQueryAdapter($customAdapter);
+        $params->minify($minified);
+        $this->assertEquals('CUSTOM', $minified->t);
     }
 }

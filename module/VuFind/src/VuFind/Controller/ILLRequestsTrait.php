@@ -1,8 +1,9 @@
 <?php
+
 /**
- * ILL trait (for subclasses of AbstractRecord)
+ * ILL trait (for subclasses of AbstractRecord).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,10 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
+use VuFind\Db\Type\AuditEventSubtype;
+use VuFind\Db\Type\AuditEventType;
+
+use function in_array;
+use function is_array;
+
 /**
- * ILL trait (for subclasses of AbstractRecord)
+ * ILL trait (for subclasses of AbstractRecord).
  *
  * @category VuFind
  * @package  Controller
@@ -58,7 +66,7 @@ trait ILLRequestsTrait
             'ILLRequests',
             [
                 'id' => $driver->getUniqueID(),
-                'patron' => $patron
+                'patron' => $patron,
             ]
         );
         if (!$checkRequests) {
@@ -91,7 +99,7 @@ trait ILLRequestsTrait
         // Send various values to the view so we can build the form:
 
         $extraFields = isset($checkRequests['extraFields'])
-            ? explode(":", $checkRequests['extraFields']) : [];
+            ? explode(':', $checkRequests['extraFields']) : [];
 
         // Process form submissions if necessary:
         if (null !== $this->params()->fromPost('placeILLRequest')) {
@@ -112,21 +120,33 @@ trait ILLRequestsTrait
                     'msg' => 'ill_request_place_success_html',
                     'tokens' => [
                         '%%url%%' => $this->url()
-                            ->fromRoute('myresearch-illrequests')
+                            ->fromRoute('myresearch-illrequests'),
                     ],
                 ];
-                $this->flashMessenger()->addMessage($msg, 'success');
-                return $this->redirectToRecord('#top');
+                $this->flashMessenger()->addSuccessMessage($msg);
+                $this->getViewRenderer()->plugin('session')->put('reset_account_status', true);
+
+                $this->getAuditEventService()->addEvent(
+                    AuditEventType::ILS,
+                    AuditEventSubtype::PlaceILLRequest,
+                    $this->getUser(),
+                    data: [
+                        'username' => $patron['cat_username'],
+                        'details' => $details,
+                    ]
+                );
+
+                return $this->redirectToRecord($this->inLightbox() ? '?layout=lightbox' : '');
             } else {
                 // Failure: use flash messenger to display messages, stay on
                 // the current form.
                 if (isset($results['status'])) {
                     $this->flashMessenger()
-                        ->addMessage($results['status'], 'error');
+                        ->addErrorMessage($results['status']);
                 }
                 if (isset($results['sysMessage'])) {
                     $this->flashMessenger()
-                        ->addMessage($results['sysMessage'], 'error');
+                        ->addErrorMessage($results['sysMessage']);
                 }
             }
         }
@@ -134,9 +154,8 @@ trait ILLRequestsTrait
         // Find and format the default required date:
         $defaultRequiredDate = $this->ILLRequests()
             ->getDefaultRequiredDate($checkRequests);
-        $defaultRequiredDate
-            = $this->serviceLocator->get(\VuFind\Date\Converter::class)
-            ->convertToDisplayDate("U", $defaultRequiredDate);
+        $defaultRequiredDate = $this->getService(\VuFind\Date\Converter::class)
+            ->convertToDisplayDate('U', $defaultRequiredDate);
 
         // Get pickup libraries
         $pickupLibraries = $catalog->getILLPickUpLibraries(
@@ -158,10 +177,10 @@ trait ILLRequestsTrait
             return $this->redirectToRecord('#top');
         }
 
-        $config = $this->getConfig();
-        $homeLibrary = ($config->Account->set_home_library ?? true)
-            ? $this->getUser()->home_library : '';
-        // helpText is only for backward compatibility:
+        $config = $this->getConfigArray();
+        $homeLibrary = ($config['Account']['set_home_library'] ?? true)
+            ? $this->getUser()->getHomeLibrary() : '';
+        // helpText is only for backward compatibility with legacy code:
         $helpText = $helpTextHtml = $checkRequests['helpText'];
 
         $view = $this->createViewModel(

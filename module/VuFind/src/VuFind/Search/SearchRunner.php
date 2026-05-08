@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Search Runner
+ * VuFind Search Runner.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,16 +26,20 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search;
 
 use Laminas\EventManager\EventManager;
 use Laminas\EventManager\EventManagerInterface;
 use Laminas\Stdlib\Parameters;
 use VuFind\Search\Results\PluginManager as ResultsManager;
-use VuFind\Search\Solr\AbstractErrorListener as ErrorListener;
+use VuFind\Search\Solr\ErrorListener;
+
+use function is_array;
+use function is_callable;
 
 /**
- * VuFind Search Runner
+ * VuFind Search Runner.
  *
  * @category VuFind
  * @package  Search
@@ -74,14 +79,14 @@ class SearchRunner
     protected $searchId = 0;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ResultsManager $resultsManager Results manager
-     * @param EventManager   $events         Event manager (optional)
+     * @param ?EventManager  $events         Event manager (optional)
      */
     public function __construct(
         ResultsManager $resultsManager,
-        EventManager $events = null
+        ?EventManager $events = null
     ) {
         $this->resultsManager = $resultsManager;
         if (null !== $events) {
@@ -130,7 +135,7 @@ class SearchRunner
         $params->initFromRequest($request);
 
         if (is_callable($setupCallback)) {
-            $setupCallback($this, $params, $runningSearchId);
+            $setupCallback($this, $params, $runningSearchId, $results);
         }
 
         // Trigger the "configuration done" event.
@@ -175,7 +180,6 @@ class SearchRunner
      * @param EventManagerInterface $events Event manager
      *
      * @return void
-     * @todo   Deprecate `VuFind\Search' event namespace (2.2)
      */
     public function setEventManager(EventManagerInterface $events)
     {

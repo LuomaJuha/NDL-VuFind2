@@ -1,0 +1,398 @@
+// Finna Facet styling
+div.facet {
+  ul {
+    margin-bottom: 0px;
+  }
+}
+
+.list-group.facet,
+.list-group.facets {
+  // style Finna facet headers
+  .list-group-item.title {
+    padding: 0.7em;
+    margin-bottom: 0.1em;
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $facet-text-color;
+    text-align: left;
+    text-transform: uppercase;
+    background: $facet-header-background;
+    border: 1px solid  $facet-border-color;
+    .icon {
+      color: $action-link-color;
+    }
+  }
+  a {
+    color: $link-color;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  .more-less-btn-wrapper {
+    padding: 0.1em;
+    .icon + span {
+      margin-left: 0.3em;
+    }
+  }
+  .more-less-btn-wrapper .btn,
+  a.more-narrow-toggle {
+    display: flex;
+    align-items: baseline;
+    padding: 0em 0em 0em 0.3em;
+    margin: 0.3em;
+    font-size: $font-size-small;
+    font-weight: 700;
+    color: $gray;
+    text-transform: uppercase;
+    text-decoration: none;
+    background: transparent;
+    border-radius: 0px;
+    box-shadow: none;
+    &:focus-visible {
+      box-shadow: $focus-ring-box-shadow;
+    }
+  }
+  // Allow wrapping for facet_usage_rights_ext_str_mv
+  #facet_usage_rights_ext_str_mv li span.main {
+    white-space: inherit;
+  }
+}
+@include media-breakpoint-down(sm) {
+  .list-group.facet,
+  .list-group.facets {
+    // tablet mobile facet adjustments
+    .facet:not(.facet-group) {
+      font-size: 1.15em;
+      line-height: 1.15em;
+    }
+    .narrow-toggle .text,
+    .more-less-btn-wrapper {
+      font-size: $font-size-small;
+    }
+  }
+}
+
+.facet-group {
+  margin-bottom: 1rem;
+  .facet {
+    display: flex;
+    padding: 0.2em 0.2em 0.15em 0.6em;
+    .main-link,
+    .text {
+      flex-grow: 1;
+      overflow: hidden;
+    }
+    .text .facet-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+  .title {
+    display: flex;
+    line-height: $line-height-base;
+  }
+  // Hide checkbox from facets
+  .icon-link .icon {
+    display: none;
+  }
+  .collapse,
+  .collapsing {
+    position: relative;
+  }
+  .main-link,
+  .text,
+  .badge,
+  .exclude {
+    display: flex;
+    align-items: center;
+  }
+  .main-link,
+  .text {
+    flex-grow: 1;
+    gap: 0.25rem;
+  }
+  .badge {
+    flex-shrink: 0;
+  }
+  .exclude {
+    margin-left: 0.4em;
+    flex-shrink: 0;
+    text-align: center;
+    .icon  {
+      font-size: $font-size-small;
+    }
+  }
+  // No inverse active items
+  .active {
+    font-weight: bold;
+    color: $action-link-color;
+    background: $list-group-bg;
+  }
+}
+.facet-group .facet-title {
+  flex: 1 1 0%;
+  align-self: center;
+}
+.facet-group .facet-title-icon {
+  flex: none;
+}
+
+.facet-loading-overlay {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+.facet-loading-overlay-label {
+  padding: 0.2rem 0.5rem;
+  color: #fff;
+  background-color: #000;
+}
+
+.sidebar {
+  .facet-info-header {
+    padding: 0.8em 0em 0.8em 0.6em;
+    font-size: 0.9em;
+    font-weight: 600;
+  }
+  .facet-info {
+    padding: 0.4em;
+    margin-bottom: 0.8em;
+    font-size: 0.9em;
+    .icon {
+      display: table-cell;
+      font-size: 1.2em;
+      color: $primary;
+      vertical-align: baseline;
+    }
+    .info {
+      display: table-cell;
+      padding-left: 0.4em;
+      width: 100%;
+      vertical-align: middle;
+    }
+    .more-info {
+      display: block;
+      margin-top: 0.2em;
+      text-align: right;
+    }
+  }
+  .list-group.facet .collapse .list-group-item.facet-info-highlight {
+    @extend .alert;
+    @extend .alert-info;
+    padding: 0.6em;
+  }
+}
+
+/* ------ Hierarchical Facets ------ */
+.facet-tree {
+  .facet {
+    padding-left: 0.1rem;
+  }
+  li {
+    align-items: baseline;
+    border-bottom: none;
+    .facet-tree__toggle-expanded {
+      // Fix focus ring:
+      margin-top: 0.5em;
+      margin-right: 0.3em;   
+      color: $link-color;
+    }
+  }
+}
+
+// Full facet list
+.full-facet-controls {
+  .full-facet-sort-options.form-group {
+    margin-bottom: 0.2em;
+    .btn-group a {
+      padding: 0.4em 0.8em;
+      color: $action-link-color;
+      background-color: $body-bg;
+      border: 1px solid $action-link-color;
+      &.active {
+        color: $body-bg;
+        background-color: $action-link-color;
+      }
+    }
+  }
+  .facet-lightbox-filter.form-group {
+    display: block;
+    margin: 0.5rem 0rem;
+    #btn-reset-contains {
+      display: flex;
+      align-items: center;
+      height: $input-height-base;
+      margin-top: 0.2em;
+    }
+  }
+}
+.lightbox-scroll.full-facets {
+  margin-bottom: 0.4em;
+  border: 1px solid $gray-lighter;
+  .full-facet-list {
+    margin-bottom: 0px;
+    .facet {
+      display: flex;
+      flex-direction: row;
+      .badge {
+        padding-right: 0.3em;
+      }
+    }
+  }
+}
+
+/* ------ TOP FACETS ------ */
+.top-title {
+  display: inline-block;
+  padding-top: 0.5rem;
+  padding-left: 0.5rem;
+  font-weight: 700;
+  color: $text-color;
+  .icon {
+    width: 1rem;
+    text-align: center;
+  }
+}
+@include media-breakpoint-down(sm) {
+  .top-title.top-title__heading {
+    display: none;
+  }
+}
+@include media-breakpoint-up(sm) {
+  .top-title {
+    &.top-title__toggle,
+    .icon {
+      display: none;
+    }
+  }
+}
+
+.top-facets .facet,
+.top-facets > strong {
+  display: inline-block;
+  width: auto;
+  padding: 0.25rem 0rem;
+  white-space: nowrap;
+  border: 0;
+}
+
+.top-facets-contents {
+  margin: 0.25rem 0rem;
+  list-style: none;
+}
+
+.top-facets > strong,
+.top-facets-contents {
+  padding-left: 0.7em;
+}
+
+.top-facet-inner {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border: 1px solid $list-group-border-color;
+  .badge {
+    align-self: center;
+  }
+}
+
+.geographic-facet {
+  padding: 0em 0.5em;
+  margin-bottom: 0.7em;
+  .location-search-info .close-info {
+    float: right;
+    padding: 0.3em;
+    cursor: pointer;
+  }
+  .map-container {
+    position: relative;
+    .location-search-info {
+      position: absolute;
+      bottom: 0px;
+      z-index: $zindex-modal;
+      width: 100%;
+      height: auto;
+      padding: 0.7em;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.8);
+    }
+  }
+  .map-controls {
+    a.map-control,
+    a.user-location-filter {
+      float: left;
+      width: 50%;
+      padding: 0.8em 0.4em;
+      font-size: 0.9em;
+      color: $text-color;
+      background: $body-bg;
+      border: 1px solid $gray-lighter;
+      border-radius: 0px;
+      &:last-child {
+        border-left: 0px;
+      }
+    }
+  }
+  .info-message {
+    margin: 0.7em 0em;
+  }
+}
+@include media-breakpoint-down(lg) {
+  .geographic-facet .map-controls {
+    a.map-control,
+    a.user-location-filter {
+      white-space: normal;
+    }
+  }
+}
+
+.list-group.facet {
+  .geofacet-header {
+    margin: 0.6em;
+    h5,
+    a {
+      display: inline-block;
+      padding: 0px;
+      margin: 0px;
+    }
+    a {
+      float: right;
+      font-size: 0.9em;
+      color: $gray-mid-light;
+    }
+  }
+  .geographic-facet a:hover {
+    text-decoration: none;
+  }
+}
+
+// usage_rights_str_mv
+.list-group.facet,
+.list-group.facets {
+  .usage-right-group {
+    padding: 0.2em 0em 0.2em 0.6em;
+  }
+  .usage-right-group.usage-rights-excludable {
+    padding-right: 0px;
+  }
+  .usage-right-group .list-group-item {
+    padding-right: 0px;
+  }
+}
+@include media-breakpoint-down(sm) {
+  .list-group.facet,
+  .list-group.facets {
+    .usage-right-group {
+      padding: 0.4em 0.7em 0.3em 0.6em;
+      font-size: 1.15em;
+      line-height: 1.15em;
+    }
+  }
+}

@@ -6,7 +6,7 @@
  * This can translate a simple filter into a complex set of filters, and it can
  * "invert" filters by applying Solr filters only when a VuFind filter is absent.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -20,8 +20,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -29,12 +29,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Solr;
 
 use Laminas\EventManager\EventInterface;
 use Laminas\EventManager\SharedEventManagerInterface;
 use VuFindSearch\Backend\BackendInterface;
-
 use VuFindSearch\Service;
 
 /**
@@ -56,21 +56,21 @@ class CustomFilterListener
     protected $backend;
 
     /**
-     * Normal filters
+     * Normal filters.
      *
      * @var array
      */
     protected $normalFilters;
 
     /**
-     * Inverted filters
+     * Inverted filters.
      *
      * @var array
      */
     protected $invertedFilters;
 
     /**
-     * Name of parameter used to store filters
+     * Name of parameter used to store filters.
      *
      * @var string
      */
@@ -106,7 +106,7 @@ class CustomFilterListener
     public function attach(SharedEventManagerInterface $manager)
     {
         $manager->attach(
-            'VuFind\Search',
+            Service::class,
             Service::EVENT_PRE,
             [$this, 'onSearchPre']
         );
@@ -122,7 +122,8 @@ class CustomFilterListener
     public function onSearchPre(EventInterface $event)
     {
         $command = $event->getParam('command');
-        if ($command->getContext() === 'search'
+        if (
+            $command->getContext() === 'search'
             && $command->getTargetIdentifier() === $this->backend->getIdentifier()
             && ($params = $command->getSearchParameters())
         ) {

@@ -1,13 +1,15 @@
 <!-- START of: finna - myresearch/profile.phtml -->
 <?php
-    // Set up page title:
-    $this->headTitle($this->translate('My Profile'));
+    $this->layout()->finnaUserAccountHeading = 'useraccount-content-heading';
+
     // Set up breadcrumbs:
-    $this->layout()->breadcrumbs = '<li><a href="' . $this->url('myresearch-home') . '">' . $this->transEsc('Your Account') . '</a></li> <li class="active">' . $this->transEsc('Profile') . '</li>';
+    $this->breadcrumbs()->set($this->translate('Your Account'), $this->url('myresearch-home'))
+      ->add($this->translate('Profile'), active: true);
+
     // Only display home library form if we have multiple pickup locations:
     $showHomeLibForm = (isset($this->pickup) && count($this->pickup) > 1);
-    $user = $this->auth()->isLoggedIn();
-    $cards = $user->getLibraryCards();
+    $user = $this->auth()->getUserObject();
+    $cards = $this->libraryCards()->getCardsForUser($user);
     $patron = $user ? $this->auth()->getILSPatron() : false;
     $capabilityParams = $patron ? ['patron' => $patron] : [];
     $updateAddress = $this->ils()->checkFunction('updateAddress', $capabilityParams);
@@ -22,10 +24,10 @@
       ob_start();
 ?>
         <?php if (in_array($updateAddress['method'], ['database', 'driver'])): ?>
-          <i class="fa fa-pen"></i>
+          <?=$this->icon('ui-edit') ?>
           <a class="profile-library-info-address-update" href="<?=$this->escapeHtmlAttr($this->url('myresearch-changeprofileaddress')) ?>" data-lightbox title="<?=$this->escapeHtmlAttr($linkText) ?>"><?=$this->escapeHtml($linkText) ?></a>
         <?php elseif ($updateAddress['method'] == 'url'): ?>
-          <i class="fa fa-external-link"></i>
+          <?=$this->icon('external-link') ?>
           <a class="profile-library-info-address-update" href="<?=$this->escapeHtmlAttr($this->translation()->getStringFromMixed($updateAddress['url'])) ?>" target="_blank" title="<?=$this->escapeHtmlAttr($linkText) ?>"><?=$this->escapeHtml($linkText) ?></a>
         <?php endif; ?>
 <?php
@@ -41,19 +43,17 @@
 ?>
 
 <!-- Leftside navigationbar -->
-<?= $this->context($this)->renderInContext("myresearch/menu.phtml", ['active' => 'profile']); ?>
+<?= $this->context($this)->renderInContext('myresearch/menu.phtml', ['active' => 'profile']); ?>
 
 <div class="<?=$this->layoutClass('mainbody-myresearch')?>">
-  <h2><?=$this->transEsc('Profile')?></h2>
+  <div id="useraccount-content-heading" class="useraccount-header">
+    <?=$this->component('finna-page-title-with-tip', ['title' => $this->translate('My Profile'), 'tooltip' => 'tooltip_myaccount_profile_html']);?>
+  </div>
   <div class="my-research-content">
+    <?=$this->component('finna-addition-template', ['template' => 'profile-pre-list'])?>
     <div>
       <?php if (!$this->translationEmpty('profile_instructions')): ?><p class="no-content-message"><?=$this->transEsc('profile_instructions')?></p><?php endif; ?>
       <?=$this->flashmessages();?>
-      <?php if (count($cards) > 1): ?>
-        <div class="myresearch-profile-list library-card-holder">
-          <?=$this->context($this)->renderInContext('librarycards/selectcard.phtml', ['user' => $user, 'label' => 'Library Card'])?>
-        </div>
-      <?php endif; ?>
       <?=$this->partial('myresearch/borrowing-block.phtml', ['blocks' => $this->blocks]); ?>
       <?php if (!empty($this->profile['expiration_date'])): ?>
         <?php $cardExpired = !empty($this->profile['expired']) ?>
@@ -68,10 +68,30 @@
         <?php endif; ?>
       <?php endif; ?>
       <?=$this->partial('myresearch/profile-messages.phtml', ['messages' => $this->profile['messages'] ?? []]); ?>
-      <?php if (is_array($this->profile)): ?>
-        <div class="logged-in-as">
-          <i id="account-icon" class="fa fa-user"></i><span class="sr-only"><?=$this->transEsc('logged_in_as')?>: </span><?=$this->escapeHtml($user->getDisplayName()) ?>
+      <div class="logged-in-as">
+        <?php
+          $authMethod = $user->getAuthMethod();
+          $loginMethod = '';
+          if ($authMethod === 'multiils') {
+            $loginConfig = $this->ils()->getConfig('patronLogin');
+            $loginMethod = $loginConfig['loginMethod'] ?? 'password';
+          }
+        ?>
+        <div>
+          <div><span class="profile-title"><?=$this->transEsc('account_username')?>: </span><span><?=$this->escapeHtml($user->getDisplayableUsername($loginMethod))?></span></div>
+          <div><span class="profile-title"><?=$this->transEsc('account_login_method')?>: </span><span><?=$this->transEscWithPrefix('login_method_', $authMethod)?></span></div>
+          <?php if ($email = $user->getEmail()): ?>
+            <div><span class="profile-title"><?=$this->transEsc('account_email')?>: </span><span><?=$this->escapeHtml($email)?></span></div>
+          <?php endif; ?>
+          <div><span class="profile-title"><?=$this->transEsc('account_creation_date')?>: </span><span><?=$user->getCreated()->format($this->config()->dateFormat())?></span></div>
         </div>
+      </div>
+      <?php if (is_array($this->profile)): ?>
+        <?php if (count($cards) > 1): ?>
+          <div class="myresearch-profile-list library-card-holder">
+            <?=$this->context($this)->renderInContext('librarycards/selectcard.phtml', ['user' => $user, 'label' => 'Library Card'])?>
+          </div>
+        <?php endif; ?>
         <div class="myresearch-profile-header"><h3><?=$this->transEsc('Library Card Settings');?></h3></div>
         <div class="myresearch-profile-list library-profile">
           <?php if ($showHomeLibForm): ?>
@@ -82,7 +102,7 @@
                   // Use ' ** ' for null ()
                   $selected = $this->profile['home_library'] ?? ' ** ';
                 ?>
-                <select id="home_library" name="home_library" class="jumpMenu form-control">
+                <select id="home_library" name="home_library" class="jumpMenu form-select">
                   <option value=""<?='' === $selected ? ' selected="selected"' : ''?>>
                     <?=$this->transEsc('preferred_library_default')?>
                   </option>
@@ -90,7 +110,7 @@
                     <?=$this->transEsc('Always ask me')?>
                   </option>
                   <?php foreach ($this->pickup as $lib): ?>
-                    <option value="<?=$this->escapeHtmlAttr($lib['locationID'])?>"<?=($selected == $lib['locationID'])?' selected="selected"':''?>><?=$this->transEscWithPrefix('location_', $lib['locationDisplay'])?></option>
+                    <option value="<?=$this->escapeHtmlAttr($lib['locationID'])?>"<?=($selected == $lib['locationID']) ? ' selected="selected"' : ''?>><?=$this->transEscWithPrefix('location_', $lib['locationDisplay'])?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
@@ -107,19 +127,19 @@
           <?php
             $selectedCard = null;
             foreach ($cards as $card) {
-                if (strcasecmp($card->cat_username, $user->cat_username) === 0) {
+                if (strcasecmp($card->getCatUsername(), $user->getCatUsername()) === 0) {
                     $selectedCard = $card;
                     break;
                 }
             }
           ?>
-          <?php if ($selectedCard !== null && $this->ils()->checkFunction('changePassword', $selectedCard->toArray())): ?>
+          <?php if ($selectedCard !== null && $this->ils()->checkFunction('changePassword', ['cat_username' => $selectedCard->getCatUsername()])): ?>
             <div>
               <h4 class="myresearch-profile-middle-header"><?=$this->transEsc('change_password_heading') ?></h4>
             </div>
             <div>
               <span class="change-password-link">
-                <a href="<?=$this->url('newLibraryCardPassword') ?>?id=<?=$this->escapeHtmlAttr($selectedCard['id']) ?>" class="btn btn-primary" data-lightbox title="<?=$this->transEsc('change_password_link')?>"><?=$this->transEsc('change_password_link') ?> &raquo;</a>
+                <a href="<?=$this->url('newLibraryCardPassword') ?>?id=<?=$this->escapeHtmlAttr($selectedCard->getId()) ?>" class="btn btn-primary" data-lightbox title="<?=$this->transEsc('change_password_link')?>"><?=$this->transEsc('change_password_link') ?> &raquo;</a>
               </span>
             </div>
           <?php endif; ?>
@@ -137,11 +157,16 @@
               <div class="my-profile-col profile-title"><?=$this->transEsc('Last Name') ?>:</div>
               <div class="profile-text-value"><?=$this->escapeHtml($this->profile['lastname']) ?></div>
             <?php endif; ?>
+            <?php if (!empty($this->profile['calling_name'])): ?>
+              <div class="my-profile-col profile-title"><?=$this->transEsc('Calling Name') ?>:</div>
+              <div class="profile-text-value"><?=$this->escapeHtml($this->profile['calling_name']) ?></div>
+            <?php endif; ?>
             <?php $addressParams = compact('updateAddress', 'updateAddressLink', 'needsApproval', 'updatePhone', 'updateEmail'); ?>
             <?php if (!empty($profile['addresses'])): ?>
               <?php $updateAddressParam = $updateAddress; ?>
               <?php foreach ($profile['addresses'] as $address): ?>
-                <?php $addressParams['address'] = $address; $addressParams['updateAddress'] = $updateAddressParam; ?>
+                <?php $addressParams['address'] = $address;
+                $addressParams['updateAddress'] = $updateAddressParam; ?>
                 <div class="profile-title profile-address-type">
                   <?=$this->transEsc('Address')?>
                   <?=!empty($address['preferred']) ? (' (' . $this->transEsc('address_preferred') . ')') : '' ?>
@@ -159,18 +184,23 @@
               <?php if ($updatePhone): ?>
                 <div class="my-profile-col profile-title"><label for="profile_tel"><?=$this->transEsc('Phone') ?>:</label></div>
                 <div>
-                  <input class="form-control" type="tel" name="profile_tel" value="<?=empty($this->profile['phone']) ? '' : $this->escapeHtmlAttr($this->profile['phone']) ?>" title="<?=$this->transEscAttr('Phone') ?>" />
+                  <input class="form-control" type="tel" name="profile_tel" value="<?=empty($this->profile['phone']) ? '' : $this->escapeHtmlAttr($this->profile['phone']) ?>" title="<?=$this->transEscAttr('Phone') ?>">
                 </div>
               <?php else: ?>
                 <div class="my-profile-col profile-title"><?=$this->transEsc('Phone') ?>:</div>
                 <div class="profile-text-value"><?=$this->escapeHtml($this->profile['phone']) ?></div>
+                <?php foreach ($this->profile as $key => $value): ?>
+                  <?php if (preg_match('/^phone_\d+$/', $key) && $value !== $this->profile['phone']): ?>
+                    <div class="my-profile-col profile-title"></div><div class="profile-text-value"><?=$this->escapeHtml($value) ?></div>
+                  <?php endif; ?>
+                <?php endforeach; ?>
               <?php endif; ?>
             <?php endif; ?>
             <?php if (!empty($this->profile['smsnumber']) || $updateSmsNumber): ?>
               <?php if ($updateSmsNumber): ?>
                 <div class="my-profile-col profile-title"><label for="profile_sms_number"><?=$this->transEsc('SMS Number') ?>:</label></div>
                 <div>
-                  <input class="form-control" type="tel" name="profile_sms_number" value="<?=empty($this->profile['smsnumber']) ? '' : $this->escapeHtmlAttr($this->profile['smsnumber']) ?>" title="<?=$this->transEscAttr('SMS Number') ?>" />
+                  <input class="form-control" type="tel" name="profile_sms_number" value="<?=empty($this->profile['smsnumber']) ? '' : $this->escapeHtmlAttr($this->profile['smsnumber']) ?>" title="<?=$this->transEscAttr('SMS Number') ?>">
                 </div>
               <?php else: ?>
                 <div class="my-profile-col profile-title"><?=$this->transEsc('SMS Number') ?>:</div>
@@ -181,10 +211,15 @@
               <div class="my-profile-col profile-title"><label for="profile_email"><?=$this->transEsc('Email') ?>:</label></div>
               <?php if ($updateEmail): ?>
                 <div>
-                  <input class="form-control" type="email" name="profile_email" value="<?=empty($this->profile['email']) ? '' : $this->escapeHtmlAttr($this->profile['email']) ?>" title="<?=$this->transEscAttr('Email') ?>" />
+                  <input class="form-control" type="email" name="profile_email" value="<?=empty($this->profile['email']) ? '' : $this->escapeHtmlAttr($this->profile['email']) ?>" title="<?=$this->transEscAttr('Email') ?>">
                 </div>
               <?php else: ?>
                 <div class="profile-text-value"><?=$this->escapeHtml($this->profile['email']) ?></div>
+                <?php foreach ($this->profile as $key => $value): ?>
+                  <?php if (preg_match('/^email_\d+$/', $key) && $value !== $this->profile['email']): ?>
+                    <div class="my-profile-col profile-title"></div><div class="profile-text-value"><?=$this->escapeHtml($value) ?></div>
+                  <?php endif; ?>
+                <?php endforeach; ?>
               <?php endif; ?>
             <?php endif; ?>
             <?php if (!empty($this->profile['hold_identifier'])): ?>
@@ -201,7 +236,7 @@
               </div>
               <?php if ($updateLoanHistory): ?>
                 <div class="my-profile-col profile-text-value">
-                  <select id="loan-history" name="loan_history" class="form-control">
+                  <select id="loan-history" name="loan_history" class="form-select">
                     <?php foreach ($updateLoanHistory['options'] as $key => $value): ?>
                       <option value="<?=$this->escapeHtmlAttr($key)?>"<?= $this->profile['loan_history'] == $key ? ' selected="selected"' : '' ?>><?=$this->transEsc($value)?></option>
                     <?php endforeach; ?>
@@ -210,7 +245,7 @@
                 <?php $descriptionText = $this->translate(isset($updateLoanHistory['description'][$this->layout()->userLang]) ? $updateLoanHistory['description'][$this->layout()->userLang] : 'loan_history_description_html'); ?>
                 <?php if ($descriptionText): ?>
                   <div class="my-profile-col">
-                    <i class="fa fa-info-big"></i> <?=$descriptionText?>
+                    <?=$this->icon('info') ?> <?=$descriptionText?>
                   </div>
                 <?php endif; ?>
               <?php else: ?>
@@ -233,6 +268,19 @@
             <?php if (!empty($this->profile['self_service_pin'])): ?>
               <div class="my-profile-col profile-title"><?=$this->transEsc('self_service_pin') ?>:</div>
               <div class="profile-text-value"><?=$this->escapeHtml($this->profile['self_service_pin']) ?></div>
+            <?php endif; ?>
+            <?php if (isset($this->profile['self_service_library'])): ?>
+              <div class="my-profile-col profile-title"><?=$this->transEsc('self_service_library') ?>:</div>
+              <div class="my-profile-col profile-text-value">
+                <?=$this->transEsc($this->profile['self_service_library'] ? 'self_service_library_enabled' : 'self_service_library_disabled') ?>
+              </div>
+              <div class="my-profile-col">
+                <?php if (!$this->translationEmpty('self_service_library_description_html')): ?>
+                  <?=$this->icon('info') ?> <?=$this->translate('self_service_library_description_html')?>
+                <?php else: ?>
+                  &nbsp;
+                <?php endif; ?>
+              </div>
             <?php endif; ?>
             <?php if ($guarantorFullName): ?>
               <div class="my-profile-col profile-title"><?=$this->transEsc('Guarantor') ?>:</div>
@@ -265,7 +313,7 @@
             <?php endif; ?>
             <div class="my-profile-row">
               <?php if ($updatePhone || $updateEmail || $updateLoanHistory): ?>
-                <input id="save-library-profile" name="saveLibraryProfile" type="submit" value="<?=$this->transEscAttr("save_my_profile") ?>" class="btn btn-primary my-profile-btn" />
+                <input id="save-library-profile" name="saveLibraryProfile" type="submit" value="<?=$this->transEscAttr('save_my_profile') ?>" class="btn btn-primary my-profile-btn">
               <?php endif; ?>
               <div class="clearfix"></div>
             </div>
@@ -274,31 +322,103 @@
       <?php endif; ?>
     </div>
     <div class="myresearch-profile-header">
-      <h3 id="profile-settings"><?= $this->transEsc("finna_account_settings") ?></h3>
+      <h3 id="profile-settings"><?= $this->transEsc('finna_account_settings') ?></h3>
     </div>
     <div class="myresearch-profile-list library-profile">
       <?= $this->partial('myresearch/profile-my-information.phtml', ['user' => $user, 'cards' => $cards, 'hideDueDateReminder' => $this->hideDueDateReminder, 'hideProfileEmailAddress' => $this->hideProfileEmailAddress]); ?>
     </div>
+    <?php if ($this->auth()->getManager()->supportsPersistentLogin($user->getAuthMethod())): ?>
+      <div class="myresearch-profile-header">
+        <h3><?=$this->transEsc('Saved Logins')?></h3>
+      </div>
+      <div class="myresearch-profile-list library-profile login-tokens-section">
+        <?php $tokens = $this->auth()->getLoginTokens($user->getId()); ?>
+        <?php if (!$tokens): ?>
+          <div class="my-profile-col"><?=$this->transEsc('No saved logins')?></div>
+        <?php else: ?>
+          <table class="login-tokens-table table table-responsive table-striped">
+            <thead>
+              <tr>
+                <th scope="col" class="login_token_browser"> <?=$this->transEsc('saved_login_platform_and_browser')?></th>
+                <th scope="col" class="login_token_last_login"><?=$this->transEsc('Last Login')?></th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($tokens as $i => $token): ?>
+                <tr>
+                  <td data-label="<?=$this->transEsc('saved_login_platform_and_browser')?>" id="login_platform_<?=$i?>"><?=$this->transEsc($token->getPlatform())?> / <?=$this->transEsc($token->getBrowser())?></td>
+                  <td data-label="<?=$this->transEsc('Last Login')?>" id="login_date_<?=$i?>"><?=$token->getLastLogin()->format($this->config()->dateTimeFormat())?></td>
+                  <td>
+                    <form id="delete-login-token" method="post" action="<?=$this->url('myresearch-deletelogintoken')?>">
+                      <input type="hidden" name="csrf" value="<?=$this->escapeHtmlAttr($this->auth()->getManager()->getCsrfHash())?>">
+                      <input type="hidden" name="series" value="<?=$this->escapeHtmlAttr($token->getSeries())?>">
+                      <input id="delete-login-token-submit" class="btn btn-danger" type="submit" name="submitButton" value="<?=$this->transEscAttr('Forget Login'); ?>" aria-labelledby="delete-login-token-submit login_platform_<?=$i?> login_date_<?=$i?>">
+                    </form>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+          <form id="delete-user-login-tokens" method="post" action="<?=$this->url('myresearch-deleteuserlogintokens')?>">
+            <input type="hidden" name="csrf" value="<?=$this->escapeHtmlAttr($this->auth()->getManager()->getCsrfHash())?>">
+            <input id="delete-user-login-tokens-submit" class="btn btn-danger delete-all-tokens" type="submit" name="submitButton" value="<?=$this->transEscAttr('Forget All')?>">
+          </form>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
     <div class="myresearch-profile-header">
-      <h3><?= $this->transEsc("my_profile_export_import") . ' / ' . $this->transEsc('delete_account_title') ?></h3>
+      <h3><?= $this->transEsc('my_profile_export_import') . ' / ' . $this->transEsc('delete_account_title') ?></h3>
     </div>
     <div class="myresearch-profile-list library-profile">
       <div class="my-profile-row">
-        <a class="btn btn-primary my-profile-btn" href="<?=$this->url('myresearch-export') ?>" title="<?=$this->transEsc('export_favorites') ?>"><i class="fa fa-download" aria-hidden="true"></i> <?=$this->transEsc('export_favorites') ?></a>
-        <a class="btn btn-primary my-profile-btn" href="<?=$this->url('myresearch-import') ?>"  data-lightbox title="<?=$this->transEsc('import_favorites') ?>"><i class="fa fa-upload" aria-hidden="true"></i> <?=$this->transEsc('import_favorites') ?> </a>
+        <a class="btn btn-primary my-profile-btn" href="<?=$this->url('myresearch-export') ?>" title="<?=$this->transEsc('export_favorites') ?>"><?=$this->icon('profile-export') ?> <?=$this->transEsc('export_favorites') ?></a>
+        <a class="btn btn-primary my-profile-btn" href="<?=$this->url('myresearch-import') ?>"  data-lightbox title="<?=$this->transEsc('import_favorites') ?>"><?=$this->icon('profile-import') ?> <?=$this->transEsc('import_favorites') ?> </a>
         <?php if ($this->accountDeletion): ?>
           <div class="visible-xs separator"></div>
-          <a class="btn btn-danger my-profile-btn" href="<?=$this->url('myresearch-deleteaccount') ?>" data-lightbox><i class="fa fa-times"></i> <?=$this->transEsc('delete_account_title') ?></a>
+          <a class="btn btn-danger my-profile-btn" href="<?=$this->url('myresearch-deleteaccount') ?>" data-lightbox><?=$this->icon('profile-delete') ?> <?=$this->transEsc('delete_account_title') ?></a>
           <?php if (!$this->translationEmpty('your_account_delete_info')): ?>
             <div class="my-profile-row">
-                <i class="fa fa-info-circle-hollow" aria-hidden="true"></i> <?=$this->transEsc('your_account_delete_info');?>
+              <?=$this->icon('info') ?> <?=$this->transEsc('your_account_delete_info');?>
             </div>
           <?php endif;?>
         <?php endif; ?>
       </div>
     </div>
+    <?=$this->component('finna-addition-template', ['template' => 'profile-post-list'])?>
+
+    <?php
+      $proxyValues = [];
+      if (!empty($this->proxiedUsers)) {
+        $proxyValues['proxy_list_for'] = $this->proxiedUsers;
+      }
+      if (!empty($this->proxyingUsers)) {
+        $proxyValues['proxy_list_by'] = $this->proxyingUsers;
+      }
+    ?>
+    <?php if (!empty($proxyValues)): ?>
+      <h3><?=$this->transEsc('proxy_list_heading')?></h3>
+      <p><?=$this->transEsc('proxy_list_description')?></p>
+      <?php foreach ($proxyValues as $proxyHeading => $proxyValueGroup): ?>
+        <h4><?=$this->transEsc($proxyHeading)?></h4>
+        <?php natsort($proxyValueGroup); ?>
+        <ul>
+          <?php foreach ($proxyValueGroup as $proxyValue): ?>
+            <li><?=$this->escapeHtml($proxyValue)?></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endforeach; ?>
+    <?php endif; ?>
+
     <?php if (!is_array($this->profile) && 'ils-none' !== $this->ils()->getOfflineMode() && $this->patronLoginView && !empty($this->patronLoginView->getTemplate())): ?>
       <?=$this->partial($this->patronLoginView);?>
+    <?php endif; ?>
+
+    <?php if ($this->developerSettings()->isEnabled()): ?>
+      <?php if ($this->permission()->allowDisplay('feature.Developer')): ?>
+        <a class="btn btn-link" href="<?=$this->url('developersettings-displaysettings');?>"><?=$this->icon('options') . ' ' . $this->transEsc('Developer::settings');?></a>
+      <?php elseif ($block = $this->permission()->getAlternateContent('feature.Developer')): ?>
+        <?=$block?>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>

@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Additional functionality for Finna Solr records.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library 2015-2020.
+ * Copyright (C) The National Library 2015-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,21 +17,31 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver\Feature;
 
 use VuFind\RecordDriver\Feature\VersionAwareInterface;
 use VuFindSearch\Command\RetrieveCommand;
-use VuFindSearch\Command\WorkExpressionsCommand;
+use VuFindSearch\Command\SearchCommand;
+use VuFindSearch\Query\WorkKeysQuery;
+
+use function in_array;
+use function intval;
+use function is_array;
+use function is_callable;
+use function is_string;
+use function sprintf;
+use function strlen;
 
 /**
  * Additional functionality for Finna Solr records.
@@ -40,7 +51,7 @@ use VuFindSearch\Command\WorkExpressionsCommand;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  *
  * @SuppressWarnings(PHPMD.ExcessivePublicCount)
  */
@@ -49,21 +60,21 @@ trait SolrFinnaTrait
     use SolrCommonFinnaTrait;
 
     /**
-     * Search settings
+     * Search settings.
      *
      * @var array
      */
     protected $searchSettings = [];
 
     /**
-     * Runtime cache for method results to avoid duplicate processing
+     * Runtime cache for method results to avoid duplicate processing.
      *
      * @var array
      */
     protected $cache = [];
 
     /**
-     * An array of non-displayable formats
+     * An array of non-displayable formats.
      *
      * @var array
      */
@@ -119,7 +130,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get Author Information with Associated Data Fields
+     * Get Author Information with Associated Data Fields.
      *
      * @param string $index      The author index [primary, corporate, or secondary]
      * used to construct a method name for retrieving author data (e.g.
@@ -188,7 +199,7 @@ trait SolrFinnaTrait
         $rating = $this->getRatingData();
         return [
             'count' => $rating['count'],
-            'average' => $rating['rating']
+            'average' => $rating['rating'],
         ];
     }
 
@@ -216,7 +227,20 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return geographic center point
+     * Return the collection search ID for this record.
+     *
+     * @return string
+     */
+    public function getCollectionSearchId(): string
+    {
+        if ($this->mainConfig->Hierarchy->showFullHierarchyTree ?? false) {
+            return $this->getHierarchyTopID()[0] ?? $this->getUniqueID();
+        }
+        return $this->getUniqueID();
+    }
+
+    /**
+     * Return geographic center point.
      *
      * @return array lon, lat
      */
@@ -234,7 +258,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get data source id
+     * Get data source id.
      *
      * @return string
      */
@@ -243,6 +267,40 @@ trait SolrFinnaTrait
         return isset($this->fields['datasource_str_mv'])
             ? ((array)$this->fields['datasource_str_mv'])[0]
             : '';
+    }
+
+    /**
+     * Get a Date Range from Index Fields.
+     *
+     * @param string $event Event name
+     *
+     * @return ?array Array of one or two dates or null if not available.
+     * If date range is still continuing end year will be an empty string.
+     */
+    protected function getDateRange($event)
+    {
+        $daterange = $this->fields["{$event}_daterange"] ?? [];
+        if (!$daterange) {
+            return null;
+        }
+        if (
+            preg_match(
+                '/\[(-?\d{4}).* TO (-?\d{4})/',
+                $daterange,
+                $matches
+            )
+        ) {
+            $start = (string)(intval($matches[1]));
+            $end = (string)(intval($matches[2]));
+            if ($end == '9999') {
+                // End year is in the future
+                return [$start, ''];
+            }
+            return $end == $start ? [$start] : [$start, $end];
+        } elseif (preg_match('/^(-?\d{4})-/', $daterange, $matches)) {
+            return [(string)(intval($matches[1]))];
+        }
+        return null;
     }
 
     /**
@@ -257,7 +315,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return education programs
+     * Return education programs.
      *
      * @return array
      */
@@ -277,7 +335,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return genres
+     * Return genres.
      *
      * @return array
      */
@@ -287,7 +345,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return geographic locations (coordinates)
+     * Return geographic locations (coordinates).
      *
      * @return array
      */
@@ -313,7 +371,7 @@ trait SolrFinnaTrait
      *
      * @return array
      */
-    public function getHierarchyParentID(array $levels = []) : array
+    public function getHierarchyParentID(array $levels = []): array
     {
         return $this->fields['hierarchy_parent_id'] ?? [];
     }
@@ -325,13 +383,13 @@ trait SolrFinnaTrait
      *
      * @return array
      */
-    public function getHierarchyParentTitle(array $levels = []) : array
+    public function getHierarchyParentTitle(array $levels = []): array
     {
         return $this->fields['hierarchy_parent_title'] ?? [];
     }
 
     /**
-     * Get identifier
+     * Get identifier.
      *
      * @return array
      */
@@ -373,7 +431,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return keywords
+     * Return keywords.
      *
      * @return array
      */
@@ -404,7 +462,7 @@ trait SolrFinnaTrait
                     ? $this->mergeURLArray(
                         $this->fields['online_urls_str_mv'],
                         true
-                    ) : []
+                    ) : [],
             ];
         }
 
@@ -452,7 +510,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get all authors apart from presenters
+     * Get all authors apart from presenters.
      *
      * @return array
      */
@@ -472,7 +530,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get online URLs
+     * Get online URLs.
      *
      * @param bool  $raw          Whether to return raw data
      * @param array $excludeTypes If set, will remove types of urls from result
@@ -488,7 +546,7 @@ trait SolrFinnaTrait
         if ($raw) {
             return $this->fields['online_urls_str_mv'];
         }
-        $merged = $this->resolveUrlTypes(
+        $merged = $this->resolveOnlineUrlTypes(
             $this->mergeURLArray(
                 $this->fields['online_urls_str_mv'],
                 true
@@ -528,7 +586,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get all the original languages associated with the record
+     * Get all the original languages associated with the record.
      *
      * @return array
      */
@@ -538,13 +596,25 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get presenters
+     * Get presenters.
      *
      * @return array
      */
     public function getPresenters()
     {
         return [];
+    }
+
+    /**
+     * Get publication date or date range.
+     *
+     * @return ?array Array of one or two dates or null if not available.
+     * If date range is still continuing end year will be an empty string.
+     */
+    public function getPublicationDateRange()
+    {
+        $publicationDates = $this->getPublicationDates();
+        return $publicationDates ? [$publicationDates[0]] : null;
     }
 
     /**
@@ -594,7 +664,8 @@ trait SolrFinnaTrait
             if ($isbn = $this->getFirstISBN()) {
                 $result['invisbn'] = $isbn;
             }
-        } elseif (is_string($result)
+        } elseif (
+            is_string($result)
             && is_callable([$this, 'isUrlLoadable'])
             && !$this->isUrlLoadable($result, $this->getUniqueID())
         ) {
@@ -646,7 +717,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return SFX Object ID
+     * Return SFX Object ID.
      *
      * @return string
      */
@@ -656,7 +727,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return Alma MMS ID
+     * Return Alma MMS ID.
      *
      * @return string
      */
@@ -672,7 +743,7 @@ trait SolrFinnaTrait
      */
     public function getSource()
     {
-        return $this->fields['source_str_mv'][0] ?? '';
+        return $this->getSources()[0] ?? '';
     }
 
     /**
@@ -682,7 +753,7 @@ trait SolrFinnaTrait
      */
     public function getSources()
     {
-        return $this->fields['source_str_mv'] ?? [];
+        return (array)($this->fields['source_str_mv'] ?? []);
     }
 
     /**
@@ -702,7 +773,50 @@ trait SolrFinnaTrait
      */
     public function getFirstIndexed()
     {
-        return $this->fields['first_indexed'] ?? '';
+        return $this->fields['catalog_date'] ?? $this->fields['first_indexed'] ?? '';
+    }
+
+    /**
+     * Get an array containing media types as strings.
+     *
+     * @return array
+     */
+    public function getMediaTypesAsStrings(): array
+    {
+        return array_map(
+            fn ($entry) => (string)$entry,
+            $this->fields['media_type_str_mv'] ?? []
+        );
+    }
+
+    /**
+     * Get array containing ctrlnum.
+     *
+     * @return array
+     */
+    public function getControlNumbers(): array
+    {
+        return $this->fields['ctrlnum'] ?? [];
+    }
+
+    /**
+     * Get array containing major genres.
+     *
+     * @return array
+     */
+    public function getMajorGenres(): array
+    {
+        return $this->fields['major_genre_str_mv'] ?? [];
+    }
+
+    /**
+     * Get array containing Usage rights extended.
+     *
+     * @return array
+     */
+    public function getUsageRightsExt(): array
+    {
+        return $this->fields['usage_rights_ext_str_mv'] ?? [];
     }
 
     /**
@@ -731,16 +845,6 @@ trait SolrFinnaTrait
     public function ratingAllowed()
     {
         return false;
-    }
-
-    /**
-     * Is social media sharing allowed
-     *
-     * @return boolean
-     */
-    public function socialMediaSharingAllowed()
-    {
-        return true;
     }
 
     /**
@@ -810,32 +914,6 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Add or update user's rating for the record.
-     *
-     * @param int  $userId ID of the user posting the rating
-     * @param ?int $rating The user-provided rating, or null to clear any existing
-     * rating
-     *
-     * @return void
-     */
-    public function addOrUpdateRating(int $userId, ?int $rating): void
-    {
-        parent::addOrUpdateRating($userId, $rating);
-
-        // Also update ratings of any duplicates:
-        $mergedData = $this->getMergedRecordData();
-        if (empty($mergedData['records'])) {
-            return;
-        }
-        $source = $this->getSourceIdentifier();
-        $resources = $this->getDbTable('Resource');
-        foreach ($mergedData['records'] as $record) {
-            $resource = $resources->findResource($record['id'], $source);
-            $resource->addOrUpdateRating($userId, $rating);
-        }
-    }
-
-    /**
      * Support method for getOpenURL() -- pick the OpenURL format.
      *
      * @return string
@@ -845,17 +923,20 @@ trait SolrFinnaTrait
         // If we have multiple formats, Book, Journal and Article are most
         // important...
         $formats = $this->getFormats();
-        if (in_array('1/Book/BookSection/', $formats)
+        if (
+            in_array('1/Book/BookSection/', $formats)
             || in_array('1/Book/eBookSection/', $formats)
         ) {
             return 'BookSection';
         } elseif (in_array('0/Book/', $formats)) {
             return 'Book';
-        } elseif (in_array('1/Journal/Article/', $formats)
+        } elseif (
+            in_array('1/Journal/Article/', $formats)
             || in_array('1/Journal/eArticle/', $formats)
         ) {
             return 'Article';
-        } elseif (in_array('0/Journal/', $formats)
+        } elseif (
+            in_array('0/Journal/', $formats)
             || in_array('1/Other/ContinuouslyUpdatedResource/', $formats)
         ) {
             return 'Journal';
@@ -878,7 +959,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Extract sources from record IDs and create an array of sources and IDs
+     * Extract sources from record IDs and create an array of sources and IDs.
      *
      * @param array $ids Record ID's
      *
@@ -896,7 +977,7 @@ trait SolrFinnaTrait
             }
             $results[] = [
                 'source' => $source,
-                'id' => $id
+                'id' => $id,
             ];
         }
         if (!empty($this->recordConfig->Record->sort_sources)) {
@@ -914,7 +995,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get information on records deduplicated with this one
+     * Get information on records deduplicated with this one.
      *
      * @param bool $load Whether to try to load dedup data if it's not already
      * available
@@ -945,7 +1026,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Get related records (used by RecordDriverRelated - Related module)
+     * Get related records (used by RecordDriverRelated - Related module).
      *
      * Returns an associative array of group => records, where each item in
      * records is either a record id or an array with keys:
@@ -974,7 +1055,49 @@ trait SolrFinnaTrait
     }
 
     /**
-     * A helper function that merges an array of JSON-encoded URLs
+     * Check if a URL (typically from getURLs()) is blocked based on the URL
+     * itself and optionally its description.
+     *
+     * @param string $url  URL
+     * @param string $desc Optional description of the URL
+     *
+     * @return bool Whether the URL is blocked
+     */
+    public function urlBlocked($url, $desc = '')
+    {
+        $scheme = parse_url($url, PHP_URL_SCHEME);
+
+        $allowedSchemes = isset($this->recordConfig->Record->allowed_url_schemes)
+            ? $this->recordConfig->Record->allowed_url_schemes->toArray()
+            : ['http', 'https', 'tel', 'mailto', 'maps'];
+        if (!in_array($scheme, $allowedSchemes)) {
+            return true;
+        }
+
+        // Keep old setting name for back-compatibility:
+        $blocklist = $this->recordConfig->Record->url_blocklist
+            ?? $this->recordConfig->Record->url_blacklist
+            ?? [];
+        if (empty($blocklist)) {
+            return false;
+        }
+        foreach ($blocklist as $rule) {
+            if (substr($rule, 0, 1) == '/' && substr($rule, -1, 1) == '/') {
+                if (
+                    preg_match($rule, $url)
+                    || ($desc !== '' && preg_match($rule, $desc))
+                ) {
+                    return true;
+                }
+            } elseif ($rule == $url || $rule == $desc) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * A helper function that merges an array of JSON-encoded URLs.
      *
      * @param array $urlArray Array of JSON-encoded URL attributes
      * @param bool  $sources  Whether to store data source of each URL
@@ -1005,7 +1128,7 @@ trait SolrFinnaTrait
                     } else {
                         $existingUrl['source'] = [
                             $existingUrl['source'],
-                            $newURL['source']
+                            $newURL['source'],
                         ];
                     }
                     if (!$existingUrl['text']) {
@@ -1022,44 +1145,35 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Check if a URL (typically from getURLs()) is blocked based on the URL
-     * itself and optionally its description.
+     * Resolve types for 'online_urls_str_mv' field's urls.
      *
-     * @param string $url  URL
-     * @param string $desc Optional description of the URL
+     * URLs are annotated with 'codec' field based on 'mediaType'.
+     * In addition, image and audio URLs are annotated with 'type' field.
      *
-     * @return bool Whether the URL is blocked
+     * @param array $urls URLs
+     *
+     * @return array URL array with annotated URLs
      */
-    protected function urlBlocked($url, $desc = '')
+    protected function resolveOnlineUrlTypes(array $urls): array
     {
-        $scheme = parse_url($url, PHP_URL_SCHEME);
-
-        $allowedSchemes = isset($this->recordConfig->Record->allowed_url_schemes)
-            ? $this->recordConfig->Record->allowed_url_schemes->toArray()
-            : ['http', 'https', 'tel', 'mailto', 'maps'];
-        if (!in_array($scheme, $allowedSchemes)) {
-            return true;
-        }
-
-        // Keep old setting name for back-compatibility:
-        $blocklist = $this->recordConfig->Record->url_blocklist
-            ?? $this->recordConfig->Record->url_blacklist
-            ?? [];
-        if (empty($blocklist)) {
-            return false;
-        }
-        foreach ($blocklist as $rule) {
-            if (substr($rule, 0, 1) == '/' && substr($rule, -1, 1) == '/') {
-                if (preg_match($rule, $url)
-                    || ($desc !== '' && preg_match($rule, $desc))
-                ) {
-                    return true;
+        $newUrls = [];
+        foreach ($urls as $url) {
+            if (!empty($url['mediaType'])) {
+                $type = $embed = null;
+                $parts = explode('/', $url['mediaType']);
+                $mediaType = $parts[0];
+                if ($mediaType === 'audio') {
+                    $type = $embed = 'audio';
+                } elseif ($mediaType === 'image') {
+                    $type = 'image';
                 }
-            } elseif ($rule == $url || $rule == $desc) {
-                return true;
+                $url['type'] = $type;
+                $url['codec'] = $parts[1] ?? '';
+                $url['embed'] = $embed;
             }
+            $newUrls[] = $url;
         }
-        return false;
+        return $newUrls;
     }
 
     /**
@@ -1075,24 +1189,25 @@ trait SolrFinnaTrait
     {
         $newUrls = [];
         foreach ($urls as $url) {
-            if (preg_match(
-                '/^http(s)?:\/\/.*\.([a-zA-Z0-9]{3,4})$/',
-                $url['url'],
-                $match
-            )
+            if (
+                preg_match(
+                    '/^http(s)?:\/\/.*\.([a-zA-Z0-9]{3,4})$/',
+                    $url['url'],
+                    $match
+                )
             ) {
                 $codec = $match[2];
                 $type = $embed = null;
                 switch (strtolower($codec)) {
-                case 'wav':
-                case 'mp3':
-                    $type = $embed = 'audio';
-                    break;
-                case 'jpg':
-                case 'png':
-                case 'tif':
-                    $type = 'image';
-                    break;
+                    case 'wav':
+                    case 'mp3':
+                        $type = $embed = 'audio';
+                        break;
+                    case 'jpg':
+                    case 'png':
+                    case 'tif':
+                        $type = 'image';
+                        break;
                 }
                 $url['type'] = $type;
                 $url['codec'] = $codec;
@@ -1145,7 +1260,7 @@ trait SolrFinnaTrait
             $bibLevels = $holdConfig['titleHoldBibLevels']
                 ?? [
                     'monograph', 'monographpart',
-                    'serialpart', 'collectionpart'
+                    'serialpart', 'collectionpart',
                 ];
             if (in_array($biblioLevel, $bibLevels) && isset($this->titleHoldLogic)) {
                 return $this->titleHoldLogic->getHold($this->getUniqueID());
@@ -1155,7 +1270,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Return count of other versions available
+     * Return count of other versions available.
      *
      * Finna: Like VersionAwareTrait's getOtherVersionCount, but adds the call to
      * addVersionsFilters.
@@ -1178,14 +1293,11 @@ trait SolrFinnaTrait
                 return false;
             }
 
-            $params = new \VuFindSearch\ParamBag();
-            $params->add('rows', 0);
-            $this->addVersionsFilters($params);
-            $command = new WorkExpressionsCommand(
+            $command = new SearchCommand(
                 $this->getSourceIdentifier(),
-                $this->getUniqueID(),
-                $workKeys,
-                $params
+                new WorkKeysQuery($this->getUniqueID(), false, $workKeys),
+                0,
+                0
             );
             $results = $this->searchService->invoke($command)->getResult();
             $this->otherVersionsCount = $results->getTotal();
@@ -1194,7 +1306,7 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Retrieve versions as a search result
+     * Retrieve versions as a search result.
      *
      * Finna: Like VersionAwareTrait's getVersions, but adds the call to
      * addVersionsFilters.
@@ -1217,17 +1329,15 @@ trait SolrFinnaTrait
 
         if (!isset($this->otherVersions)) {
             $params = new \VuFindSearch\ParamBag();
-            $params->add('rows', $count);
-            $params->add('start', $offset);
             $this->addVersionsFilters($params);
-            $command = new WorkExpressionsCommand(
+            $command = new SearchCommand(
                 $this->getSourceIdentifier(),
-                $includeSelf ? '' : $this->getUniqueID(),
-                $workKeys,
+                new WorkKeysQuery($this->getUniqueID(), $includeSelf, $workKeys),
+                $offset,
+                $count,
                 $params
             );
-            $this->otherVersions = $this->searchService->invoke($command)
-                ->getResult();
+            $this->otherVersions = $this->searchService->invoke($command)->getResult();
         }
         return $this->otherVersions;
     }
@@ -1244,7 +1354,38 @@ trait SolrFinnaTrait
     }
 
     /**
-     * Add versions search filters to params
+     * Get the number of child records belonging to this record.
+     *
+     * @return int Number of records
+     */
+    public function getChildRecordCount()
+    {
+        if (isset($this->cache[__FUNCTION__])) {
+            return $this->cache[__FUNCTION__];
+        }
+        // Shortcut: if this record is not part of a hierarchy, let's not find out the count.
+        if (
+            !$this->containerLinking
+            || (empty($this->fields['is_hierarchy_id']) && empty($this->fields['hierarchy_parent_id']))
+            || null === $this->searchService
+        ) {
+            return 0;
+        }
+
+        $safeId = addcslashes($this->fields['id'], '"');
+        $query = new \VuFindSearch\Query\Query(
+            'hierarchy_parent_id:"' . $safeId . '"'
+        );
+        // Disable highlighting for efficiency; not needed here:
+        $params = new \VuFindSearch\ParamBag(['hl' => ['false']]);
+        $command = new SearchCommand($this->sourceIdentifier, $query, 0, 0, $params);
+        $result = $this->searchService->invoke($command)->getResult()->getTotal();
+        $this->cache[__FUNCTION__] = $result;
+        return $result;
+    }
+
+    /**
+     * Add versions search filters to params.
      *
      * @param \VuFindSearch\ParamBag $paramBag Params
      *
@@ -1263,5 +1404,81 @@ trait SolrFinnaTrait
                     . '"'
             );
         }
+    }
+
+    /**
+     * Parse an URL safely. Checks if the URL contains http or https for parse_url to work properly.
+     *
+     * @param string $url       The URL to parse.
+     * @param int    $component Specify one of PHP_URL_SCHEME, PHP_URL_HOST, PHP_URL_PORT,
+     * PHP_URL_USER, PHP_URL_PASS, PHP_URL_PATH, PHP_URL_QUERY or PHP_URL_FRAGMENT
+     * to retrieve just a specific URL component as a string (except when PHP_URL_PORT is given,
+     * in which case the return value will be an int).
+     *
+     * @return int|string|array
+     */
+    protected function safeParseUrl(string $url, int $component = -1): int|string|array
+    {
+        if (!$url) {
+            return [];
+        }
+        if (!preg_match('/^https?:/', $url)) {
+            $url = '//' . $url;
+        }
+        return parse_url($url, $component);
+    }
+
+    /**
+     * Ensure that small, medium and large images do exist in the image array.
+     *
+     * @param array $images Array containing key 'urls' and respective sizes.
+     *
+     * @return array Images and duplicate image information
+     */
+    protected function ensureImageSizes(array $images): array
+    {
+        $hasSmallImage = isset($images['urls']['small']);
+        $hasMediumImage = isset($images['urls']['medium']);
+        $hasLargeImage = isset($images['urls']['large']);
+        $images['cacheSizes'] = [];
+        if (!$hasSmallImage && !$hasMediumImage && !$hasLargeImage) {
+            return $images;
+        }
+        if (!$hasLargeImage) {
+            $images['urls']['large'] = $hasMediumImage ? $images['urls']['medium'] : $images['urls']['small'];
+            $images['cacheSizes']['large'] = $hasMediumImage ? 'medium' : 'small';
+        }
+        if (!$hasSmallImage) {
+            $images['urls']['small'] = $hasMediumImage ? $images['urls']['medium'] : $images['urls']['large'];
+            $images['cacheSizes']['small'] = $hasMediumImage ? 'medium' : 'large';
+        }
+        if (!$hasMediumImage) {
+            $images['urls']['medium'] = $hasSmallImage ? $images['urls']['small'] : $images['urls']['large'];
+            $images['cacheSizes']['medium'] = $hasSmallImage ? 'small' : 'large';
+        }
+        return $images;
+    }
+
+    /**
+     * Compare the title of current object with items from given array as titles.
+     *
+     * @param array $compare An array of items to compare
+     *
+     * @return array
+     */
+    protected function compareWithTitle(array $compare): array
+    {
+        $compareDone = [];
+        $title = str_replace([',', ';'], '', $this->getTitle());
+        $compareFull = str_replace([',', ';'], '', implode(' ', $compare));
+        if ($compareFull != $title) {
+            foreach ($compare as $item) {
+                $checkTitle = str_replace([',', ';'], ' ', (string)$item) != $title;
+                if ($checkTitle) {
+                    $compareDone[] = (string)$item;
+                }
+            }
+        }
+        return array_unique($compareDone);
     }
 }

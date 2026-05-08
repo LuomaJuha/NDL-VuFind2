@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Abstract Plugin Factory
+ * VuFind Abstract Plugin Factory.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  ServiceManager
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\ServiceManager;
 
 use Laminas\ServiceManager\Factory\AbstractFactoryInterface;
 use Psr\Container\ContainerInterface;
 
 /**
- * VuFind Abstract Plugin Factory
+ * VuFind Abstract Plugin Factory.
  *
  * @category VuFind
  * @package  ServiceManager
@@ -42,14 +44,14 @@ use Psr\Container\ContainerInterface;
 abstract class AbstractPluginFactory implements AbstractFactoryInterface
 {
     /**
-     * Default namespace for building class names
+     * Default namespace for building class names.
      *
      * @var string
      */
     protected $defaultNamespace;
 
     /**
-     * Optional suffix to append to class names
+     * Optional suffix to append to class names.
      *
      * @var string
      */
@@ -65,7 +67,7 @@ abstract class AbstractPluginFactory implements AbstractFactoryInterface
     protected function getClassName($requestedName)
     {
         // If we have a FQCN that refers to an existing class, return it as-is:
-        if (strpos($requestedName, '\\') !== false && class_exists($requestedName)) {
+        if (str_contains($requestedName, '\\') && class_exists($requestedName)) {
             return $requestedName;
         }
         // First try the raw service name, then try a normalized version:
@@ -107,7 +109,7 @@ abstract class AbstractPluginFactory implements AbstractFactoryInterface
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
         $class = $this->getClassName($requestedName);
         return new $class();

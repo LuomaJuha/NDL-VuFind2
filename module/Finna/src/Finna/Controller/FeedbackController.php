@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Feedback Controller
+ * Feedback Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2022.
  *
@@ -16,10 +17,10 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
- * PHP version 7
+ * PHP version 8
  *
  * @category VuFind
  * @package  Controller
@@ -28,12 +29,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Form\Form;
 use VuFind\Log\LoggerAwareTrait;
 
+use function assert;
+
 /**
- * Feedback Controller
+ * Feedback Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -42,8 +48,7 @@ use VuFind\Log\LoggerAwareTrait;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
-class FeedbackController extends \VuFind\Controller\FeedbackController
-    implements \Laminas\Log\LoggerAwareInterface
+class FeedbackController extends \VuFind\Controller\FeedbackController implements \Psr\Log\LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
@@ -55,18 +60,11 @@ class FeedbackController extends \VuFind\Controller\FeedbackController
      */
     public function formAction()
     {
-        if ($this->formWasSubmitted('submit')) {
-            $formId
-                = $this->params()->fromRoute('id', $this->params()->fromQuery('id'));
-            if (\Finna\Form\R2Form::isR2RegisterForm($formId)) {
-                return $this->forwardTo('R2Feedback', 'Form', ['id' => $formId]);
-            }
-        }
-
         // Copy any record_id from query params to post params so that it's available
         // for the form:
         $request = $this->getRequest();
-        if (null === $request->getPost('record_id')
+        if (
+            null === $request->getPost('record_id')
             && $recordId = $request->getQuery('record_id')
         ) {
             $request->getPost()->set('record_id', $recordId);
@@ -86,5 +84,21 @@ class FeedbackController extends \VuFind\Controller\FeedbackController
         }
 
         return parent::formAction();
+    }
+
+    /**
+     * Prefill form sender fields for logged in users.
+     * Overrides parent::prefillUserInfo to set user data from patron if form
+     * prefers patron information.
+     *
+     * @param Form                 $form Form
+     * @param ?UserEntityInterface $user User
+     *
+     * @return Form
+     */
+    protected function prefillUserInfo(Form $form, ?UserEntityInterface $user)
+    {
+        assert($form instanceof \Finna\Form\Form);
+        return $form->setContactInformation();
     }
 }

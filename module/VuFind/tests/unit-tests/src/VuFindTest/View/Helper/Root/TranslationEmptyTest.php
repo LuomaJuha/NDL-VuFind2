@@ -1,8 +1,9 @@
 <?php
+
 /**
- * TranslationEmpty view helper Test Class
+ * TranslationEmpty view helper Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\View\Helper\Root;
 
 use VuFind\View\Helper\Root\TranslationEmpty;
 use VuFindTest\Feature\TranslatorTrait;
 
 /**
- * TranslationEmpty view helper Test Class
+ * TranslationEmpty view helper Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -44,7 +46,7 @@ class TranslationEmptyTest extends \PHPUnit\Framework\TestCase
     use TranslatorTrait;
 
     /**
-     * Test TranslationEmpty
+     * Test TranslationEmpty.
      *
      * @return void
      */
@@ -57,7 +59,10 @@ class TranslationEmptyTest extends \PHPUnit\Framework\TestCase
                     'default' => [
                         'foo' => 'bar',
                         'baz' => '',
-                    ]
+                    ],
+                    'fallback' => [
+                        'nonexistent' => 'actually exists',
+                    ],
                 ]
             )
         );
@@ -65,5 +70,6 @@ class TranslationEmptyTest extends \PHPUnit\Framework\TestCase
         $this->assertFalse($translationEmpty('foo'));
         $this->assertTrue($translationEmpty('baz'));
         $this->assertTrue($translationEmpty('nonexistent'));
+        $this->assertFalse($translationEmpty('nonexistent', ['fallback']));
     }
 }

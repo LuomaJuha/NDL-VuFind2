@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Combined search model.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Base
@@ -25,7 +26,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\Combined;
+
+use VuFind\Config\ConfigManagerInterface;
 
 /**
  * Combined search model.
@@ -41,26 +45,34 @@ class Options extends \VuFind\Search\Combined\Options
     use \Finna\Search\FinnaOptions;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFind\Config\PluginManager $configLoader Config loader
+     * @param ConfigManagerInterface               $configManager  Config loader
+     * @param \VuFind\Search\Options\PluginManager $optionsManager Options plugin manager
      */
-    public function __construct(\VuFind\Config\PluginManager $configLoader)
-    {
-        parent::__construct($configLoader);
-        // Load the search configuration file:
-        $searchSettings = $configLoader->get($this->searchIni);
-
-        // Load search preferences:
-        if (isset($searchSettings->General->retain_filters_by_default)) {
-            $this->retainFiltersByDefault
-                = $searchSettings->General->retain_filters_by_default;
-        }
+    public function __construct(
+        ConfigManagerInterface $configManager,
+        protected \VuFind\Search\Options\PluginManager $optionsManager
+    ) {
+        parent::__construct($configManager, $optionsManager);
 
         // Use Solr preference for autocomplete setting
-        $searchSettings = $configLoader->get('searches');
-        if (isset($searchSettings->Autocomplete->enabled)) {
-            $this->autocompleteEnabled = $searchSettings->Autocomplete->enabled;
+        $searchSettings = $configManager->getConfigArray('searches');
+        if (null !== ($enabled = $searchSettings['Autocomplete']['enabled'] ?? null)) {
+            $this->autocompleteEnabled = $enabled;
         }
+    }
+
+    /**
+     * Get tab configuration based on the full combined results configuration.
+     *
+     * @return array
+     */
+    public function getTabConfig()
+    {
+        $config = parent::getTabConfig();
+        // Strip out additional non-tab sections of the configuration:
+        unset($config['General']);
+        return $config;
     }
 }

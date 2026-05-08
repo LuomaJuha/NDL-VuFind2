@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Results as feed" view helper
+ * "Results as feed" view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015-2019.
@@ -17,45 +18,73 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
+use Finna\Db\Service\UserResourceServiceInterface;
+use Finna\View\Helper\Root\RecordImage as RecordImageHelper;
+use VuFind\Db\Entity\UserListEntityInterface;
+use VuFind\Db\Service\CommentsServiceInterface;
+use VuFind\View\Helper\Root\Record as RecordHelper;
+
+use function array_slice;
+use function count;
+use function is_array;
+use function is_string;
+
 /**
- * "Results as feed" view helper
+ * "Results as feed" view helper.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class ResultFeed extends \VuFind\View\Helper\Root\ResultFeed
 {
     /**
-     * User list object
+     * User list object.
      *
-     * @var Db\Row\UserList
+     * @var UserListEntityInterface
      */
     protected $list = null;
 
     /**
+     * Constructor.
+     *
+     * @param RecordHelper                 $recordHelper        Record helper
+     * @param RecordImageHelper            $recordImageHelper   Record image helper
+     * @param CommentsServiceInterface     $commentsService     Comments database service
+     * @param UserResourceServiceInterface $userResourceService User resource database service
+     */
+    public function __construct(
+        protected RecordHelper $recordHelper,
+        protected RecordImageHelper $recordImageHelper,
+        protected CommentsServiceInterface $commentsService,
+        protected UserResourceServiceInterface $userResourceService
+    ) {
+    }
+
+    /**
      * Set user list for this feed.
      *
-     * @param Db\Row\UserList $list List
+     * @param UserListEntityInterface $list List
      *
      * @return void
      */
-    public function setList($list)
+    public function setList(UserListEntityInterface $list): void
     {
         $this->list = $list;
     }
@@ -91,14 +120,14 @@ class ResultFeed extends \VuFind\View\Helper\Root\ResultFeed
         $entry->setLink($url);
 
         if ($this->list) {
-            if (method_exists($record, 'getListSavedDate')) {
-                $saved = $record->getListSavedDate(
-                    $this->list->id,
-                    $this->list->user_id
-                );
-                if ($saved) {
-                    $entry->setDateModified(new \DateTime($saved));
-                }
+            $resources = $this->userResourceService->getFavoritesForRecord(
+                $record->getUniqueId(),
+                $record->getSourceIdentifier(),
+                $this->list,
+                $this->list->getUser()
+            );
+            if ($saved = current($resources)?->getSaved()) {
+                $entry->setDateModified($saved);
             }
         } else {
             $date = $this->getDateModified($record);
@@ -119,21 +148,20 @@ class ResultFeed extends \VuFind\View\Helper\Root\ResultFeed
         if (!empty($dcDate)) {
             $entry->setDCDate($dcDate);
         }
-        $recordHelper = $this->getView()->plugin('record');
-        $recordImage = $this->getView()->plugin('recordImage');
-        $imageUrl = $recordImage($recordHelper($record))->getLargeImage()
-            . '&w=1024&h=1024&imgext=.jpeg';
+        $recordHelperInst = ($this->recordHelper)($record);
+        $imageUrl = ($this->recordImageHelper)($recordHelperInst)->getLargeImage() . '&w=1024&h=1024&imgext=.jpeg';
         $entry->setEnclosure(
             [
                 'uri' => $serverUrl($imageUrl),
                 'type' => 'image/jpeg',
-                'length' => 0
+                'length' => 0,
             ]
         );
-        $entry->setCommentCount(count($record->getComments()));
+        $comments = $this->commentsService->getRecordComments($record->getUniqueID(), $record->getSourceIdentifier());
+        $entry->setCommentCount(count($comments));
         $summaries = [];
         if (isset($this->list)) {
-            $summaries = $record->getListNotes($this->list->id);
+            $summaries = $recordHelperInst->getListNotes($this->list->getId());
         }
         if (empty($summaries)) {
             $summaries = array_filter($record->tryMethod('getSummary'));

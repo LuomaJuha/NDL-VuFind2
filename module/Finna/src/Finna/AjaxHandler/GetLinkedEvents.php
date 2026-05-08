@@ -1,8 +1,9 @@
 <?php
+
 /**
- * GetLinkedEvents AJAX handler
+ * GetLinkedEvents AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 
 /**
- * GetLinkedEvents AJAX handler
+ * GetLinkedEvents AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -39,27 +41,26 @@ use VuFind\I18n\Translator\TranslatorAwareInterface;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetLinkedEvents extends \VuFind\AjaxHandler\AbstractBase
-    implements TranslatorAwareInterface
+class GetLinkedEvents extends \VuFind\AjaxHandler\AbstractBase implements TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Linked Events
+     * Linked Events.
      *
      * @var \Finna\Feed\LinkedEvents $linkedEvents
      */
     protected $linkedEvents;
 
     /**
-     * View renderer
+     * View renderer.
      *
      * @var ViewRenderer $viewRenderer
      */
     protected $viewRenderer;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param LinkedEvents $linkedEvents linkedEvents service
      * @param ViewRenderer $viewRenderer view renderer
@@ -92,7 +93,10 @@ class GetLinkedEvents extends \VuFind\AjaxHandler\AbstractBase
                 self::STATUS_HTTP_ERROR
             );
         }
-        $response = false;
+        $response = [
+            'html' => '',
+            'next' => '',
+        ];
         if (!empty($events)) {
             if (isset($param['query']['id'])) {
                 $relatedEvents = $events['events']['relatedEvents'] ?? '';
@@ -105,7 +109,7 @@ class GetLinkedEvents extends \VuFind\AjaxHandler\AbstractBase
                 }
                 $response = [
                     'events' => $events['events'][0],
-                    'relatedEvents' => $html
+                    'relatedEvents' => $html,
                 ];
             } elseif (!empty($events['events'])) {
                 $response['html'] = $this->viewRenderer->partial(

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Bootstrapper
+ * VuFind Bootstrapper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Bootstrap
@@ -26,12 +27,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna;
 
 use Laminas\Mvc\MvcEvent;
 
+use function in_array;
+
 /**
- * VuFind Bootstrapper
+ * VuFind Bootstrapper.
  *
  * @category VuFind
  * @package  Bootstrap
@@ -43,28 +47,28 @@ use Laminas\Mvc\MvcEvent;
 class Bootstrapper
 {
     /**
-     * Main VuFind configuration
+     * Main VuFind configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config = null;
 
     /**
-     * Current MVC event
+     * Current MVC event.
      *
      * @var MvcEvent
      */
     protected $event;
 
     /**
-     * Event manager
+     * Event manager.
      *
      * @var \Laminas\EventManager\EventManagerInterface
      */
     protected $events;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param MvcEvent $event Laminas MVC Event object
      */
@@ -73,7 +77,7 @@ class Bootstrapper
         $this->event = $event;
         $this->events = $event->getApplication()->getEventManager();
         $sm = $this->event->getApplication()->getServiceManager();
-        $this->config = $sm->get(\VuFind\Config\PluginManager::class)->get('config');
+        $this->config = $sm->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('config');
     }
 
     /**
@@ -93,7 +97,7 @@ class Bootstrapper
     }
 
     /**
-     * Set up bot check that disallows access to some functions from bots
+     * Set up bot check that disallows access to some functions from bots.
      *
      * @return void
      */
@@ -108,7 +112,7 @@ class Bootstrapper
             if (!$headers->has('User-Agent')) {
                 return;
             }
-            $agent = $headers->get('User-Agent')->toString();
+            $agent = $headers->get('User-Agent')->getFieldValue();
             $crawlerDetect = new \Jaybizzle\CrawlerDetect\CrawlerDetect();
             if (!$crawlerDetect->isCrawler($agent)) {
                 return;
@@ -121,21 +125,34 @@ class Bootstrapper
             $routeMatch = $event->getRouteMatch();
             $controller = strtolower($routeMatch->getParam('controller'));
             $action = strtolower($routeMatch->getParam('action'));
-            if (($controller == 'ajax' && !in_array($action, $ajaxAllowed))
+            $request = $event->getRequest();
+            $view = $request->getPost('view') ?? $request->getQuery('view');
+            if (
+                ($controller == 'ajax' && !in_array($action, $ajaxAllowed))
+                || ($controller == 'browse')
+                || ($controller == 'browsesearch')
+                || ($controller == 'l1' && $action == 'results' && $view !== 'rss')
+                || ($controller == 'l1record' && $action == 'ajaxtab')
+                || ($controller == 'myresearch')
                 || ($controller == 'record' && $action == 'ajaxtab')
                 || ($controller == 'record' && $action == 'holdings')
                 || ($controller == 'record' && $action == 'details')
+                || ($controller == 'record' && $action == 'downloadfile')
                 || ($controller == 'record' && $action == 'map')
                 || ($controller == 'record' && $action == 'usercomments')
                 || ($controller == 'record' && $action == 'similar')
+                || ($controller == 'record2' && $action == 'ajaxtab')
                 || ($controller == 'qrcode')
                 || ($controller == 'oai')
+                || ($controller == 'authority' && $action == 'search')
+                || ($controller == 'search' && $action == 'results' && $view !== 'rss')
+                || ($controller == 'search2' && $action == 'results' && $view !== 'rss')
                 || ($controller == 'pci' && $action == 'search')
                 || ($controller == 'primo' && $action == 'search')
                 || ($controller == 'primorecord')
                 || ($controller == 'eds' && $action == 'search')
                 || ($controller == 'edsrecord')
-                || ($controller == 'search' && $action == 'blended')
+                || ($controller == 'blender' && $action == 'results')
                 || ($controller == 'cover' && $action == 'download')
             ) {
                 $response = $event->getResponse();
@@ -147,138 +164,11 @@ class Bootstrapper
         };
 
         // Attach with a high priority
-        $this->events->attach('dispatch', $callback, 11000);
+        $this->events->attach('dispatch', $callback, 12000);
     }
 
     /**
-     * Set up Suomifi login listener.
-     *
-     * @return void
-     */
-    protected function initSuomifiLoginListener()
-    {
-        if (!$this->isR2Enabled()) {
-            return;
-        }
-        $sm = $this->event->getApplication()->getServiceManager();
-        $callback = function ($event) use ($sm) {
-            // Open REMS registration form after Suomifi login
-            $lightboxUrl = ($sm->get('ViewHelperManager')->get('url'))(
-                'r2feedback-form',
-                ['id' => 'R2Register']
-            );
-
-            $followup = $sm->get(\Laminas\Mvc\Controller\PluginManager::class)
-                ->get(\VuFind\Controller\Plugin\Followup::class);
-
-            $followup->store(
-                ['postLoginLightbox' => $lightboxUrl],
-                $followup->retrieve('url', '')
-            );
-        };
-
-        $sm->get('SharedEventManager')->attach(
-            'Finna\Auth\Suomifi',
-            \Finna\Auth\Suomifi::EVENT_LOGIN,
-            $callback
-        );
-    }
-
-    /**
-     * Set up Suomifi logout listener.
-     *
-     * @return void
-     */
-    protected function initSuomifiLogoutListener()
-    {
-        if (!$this->isR2Enabled()) {
-            return;
-        }
-        $sm = $this->event->getApplication()->getServiceManager();
-        $callback = function ($event) use ($sm) {
-            $rems = $sm->get(\Finna\Service\RemsService::class);
-            $rems->onLogout();
-        };
-
-        $sm->get('SharedEventManager')->attach(
-            'Finna\Auth\Suomifi',
-            \Finna\Auth\Suomifi::EVENT_LOGOUT,
-            $callback
-        );
-    }
-
-    /**
-     * Set up REMS registration listener.
-     *
-     * @return void
-     */
-    protected function initRemsRegistrationListener()
-    {
-        if (!$this->isR2Enabled()) {
-            return;
-        }
-        $sm = $this->event->getApplication()->getServiceManager();
-        $callback = function ($event) use ($sm) {
-            $params = $event->getParams();
-            if ($remsUserId = ($params['user'] ?? null)) {
-                $table = $sm->get(\VuFind\Db\Table\PluginManager::class)
-                    ->get('ExternalSession');
-                $sessionId
-                    = $sm->get(\Laminas\Session\SessionManager::class)->getId();
-                $table->addSessionMapping("{$sessionId}REMS", $remsUserId);
-            }
-        };
-
-        $sm->get('SharedEventManager')->attach(
-            'Finna\Service\RemsService',
-            \Finna\Service\RemsService::EVENT_USER_REGISTERED,
-            $callback
-        );
-    }
-
-    /**
-     * Set up REMS session expiration warning listener.
-     *
-     * @return void
-     */
-    protected function initRemsSessionExpirationWarningListener()
-    {
-        if (!$this->isR2Enabled()) {
-            return;
-        }
-        $sm = $this->event->getApplication()->getServiceManager();
-        $callback = function ($event) use ($sm) {
-            $session = new \Laminas\Session\Container(
-                \Finna\View\Helper\Root\SystemMessages::SESSION_NAME,
-                $sm->get(\Laminas\Session\SessionManager::class)
-            );
-            $messages = $session['messages'] ?? [];
-
-            $key = 'R2_session_expiring';
-            unset($session->messages[$key]);
-
-            $expirationTime
-                = $sm->get(\Finna\Service\RemsService::class)
-                ->getSessionExpirationTime();
-            if ($expirationTime) {
-                // Add warning to session variable.
-                // The message is displayed by SystemMessages
-                $format = 'H:i';
-                $time = $sm->get(\VuFind\Date\Converter::class)
-                    ->convertToDisplayDateAndTime(
-                        $format,
-                        date($format, $expirationTime->getTimeStamp())
-                    );
-                $messages[$key] = ['%%expire%%' => $time];
-                $session->messages = $messages;
-            }
-        };
-
-        $this->events->attach('dispatch', $callback, 9000);
-    }
-
-    /**
-     * Set up statistics event handler
+     * Set up statistics event handler.
      *
      * N.B. The event handler may have already been created by the database row
      * session factory to ensure proper hookup before session events.
@@ -292,7 +182,7 @@ class Bootstrapper
         }
 
         $sm = $this->event->getApplication()->getServiceManager();
-        $callback = function ($event) use ($sm) {
+        $callback = function ($event) use ($sm): void {
             if (!($routeMatch = $event->getRouteMatch())) {
                 return;
             }
@@ -305,7 +195,7 @@ class Bootstrapper
                     }
                     $method = $request->getPost('method')
                         ?? $request->getQuery('method');
-                    if (!in_array($method, ['getImageInformation'])) {
+                    if ($method != 'getImageInformation') {
                         return;
                     }
                     $action .= "/$method";
@@ -321,17 +211,5 @@ class Bootstrapper
             }
         };
         $this->events->attach('dispatch', $callback, 9000);
-    }
-
-    /**
-     * Check if R2 search is enabled.
-     *
-     * @return bool
-     */
-    protected function isR2Enabled()
-    {
-        $sm = $this->event->getApplication()->getServiceManager();
-        $r2Config = $sm->get(\VuFind\Config\PluginManager::class)->get('R2');
-        return $r2Config->R2->enabled ?? false;
     }
 }

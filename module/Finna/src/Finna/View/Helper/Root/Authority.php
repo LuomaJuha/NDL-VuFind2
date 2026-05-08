@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Authority view helper
+ * Authority view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020-2023.
  *
@@ -16,54 +17,55 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
 use Finna\Search\Solr\AuthorityHelper;
 
 /**
- * Authority view helper
+ * Authority view helper.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class Authority extends \Laminas\View\Helper\AbstractHelper
 {
     /**
-     * Authority configuration
+     * Authority configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config;
 
     /**
-     * Authority helper
+     * Authority helper.
      *
      * @var AuthorityHelper
      */
     protected $authorityHelper;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config $config          Authority configuration
-     * @param AuthorityHelper        $authorityHelper Authority helper
+     * @param \VuFind\Config\Config $config          Authority configuration
+     * @param AuthorityHelper       $authorityHelper Authority helper
      */
     public function __construct(
-        \Laminas\Config\Config $config,
+        \VuFind\Config\Config $config,
         AuthorityHelper $authorityHelper
     ) {
         $this->config = $config;
@@ -71,7 +73,7 @@ class Authority extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Check if authhority search is available
+     * Check if authhority search is available.
      *
      * @return bool
      */
@@ -81,7 +83,7 @@ class Authority extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Get the number of records having the given authority id as an author
+     * Get the number of records having the given authority id as an author.
      *
      * @param string $id Authority ID
      *
@@ -94,7 +96,7 @@ class Authority extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Get the number of records having the given authority id as a topic
+     * Get the number of records having the given authority id as a topic.
      *
      * @param string $id Authority ID
      *

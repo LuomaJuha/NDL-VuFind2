@@ -7,11 +7,17 @@ url = "https://api.kirjastot.fi/"
 ; Language settings.
 ; Language codes are given in Kirjastohakemisto format (fi, sv, en...)
 
-; Language version used for translated strings.
-; If defined, this overrides the current user language.
+; Language used for translated strings.
+; If defined, this overrides the current user language. Normally this should be left
+; undefined.
 ; language = fi
 
-; Allowed language versions
+; Fallback language used for translated strings when current user language is not in
+; allowed languages.
+; If defined, this overrides default language defined in config.ini.
+; fallbackLanguage = en
+
+; Allowed languages
 languages[] = fi
 languages[] = sv
 languages[] = en
@@ -26,6 +32,10 @@ languages[] = en
 ; How long content is cached locally in minutes.
 ; Set this to false or comment out to disable caching.
 cachetime = 1
+
+; Organisation info list cache time.
+; Default is 60 minutes
+organisationListCacheTime = 60;
 
 ; URL patterns for map and route instructions
 routeUrl = "https://opas.matka.fi/?to={street},%20{city}"
@@ -59,10 +69,25 @@ services[print] = "55355,55752,55856,55848,55628,55805,55375,55549,55342,55327,5
 url = "https://museot.fi/xml"
 
 [LinkedEvents]
+; Linked events API URL including a trailing slash
 ;api_url = ""
+; Publisher ID (a single identifier or a comma-separated list of identifiers)
 ;publisher_id = ""
+; Uncomment to include super events in responses
+;include_super_events = true
 
 [Images]
 ; Allowed hosts for images
 allowed_hosts[] = 'kirkanta.kirjastot.fi'
 allowed_hosts[] = 'museot.fi'
+
+; This section defines possible organisation-specific enrichment processes. Each key
+; is an organisation id. The setting is a colon-separated string where first part is
+; the enrichment handler and second part is configuration section.
+; Available enrichments:
+;   TPRAccessibility - Display accessibility information for the selected location
+[Enrichment]
+Helmet[] = TPRAccessibility:HelmetTPRAccessibility
+
+[HelmetTPRAccessibility]
+url = "https://www.hel.fi/palvelukarttaws/rest"

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Feed Content Controller
+ * Feed Content Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  * Copyright (C) The National Library of Finland 2014-2023.
@@ -28,10 +29,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Controller;
 
+use function in_array;
+
 /**
- * Loads feed content pages
+ * Loads feed content pages.
  *
  * @category VuFind
  * @package  Controller
@@ -46,7 +50,7 @@ class FeedContentController extends ContentController
     use Feature\DownloadTrait;
 
     /**
-     * Default action if none provided
+     * Default action if none provided.
      *
      * @return Laminas\View\Model\ViewModel
      */
@@ -63,19 +67,25 @@ class FeedContentController extends ContentController
         }
 
         $modal = ($config['result']->linkTo ?? '') === 'modal';
+        $contentNavigation = $config['result']->feedcontentNavigation ?? true;
+        $nextArticles = $config['result']->feedcontentNextArticles ?? false;
+        $additionalHtml = $config['result']->feedcontentadditionalHtml ?? '';
 
         return $this->createViewModel(
             [
                 'page' => 'feed-content',
                 'feed' => $page,
                 'element' => $element,
-                'modal' => $modal
+                'modal' => $modal,
+                'contentNavigation' => $contentNavigation,
+                'nextArticles' => $nextArticles,
+                'additionalHtml' => $additionalHtml,
             ]
         );
     }
 
     /**
-     * Linked events action
+     * Linked events action.
      *
      * @return Laminas\View\Model\ViewModel
      */
@@ -88,7 +98,7 @@ class FeedContentController extends ContentController
     }
 
     /**
-     * Proxy load feed image
+     * Proxy load feed image.
      *
      * @return Laminas\View\Model\ViewModel
      */
@@ -126,7 +136,8 @@ class FeedContentController extends ContentController
             return $this->notFoundAction();
         }
 
-        if (!($imageResult = $this->downloadData($imageUrl))
+        if (
+            !($imageResult = $this->downloadData($imageUrl))
             || !$this->isImageContentType($imageResult['contentType'])
         ) {
             return $this->notFoundAction();
@@ -141,7 +152,7 @@ class FeedContentController extends ContentController
     }
 
     /**
-     * Proxy load linked event image
+     * Proxy load linked event image.
      *
      * @return Laminas\View\Model\ViewModel
      */
@@ -174,7 +185,8 @@ class FeedContentController extends ContentController
             return $this->notFoundAction();
         }
 
-        if (!($imageResult = $this->downloadData($imageUrl))
+        if (
+            !($imageResult = $this->downloadData($imageUrl))
             || !$this->isImageContentType($imageResult['contentType'])
         ) {
             return $this->notFoundAction();

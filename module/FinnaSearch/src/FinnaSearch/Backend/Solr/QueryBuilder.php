@@ -3,7 +3,7 @@
 /**
  * SOLR QueryBuilder.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015-2016.
@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -30,13 +30,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org
  */
+
 namespace FinnaSearch\Backend\Solr;
 
 use VuFindSearch\ParamBag;
 use VuFindSearch\Query\AbstractQuery;
 use VuFindSearch\Query\Query;
-
 use VuFindSearch\Query\QueryGroup;
+
+use function count;
+use function sprintf;
 
 /**
  * SOLR QueryBuilder.
@@ -53,7 +56,7 @@ use VuFindSearch\Query\QueryGroup;
 class QueryBuilder extends \VuFindSearch\Backend\Solr\QueryBuilder
 {
     /**
-     * Maximum number of words in search query for spellcheck to be used
+     * Maximum number of words in search query for spellcheck to be used.
      */
     protected $maxSpellcheckWords;
 
@@ -80,28 +83,31 @@ class QueryBuilder extends \VuFindSearch\Backend\Solr\QueryBuilder
     /**
      * Return SOLR search parameters based on a user query and params.
      *
-     * @param AbstractQuery $query User query
+     * @param AbstractQuery $query  User query
+     * @param ?ParamBag     $params Search backend parameters
      *
      * @return ParamBag
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    public function build(AbstractQuery $query)
+    public function build(AbstractQuery $query, ?ParamBag $params = null)
     {
-        $params = parent::build($query);
+        $newParams = parent::build($query, $params);
 
-        if ($this->createSpellingQuery && ($sq = $params->get('spellcheck.q'))) {
-            if (str_word_count(end($sq)) > $this->maxSpellcheckWords) {
-                $params->set('spellcheck.q', '');
+        if ($this->createSpellingQuery && ($sq = $newParams->get('spellcheck.q'))) {
+            if (count(preg_split("/[\s,]/u", trim(end($sq)))) > $this->maxSpellcheckWords) {
+                $newParams->set('spellcheck.q', '');
             }
         }
 
         if (!($query instanceof QueryGroup)) {
-            $q = $params->get('q');
+            $q = $newParams->get('q');
             foreach ($q as &$value) {
                 $value = $this->getLuceneHelper()->finalizeSearchString($value);
             }
-            $params->set('q', $q);
+            $newParams->set('q', $q);
         }
-        return $params;
+        return $newParams;
     }
 
     /**

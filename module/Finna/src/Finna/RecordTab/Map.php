@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Map tab
+ * Map tab.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015.
@@ -17,27 +18,31 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordTabs
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_tabs Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_tabs Wiki
  */
+
 namespace Finna\RecordTab;
 
+use function count;
+use function in_array;
+
 /**
- * Map tab
+ * Map tab.
  *
  * @category VuFind
  * @package  RecordTabs
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_tabs Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_tabs Wiki
  */
 class Map extends \VuFind\RecordTab\Map
 {
@@ -53,7 +58,7 @@ class Map extends \VuFind\RecordTab\Map
     }
 
     /**
-     * Get all map markers (points, polygons etc.)
+     * Get all map markers (points, polygons etc.).
      *
      * @return string
      */
@@ -100,7 +105,7 @@ class Map extends \VuFind\RecordTab\Map
     }
 
     /**
-     * Convert WKT envelope to array
+     * Convert WKT envelope to array.
      *
      * @param string $envelope WKT envelope
      *
@@ -115,12 +120,12 @@ class Map extends \VuFind\RecordTab\Map
             [(float)$minY, (float)$maxX],
             [(float)$maxY, (float)$maxX],
             [(float)$maxY, (float)$minX],
-            [(float)$minY, (float)$minX]
+            [(float)$minY, (float)$minX],
         ];
     }
 
     /**
-     * Convert WKT to array (support function for getGoogleMapMarker)
+     * Convert WKT to array (support function for getGoogleMapMarker).
      *
      * @param string $location Well Known Text, envelope or simple point
      *
@@ -130,7 +135,7 @@ class Map extends \VuFind\RecordTab\Map
     {
         $wktTypes = [
             'coords', 'multicoords', 'linestring',
-            'multilinestring', 'polygon', 'multipolygon', 'geometrycollection'
+            'multilinestring', 'polygon', 'multipolygon', 'geometrycollection',
         ];
 
         $p = strpos($location, '(');
@@ -140,7 +145,7 @@ class Map extends \VuFind\RecordTab\Map
             $shape = \geoPHP\geoPHP::load($location, 'wkt');
             $geoJsonAdapter = new \geoPHP\Adapter\GeoJSON();
             return [
-                'geojson' => $geoJsonAdapter->getArray($shape)
+                'geojson' => $geoJsonAdapter->getArray($shape),
             ];
         }
 
@@ -156,11 +161,11 @@ class Map extends \VuFind\RecordTab\Map
                 foreach ($matches as $match) {
                     $results[] = [
                         'lon' => (float)$match[1],
-                        'lat' => (float)$match[2]
+                        'lat' => (float)$match[2],
                     ];
                 }
                 return [
-                    'points' => $results
+                    'points' => $results,
                 ];
             }
             return null;
@@ -169,8 +174,8 @@ class Map extends \VuFind\RecordTab\Map
         if ($type == 'envelope') {
             return [
                 'polygon' => [
-                    $this->envelopeToArray($location)
-                ]
+                    $this->envelopeToArray($location),
+                ],
             ];
         }
 
@@ -188,16 +193,16 @@ class Map extends \VuFind\RecordTab\Map
             $polygon[] = [$lat2, $lon];
             $polygon[] = [$lat, $lon];
             return [
-                'polygon' => [$polygon]
+                'polygon' => [$polygon],
             ];
         }
         return [
             'points' => [
                 [
                     'lon' => $coordinates[0],
-                    'lat' => $coordinates[1]
-                ]
-            ]
+                    'lat' => $coordinates[1],
+                ],
+            ],
         ];
     }
 }

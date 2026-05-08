@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Model for LIDO records in Solr.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2022.
+ * Copyright (C) The National Library of Finland 2015-2026.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -27,9 +28,21 @@
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
+
+use FinnaXml\XmlDoc;
+use VuFind\I18n\TranslatableString;
+
+use function boolval;
+use function call_user_func_array;
+use function count;
+use function in_array;
+use function intval;
+use function is_array;
+use function strlen;
 
 /**
  * Model for LIDO records in Solr.
@@ -42,10 +55,9 @@ namespace Finna\RecordDriver;
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
-class SolrLido extends \VuFind\RecordDriver\SolrDefault
-    implements \Laminas\Log\LoggerAwareInterface
+class SolrLido extends \VuFind\RecordDriver\SolrDefault implements \Psr\Log\LoggerAwareInterface
 {
     use Feature\SolrFinnaTrait;
     use Feature\FinnaXmlReaderTrait;
@@ -53,16 +65,23 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
+     * LIDO XML namespace.
+     *
+     * @var string
+     */
+    public const LIDO_NAMESPACE = 'http://www.lido-schema.org';
+
+    /**
      * Map from site locale to Lido language codes.
      */
     public const LANGUAGE_CODES = [
         'fi' => ['fi','fin'],
         'sv' => ['sv','swe'],
-        'en-gb' => ['en','eng']
+        'en-gb' => ['en','eng'],
     ];
 
     /**
-     * Image types array
+     * Image types array.
      *
      * @var array
      */
@@ -74,21 +93,21 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         'large' => 'large',
         'zoomview' => 'large',
         'image_master' => 'master',
-        'image_original' => 'original'
+        'image_original' => 'original',
     ];
 
     /**
-     * Model types array
+     * Model types array.
      *
      * @var array
      */
     protected $modelTypes = [
         'preview_3D' => 'preview',
-        'provided_3D' => 'provided'
+        'provided_3D' => 'provided',
     ];
 
     /**
-     * Audio types array
+     * Audio types array.
      *
      * @var array
      */
@@ -97,7 +116,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     ];
 
     /**
-     * Video types array
+     * Video types array.
      *
      * @var array
      */
@@ -106,36 +125,40 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     ];
 
     /**
-     * Document types array
+     * Document types array.
      *
      * @var array
      */
     protected $documentTypes = [
         'preview_text' => 'document',
-        'provided_text' => 'document'
+        'provided_text' => 'document',
     ];
 
     /**
-     * Supported audio formats
+     * Supported audio formats.
      *
      * @var array
      */
     protected $supportedAudioFormats = [
         'mp3' => 'mpeg',
-        'wav' => 'wav'
+        'wav' => 'wav',
     ];
 
     /**
-     * Supported video formats
+     * Supported video formats.
      *
      * @var array
      */
     protected $supportedVideoFormats = [
-        'mp4' => 'video/mp4'
+        'mp4' => 'video/mp4',
+        'video/mp4' => 'video/mp4',
+        'mov' => 'video/quicktime',
+        'video/quicktime' => 'video/quicktime',
+        'text/html' => 'text/html',
     ];
 
     /**
-     * Description type mappings
+     * Description type mappings.
      *
      * @var array
      */
@@ -143,29 +166,139 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         'preview_video' => 'displayLink',
         'preview_audio' => 'displayLink',
         'preview_text' => 'displayLink',
-        'provided_text' => 'displayLink'
+        'provided_text' => 'displayLink',
+        'provided_video' => 'displayLink',
     ];
 
     /**
-     * Array of web friendly model formats
+     * Measurement type mappings.
+     *
+     * @var array
+     */
+    protected $measurementTypeMappings = [
+        'leveys' => 'width',
+        'korkeus' => 'height',
+        'koko' => 'size',
+    ];
+
+    /**
+     * Measurement unit mappings.
+     *
+     * @var array
+     */
+    protected $measurementUnitMappings = [
+        'tavua' => 'byte',
+        'bytes' => 'byte',
+        'pikseli' => 'pixel',
+    ];
+
+    /**
+     * PlaceID source mappings.
+     *
+     * @var array
+     */
+    protected $placeIDSourceMappings = [
+        'vtj' => 'prt',
+        'kiinteistörekisteri' => 'kiinteistötunnus',
+    ];
+
+    /**
+     * Inscription type mappings.
+     *
+     * @var array
+     */
+    protected $inscriptionTypeMappings = [
+        'merkinnän sijainti' => 'location',
+        'merkintä' => 'description',
+        'merkintätekniikka' => 'technique',
+        'sijainti' => 'location',
+        'tekniikka' => 'technique',
+        'tulkinta' => 'interpretation',
+        'tyyppi' => 'type',
+        'merkinnän tyyppi' => 'type',
+    ];
+
+    /**
+     * Array of preferred title labels.
+     *
+     * @var array
+     */
+    protected $preferredTitleLabels = ['preferred', 'http://terminology.lido-schema.org/lido00169'];
+
+    /**
+     * Array of alternative title labels.
+     *
+     * @var array
+     */
+    protected $alternativeTitleLabels = ['alternate', 'alternative', 'http://terminology.lido-schema.org/lido00170'];
+
+    /**
+     * Array of web friendly model formats.
      *
      * @var array
      */
     protected $displayableModelFormats = ['gltf', 'glb'];
 
     /**
-     * Array of excluded classifications
+     * Array of excluded classifications.
      *
      * @var array
      */
     protected $excludedClassifications = ['language'];
 
     /**
-     * Array of excluded measurements
+     * Array of excluded measurements.
      *
      * @var array
      */
     protected $excludedMeasurements = ['extent'];
+
+    /**
+     * Subject conceptID types included in topic identifiers (all lowercase).
+     *
+     * @var array
+     */
+    protected $subjectConceptIDTypes = ['uri', 'url'];
+
+    /**
+     * PlaceID types included but not prepended to identifier (all lowercase).
+     *
+     * @var array
+     */
+    protected $uniquePlaceIDTypes = ['uri', 'url'];
+
+    /**
+     * Array of excluded subject types.
+     *
+     * @var array
+     */
+    protected $excludedSubjectTypes = ['aihe', 'iconclass'];
+
+    /**
+     * Array of types for linkResources to be displayed as external URL.
+     */
+    protected $displayExternalLinks = ['provided_3D'];
+
+    /**
+     * Array of types displayed as download links with documents.
+     *
+     * @var array
+     */
+    protected $displayDownloadLinks = ['provided_video'];
+
+    /**
+     * Array of related work relation types for related publications.
+     *
+     * @var array
+     */
+    protected $relatedPulicationRelationTypes = ['is reproduced in', 'kirjallisuus', 'lähteet', 'julkaisu'];
+
+    /**
+     * Array of related publication title labels excluded from search.
+     *
+     * @var array
+     */
+    protected $relatedPulicationTitlesExcludedFromSearch = ['verkkojulkaisu'];
 
     /**
      * Events used for author information.
@@ -175,21 +308,30 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      * @var array
      */
     protected $authorEvents = [
-        'suunnittelu' => 0,
-        'valmistus' => 1,
+        'suunnittelu' => 1,
+        'valmistus' => 2,
     ];
 
     /**
-     * Mapping from related work type to possible type attributes
+     * Events excluded from subjects.
+     *
+     * @var array
+     */
+    protected $nonPlaceEvents = [
+        'valmistus',
+        'näyttely',
+    ];
+
+    /**
+     * Mapping from related work type to possible type attributes.
      *
      * @var array
      */
     protected $relatedWorkTypeMap = [
         'archive' => ['archive', 'arkisto', 'henkilöarkisto', 'yhteisöarkisto'],
-        'collection' => ['collection', 'kokoelma'],
+        'collection' => ['collection', 'kokoelma', 'purchase batch', 'hankintaerä'],
         'subcollection' => ['subcollection', 'alakokoelma'],
-        'series' => ['series', 'sarja'],
-        'purchaseBatch' => ['purchase batch', 'hankintaerä', 'hankintaerä (lapsi)'],
+        'series' => ['series', 'sarja', 'hankintaerä (lapsi)'],
         'work' => ['work', 'teos'],
     ];
 
@@ -203,28 +345,17 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     public function getAccessRestrictions($language = '')
     {
         $restrictions = [];
-        $rights = $this->getXmlRecord()->xpath(
-            'lido/administrativeMetadata/resourceWrap/resourceSet/rightsResource/'
-            . 'rightsType'
-        );
-        if ($rights) {
-            foreach ($rights as $right) {
-                if (!isset($right->conceptID)) {
-                    continue;
-                }
-                $type = strtolower((string)$right->conceptID->attributes()->type);
-                if ($type == 'copyright') {
-                    $term = (string)$this->getLanguageSpecificItem(
-                        $right->term,
-                        $language
-                    );
-                    if ($term) {
-                        $restrictions[] = $term;
-                    }
-                }
+        $reader = $this->getXmlReader();
+        $rights = $reader->all(path: 'lido/administrativeMetadata/resourceWrap/resourceSet/rightsResource/rightsType');
+        foreach ($rights as $right) {
+            if (!$reader->first($right, 'conceptID')) {
+                continue;
+            }
+            if ($term = $this->getLanguageSpecificValueByPath($right, 'term', $language)) {
+                $restrictions[] = $term;
             }
         }
-        return $restrictions;
+        return array_unique($restrictions);
     }
 
     /**
@@ -239,31 +370,17 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getAccessRestrictionsType($language)
     {
-        $rightsNodes = $this->getXmlRecord()->xpath(
-            'lido/administrativeMetadata/resourceWrap/resourceSet/rightsResource/'
-            . 'rightsType'
-        );
+        $reader = $this->getXmlReader();
+        $path = 'lido/administrativeMetadata/resourceWrap/resourceSet/rightsResource/rightsType/conceptID';
+        foreach ($reader->all(path: $path) as $conceptID) {
+            if ($copyright = $reader->value($conceptID)) {
+                $copyright = $this->getMappedRights($copyright);
+                $data = compact('copyright');
 
-        foreach ($rightsNodes as $rights) {
-            if ($conceptID = $rights->xpath('conceptID')) {
-                $conceptID = $conceptID[0];
-                $attributes = $conceptID->attributes();
-                if ($attributes->type
-                    && strtolower($attributes->type) == 'copyright'
-                ) {
-                    $data = [];
-
-                    $copyright = trim((string)$conceptID);
-                    if ($copyright) {
-                        $copyright = $this->getMappedRights($copyright);
-                        $data['copyright'] = $copyright;
-
-                        if ($link = $this->getRightsLink($copyright, $language)) {
-                            $data['link'] = $link;
-                        }
-                        return $data;
-                    }
+                if ($link = $this->getRightsLink($copyright, $language)) {
+                    $data['link'] = $link;
                 }
+                return $data;
             }
         }
         return false;
@@ -294,58 +411,63 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getAllImages($language = null)
     {
-        $language = $language ?? $this->getTranslatorLocale();
+        $language ??= $this->getTranslatorLocale();
         $representations = $this->getRepresentations($language);
+        // Note: Do not reindex the results e.g. with array_values, the keys are important! See FINNA-3933 and
+        // RecordImage::mergeModelDataToImages.
         return array_filter(array_column($representations, 'images'));
     }
 
     /**
-     * Function to format given resourceMeasurementsSet to readable format
+     * Function to format given resourceMeasurementsSet to readable format.
      *
-     * @param \SimpleXmlElement $measurements of the image
-     * @param string            $language     language to get information
+     * @param array[] $measurements Measurements nodes
      *
      * @return array
      */
-    protected function formatImageMeasurements(
-        \SimpleXmlElement $measurements,
-        string $language
-    ) {
-        $data = [];
+    protected function formatResourceMeasurements(array $measurements): array
+    {
+        $reader = $this->getXmlReader();
+        $results = [];
         foreach ($measurements as $set) {
-            if (empty($set->measurementValue)) {
+            if (!($value = $reader->firstValue($set, 'measurementValue'))) {
                 continue;
             }
-            $value = trim((string)$set->measurementValue);
+            // Support both simple text and term element in measurementType and measurementUnit
             $type = '';
-            foreach ($set->measurementType as $t) {
-                if (!($lang = (string)$t->attributes()->lang)) {
-                    $lang = 'nolocale';
-                }
-                $type = trim((string)$t);
-                if (!isset($data[$lang][$type])) {
-                    $data[$lang][$type] = [];
-                }
+            if ($t = $reader->first($set, 'measurementType')) {
+                $type = $reader->firstValue($t, 'term') ?? $reader->value($t);
+                $type = $this->measurementTypeMappings[$type] ?? $type;
             }
             $unit = '';
-            foreach ($set->measurementUnit as $u) {
-                if (!($lang = (string)$u->attributes()->lang)) {
-                    $lang = 'nolocale';
-                }
-                $unit = trim((string)$u);
-                if (!isset($data[$lang][$type]['unit'])) {
-                    $data[$lang][$type]['unit'] = $unit;
-                }
-                if (!isset($data[$lang][$type]['value'])) {
-                    $data[$lang][$type]['value'] = $value;
-                }
+            if ($u = $reader->first($set, 'measurementUnit')) {
+                $unit = $reader->firstValue($u, 'term') ?? $reader->value($u);
+                $unit = $this->measurementUnitMappings[$unit] ?? $unit;
             }
+            // The museumplus cannot handle image sizes with multiple layers
+            // so explode the results and sum them if the value is too long.
+            // Example of the value to be summed: 400030 400030 21313 223314.
+            // Only do this with sizes.
+            if ($type === 'size') {
+                if (strlen($value) > 15) {
+                    $tmpValue = 0;
+                    foreach (explode(' ', $value) as $part) {
+                        $tmpValue += (int)$part;
+                    }
+                    $value = $tmpValue;
+                }
+                $value = intval(preg_replace('/[^0-9]/', '', $value));
+            }
+            $results[$type] = [
+                'unit' => $unit,
+                'value' => $value,
+            ];
         }
-        return $data[$language] ?? reset($data);
+        return $results;
     }
 
     /**
-     * Get 3D models
+     * Get 3D models.
      *
      * @return array
      */
@@ -353,11 +475,13 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $language = $this->getTranslatorLocale();
         $representations = $this->getRepresentations($language);
+        // Note: Do not reindex the results e.g. with array_values, the keys are important! See FINNA-3933 and
+        // RecordImage::mergeModelDataToImages.
         return array_filter(array_column($representations, 'models'));
     }
 
     /**
-     * Get audios
+     * Get audios.
      *
      * @return array
      */
@@ -365,11 +489,13 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $language = $this->getTranslatorLocale();
         $representations = $this->getRepresentations($language);
-        return array_filter(array_column($representations, 'audios'));
+        return array_values(
+            array_filter(array_column($representations, 'audios'))
+        );
     }
 
     /**
-     * Get videos
+     * Get videos.
      *
      * @return array
      */
@@ -377,11 +503,13 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $language = $this->getTranslatorLocale();
         $representations = $this->getRepresentations($language);
-        return array_filter(array_column($representations, 'videos'));
+        return array_values(
+            array_filter(array_column($representations, 'videos'))
+        );
     }
 
     /**
-     * Get documents
+     * Get documents.
      *
      * @return array
      */
@@ -389,12 +517,14 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $language = $this->getTranslatorLocale();
         $representations = $this->getRepresentations($language);
-        return array_filter(array_column($representations, 'documents'));
+        return array_values(
+            array_filter(array_column($representations, 'documents'))
+        );
     }
 
     /**
      * Parse given representations and return them in proper
-     * associative array
+     * associative array.
      *
      * @param string $language language to get information
      *
@@ -422,19 +552,15 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
             array $audios = [],
             array $videos = [],
             array $documents = []
-        ) use (&$results) {
+        ) use (&$results): void {
             if ($images) {
-                if (!isset($images['urls']['small'])) {
-                    $images['urls']['small'] = $images['urls']['medium']
-                        ?? $images['urls']['large'];
+                if (!$this->maxAmountOfImages()) {
+                    $images = $this->ensureImageSizes($images);
+                    $images['downloadable'] = $this->allowRecordImageDownload($images);
+                } else {
+                    $images = [];
                 }
-                if (!isset($images['urls']['medium'])) {
-                    $images['urls']['medium'] = $images['urls']['small'];
-                }
-                if (!isset($images['urls']['large'])) {
-                    $images['urls']['large'] = $images['urls']['medium'];
-                }
-                $images['downloadable'] = $this->allowRecordImageDownload($images);
+                $this->imagesCount++;
             }
             $results[] = compact(
                 'images',
@@ -445,10 +571,8 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
             );
         };
 
-        foreach ($this->getXmlRecord()->xpath(
-            '/lidoWrap/lido/administrativeMetadata/'
-            . 'resourceWrap/resourceSet'
-        ) as $resourceSet) {
+        $reader = $this->getXmlReader();
+        foreach ($reader->all(path: 'lido/administrativeMetadata/resourceWrap/resourceSet') as $resourceSet) {
             // Process rights first since we may need to duplicate them if there
             // are multiple representations in the set (non-standard)
             if (!($rights = $this->getResourceRights($resourceSet, $language))) {
@@ -463,16 +587,18 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
             $highResolution = [];
 
             $descriptions = $this->getResourceDescriptions($resourceSet, $language);
-            foreach ($resourceSet->resourceRepresentation as $representation) {
-                $linkResource = $representation->linkResource;
-                $url = trim((string)$linkResource);
+            foreach ($reader->all($resourceSet, 'resourceRepresentation') as $representation) {
+                if (!$linkResource = $reader->first($representation, 'linkResource')) {
+                    continue;
+                }
+                $url = $reader->value($linkResource);
                 if (!$url || !$this->isUrlLoadable($url, $this->getUniqueID())) {
                     continue;
                 }
-                $format = (string)($linkResource['formatResource'] ?? '');
+                $format = $reader->attr($linkResource, 'formatResource') ?? '';
 
                 // Representation without a type is handled as a single image
-                if (!($type = (string)($representation['type'] ?? ''))) {
+                if (!($type = $reader->attr($representation, 'type') ?? '')) {
                     // We already have URL's, store them in the
                     // final results first. This shouldn't
                     // happen unless there are multiple
@@ -482,13 +608,12 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
                             [
                                 'urls' => $imageUrls,
                                 'description' => '',
-                                'rights' => $rights
+                                'rights' => $rights,
                             ]
                         );
                         $imageUrls = [];
                     }
-                    $imageUrls['small'] = $imageUrls['medium']
-                        = $imageUrls['large'] = $url;
+                    $imageUrls['large'] = $url;
                     continue;
                 }
 
@@ -497,23 +622,57 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
                 $description = '';
                 if ($key = $this->descriptionTypeMappings[$type] ?? '') {
                     if ($foundDescriptions = $descriptions[$key] ?? []) {
-                        $description
-                            = $foundDescriptions[$language]
-                                ?? reset($foundDescriptions);
+                        $description = $foundDescriptions[$language] ?? reset($foundDescriptions);
                     }
                 }
-
+                // Representation is a document or wanted to be displayed also as an document
+                $displayAsLink = in_array($type, $this->displayExternalLinks);
+                if (
+                    in_array($type, $documentTypeKeys)
+                    || in_array($type, $this->displayDownloadLinks)
+                    || $displayAsLink
+                ) {
+                    $documentDesc = $description;
+                    $linkType = $displayAsLink ? 'external-link' : 'proxy-link';
+                    // Override default linkType in datasource settings
+                    $linkTypePreference =
+                        $this->datasourceSettings[$this->getDataSource()]['display_preferences'][$type . '_link_type']
+                        ?? '';
+                    if (in_array($linkTypePreference, ['external-link', 'download', 'proxy-link'])) {
+                        $linkType = $linkTypePreference;
+                    }
+                    if ($displayAsLink && !$documentDesc) {
+                        $host = $this->safeParseUrl($url, PHP_URL_HOST);
+                        $documentDesc = new TranslatableString(
+                            "external_$host",
+                            $host
+                        );
+                    }
+                    $documentRights = $this->getResourceRights($resourceSet, $language, false);
+                    if (
+                        $document = $this->getDocument(
+                            $url,
+                            $format,
+                            $documentDesc,
+                            $documentRights,
+                            $linkType,
+                            $type,
+                        )
+                    ) {
+                        $documentUrls = array_merge($documentUrls, $document);
+                    }
+                }
                 // Representation is an image
                 if (in_array($type, $imageTypeKeys)) {
-                    if ($image = $this->getImage(
+                    $image = $this->getImage(
                         $url,
                         $type,
                         $language,
-                        $resourceSet->resourceID,
+                        $reader->firstValue($resourceSet, 'resourceID') ?? '',
                         $format,
-                        $representation->resourceMeasurementsSet
-                    )
-                    ) {
+                        $reader->all($representation, 'resourceMeasurementsSet')
+                    );
+                    if ($image) {
                         if (!empty($image['displayImage'])) {
                             $imageUrls
                                 = array_merge($imageUrls, $image['displayImage']);
@@ -531,45 +690,56 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
 
                 // Representation is a 3d model
                 if (in_array($type, $modelTypeKeys)) {
-                    if ($model = $this->getModel($url, $format, $type)) {
-                        $modelUrls = array_merge($modelUrls, $model);
+                    if (
+                        $model = $this->getModel(
+                            $url,
+                            $format,
+                            $type,
+                            $reader->all($representation, 'resourceMeasurementsSet')
+                        )
+                    ) {
+                        $modelUrls[] = $model;
                     }
                     continue;
                 }
                 // Representation is an audio
                 if (in_array($type, $audioTypeKeys)) {
-                    if ($audio = $this->getAudio($url, $format, $description)) {
+                    if (
+                        $audio = $this->getAudio(
+                            $url,
+                            $format,
+                            $description,
+                            $reader->all($representation, 'resourceMeasurementsSet')
+                        )
+                    ) {
                         $audioUrls = array_merge($audioUrls, $audio);
+                        if ($extraDetails = $this->getExtraDetails($resourceSet, $language)) {
+                            $audioUrls = array_merge($audioUrls, $extraDetails);
+                        }
                     }
                     continue;
                 }
                 // Representation is a video
                 if (in_array($type, $videoTypeKeys)) {
-                    if ($video = $this->getVideo($url, $format, $description)) {
+                    if (
+                        $video = $this->getVideo(
+                            $url,
+                            $format,
+                            $description,
+                            $reader->all($representation, 'resourceMeasurementsSet')
+                        )
+                    ) {
                         $videoUrls = array_merge($videoUrls, $video);
+                        if ($extraDetails = $this->getExtraDetails($resourceSet, $language)) {
+                            $videoUrls = array_merge($videoUrls, $extraDetails);
+                        }
                     }
                     continue;
-                }
-                // Representation is a document
-                if (in_array($type, $documentTypeKeys)) {
-                    if ($document = $this->getDocument(
-                        $url,
-                        $format,
-                        $description
-                    )
-                    ) {
-                        $documentUrls = array_merge($documentUrls, $document);
-                    }
                 }
             }
             // Save all the found results here as a new object
             // If current set has no links, continue to next one
-            if (!$imageUrls
-                && !$modelUrls
-                && !$audioUrls
-                && !$videoUrls
-                && !$documentUrls
-            ) {
+            if (!$imageUrls && !$modelUrls && !$audioUrls && !$videoUrls && !$documentUrls) {
                 continue;
             }
             $imageResult = [];
@@ -579,30 +749,23 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
                     'urls' => $imageUrls,
                     'description' => '',
                     'rights' => $rights,
-                    'highResolution' => $highResolution
+                    'highResolution' => $highResolution,
                 ];
 
-                if ($extraDetails = $this->getExtraDetails(
-                    $resourceSet,
-                    $language
-                )
-                ) {
+                if ($extraDetails = $this->getExtraDetails($resourceSet, $language)) {
                     $imageResult = array_merge($imageResult, $extraDetails);
                 }
-
-                // Trim resulting strings
-                array_walk_recursive(
-                    $imageResult,
-                    function (&$current) {
-                        if (is_string($current)) {
-                            $current = trim($current);
-                        }
-                    }
-                );
+            }
+            $modelResult = [];
+            if ($modelUrls) {
+                $modelResult = [
+                    'models' => $modelUrls,
+                    'rights' => $rights,
+                ];
             }
             $addToResults(
                 $imageResult,
-                $modelUrls,
+                $modelResult,
                 $audioUrls,
                 $videoUrls,
                 $documentUrls
@@ -615,25 +778,26 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
 
     /**
      * Return description as associative array
-     * - type Type of the description and text as the value
+     * - type Type of the description and text as the value.
      *
-     * @param SimpleXmlElement $resourceSet To get description from
-     * @param string           $language    Language to get
+     * @param array  $resourceSet Set to get description from
+     * @param string $language    Language to get
      *
      * @return array
      */
     protected function getResourceDescriptions(
-        \SimpleXmlElement $resourceSet,
+        array $resourceSet,
         string $language
     ): array {
+        // TODO: Why is $language not used?
         $results = [];
-        foreach ($resourceSet->resourceDescription as $description) {
-            $text = trim((string)$description);
-            if ($type = (string)$description['type']) {
-                if ($lang = (string)$description['lang']) {
-                    $results[$type][$lang] = $description;
+        $reader = $this->getXmlReader();
+        foreach ($reader->all($resourceSet, 'resourceDescription') as $description) {
+            if ($type = $reader->attr($description, 'type')) {
+                if ($lang = $reader->attr($description, 'lang')) {
+                    $results[$type][$lang] = $reader->value($description);
                 } else {
-                    $results[$type][] = $description;
+                    $results[$type][] = $reader->value($description);
                 }
             }
         }
@@ -647,62 +811,47 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      * - relationTypes language specific relation types
      * - description   language specific description
      * - dateTaken     date taken
-     * - perspectives  language specific perspectives
+     * - perspectives  language specific perspectives.
      *
-     * @param SimpleXmlElement $resourceSet Current resource set
-     * @param string           $language    Language to information
+     * @param array  $resourceSet Current resource set
+     * @param string $language    Language to information
      *
      * @return array
      */
     protected function getExtraDetails(
-        \SimpleXmlElement $resourceSet,
+        array $resourceSet,
         string $language
     ): array {
         $result = [];
-        if (!empty($resourceSet->resourceID)) {
-            $result['identifier'] = (string)$resourceSet->resourceID;
+        $reader = $this->getXmlReader();
+        if ($resourceID = $reader->firstValue($resourceSet, 'resourceID')) {
+            $result['identifier'] = $resourceID;
         }
-        if (!empty($resourceSet->resourceType->term)) {
-            $result['type'] = (string)$this->getLanguageSpecificItem(
-                $resourceSet->resourceType->term,
-                $language
-            );
+        if ($term = $this->getLanguageSpecificValueByPath($resourceSet, 'resourceType/term', $language)) {
+            $result['type'] = $term;
         }
-        foreach ($resourceSet->resourceRelType ?? [] as $relType) {
-            if (!empty($relType->term)) {
-                $result['relationTypes'][]
-                    = (string)$this->getLanguageSpecificItem(
-                        $relType->term,
-                        $language
-                    );
+        foreach ($reader->all($resourceSet, 'resourceRelType') as $relType) {
+            if ($term = $this->getLanguageSpecificValueByPath($relType, 'term', $language)) {
+                $result['relationTypes'][] = $term;
             }
         }
-        if (!empty($resourceSet->resourceDescription)) {
-            $description
-                = $this->getLanguageSpecificItem(
-                    $resourceSet->resourceDescription,
-                    $language
-                );
-            if ($descriptionTrimmed = trim((string)$description)) {
-                $type = trim((string)$description->attributes()->type);
+        if ($resourceDescription = $reader->all($resourceSet, 'resourceDescription')) {
+            $description = $this->getLanguageSpecificNode($resourceDescription, $language);
+            if ($descriptionValue = $reader->value($description)) {
+                $type = $reader->attr($description, 'type');
                 if ($type === 'displayLink') {
-                    $result['resourceName'] = $descriptionTrimmed;
+                    $result['resourceName'] = $descriptionValue;
                 } else {
-                    $result['resourceDescription'] = $descriptionTrimmed;
+                    $result['resourceDescription'] = $descriptionValue;
                 }
             }
         }
-        if (!empty($resourceSet->resourceDateTaken->displayDate)) {
-            $result['dateTaken']
-                = (string)$resourceSet->resourceDateTaken->displayDate;
+        if ($date = $reader->firstValue($resourceSet, 'resourceDateTaken/displayDate')) {
+            $result['dateTaken'] = $date;
         }
-        foreach ($resourceSet->resourcePerspective ?? [] as $perspective) {
-            if (!empty($perspective->term)) {
-                $result['perspectives'][]
-                    = (string)$this->getLanguageSpecificItem(
-                        $perspective->term,
-                        $language
-                    );
+        foreach ($reader->all($resourceSet, 'resourcePerspective') as $perspective) {
+            if ($term = $this->getLanguageSpecificValueByPath($perspective, 'term', $language)) {
+                $result['perspectives'][] = $term;
             }
         }
         return $result;
@@ -712,26 +861,35 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      * Function to return model as associative array
      * - format Model format as key
      *   - type Model type preview_3d or provided_3d as key
-     *          url to model as value
+     *          url to model as value.
      *
-     * @param string $url    Model url
-     * @param string $format Model format
-     * @param string $type   Model type
+     * @param string  $url          Model url
+     * @param string  $format       Model format
+     * @param string  $type         Model type
+     * @param array[] $measurements Measurements nodes
      *
      * @return array
      */
-    protected function getModel(string $url, string $format, string $type): array
-    {
+    protected function getModel(
+        string $url,
+        string $format,
+        string $type,
+        array $measurements
+    ): array {
         $type = $this->modelTypes[$type];
         $format = strtolower($format);
-        if ('preview_3D' === $type && !in_array(
-            $format,
-            $this->displayableModelFormats
-        )
-        ) {
+        if ('preview' !== $type || !in_array($format, $this->displayableModelFormats)) {
             return [];
         }
-        return [$format => [$type => $url]];
+        $model = [
+            'url' => $url,
+            'format' => $format,
+            'type' => $type,
+        ];
+        if ($measurements) {
+            $model['data'] = $this->formatResourceMeasurements($measurements);
+        }
+        return $model;
     }
 
     /**
@@ -745,14 +903,14 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      *      - format            Image format as key
      *          - data          Contains data like measurements
      *          - resourceID    ID to which resource belongs to
-     *          - url           Url of the image
+     *          - url           Url of the image.
      *
-     * @param string            $url          Url of the resourceset
-     * @param string            $type         Type of the image
-     * @param string            $language     Language to get information
-     * @param string            $id           ID of the resourceset
-     * @param string            $format       Format of the image
-     * @param \SimpleXmlElement $measurements Measurements SimpleXmlElement
+     * @param string  $url          Url of the resourceset
+     * @param string  $type         Type of the image
+     * @param string  $language     Language to get information
+     * @param string  $id           ID of the resourceset
+     * @param string  $format       Format of the image
+     * @param array[] $measurements Measurements nodes
      *
      * @return array
      */
@@ -762,7 +920,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         string $language,
         string $id = '',
         string $format = '',
-        \SimpleXmlElement $measurements = null
+        array $measurements = []
     ): array {
         // Check if the image is really an image
         // Original images can be any type and are not displayed
@@ -778,12 +936,9 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         $highResolution = [];
         if (in_array($size, ['master', 'original'])) {
             $currentHiRes = [
-                'data' => $this->formatImageMeasurements(
-                    $measurements,
-                    $language
-                ),
+                'data' => $this->formatResourceMeasurements($measurements),
                 'url' => $url,
-                'format' => $format ?: 'jpg'
+                'format' => $format ?: 'jpg',
             ];
             if ($id) {
                 $currentHiRes['resourceID'] = $id;
@@ -796,175 +951,202 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
 
     /**
      * Function to return an audio in associative array
-     * - desc   Default is false
+     * - desc   Default is null
      * - url    Url to audio file
      * - codec  Codec type of the audio
      * - type   Type what type is the audio file
-     * - embed  Type of embed is audio
+     * - embed  Type of embed is audio.
      *
-     * @param string $url         Url of the audio
-     * @param string $format      Format of the audio
-     * @param string $description Description of the audio
+     * @param string  $url          Url of the audio
+     * @param string  $format       Format of the audio
+     * @param string  $description  Description of the audio
+     * @param array[] $measurements Measurements nodes
      *
      * @return array
      */
     protected function getAudio(
         string $url,
         string $format,
-        string $description
+        string $description,
+        array $measurements
     ): array {
-        if ($codec = $this->supportedAudioFormats[$format] ?? false) {
-            return [
-                'desc' => $description ?: false,
+        if ($this->supportedAudioFormats[$format] ?? false) {
+            if ($this->maxAmountOfURLs()) {
+                $this->urlsCount++;
+                return [];
+            }
+            $audio = [
+                'desc' => $description ?: null,
                 'url' => $url,
                 'codec' => $format,
                 'type' => 'audio',
-                'embed' => 'audio'
+                'embed' => 'audio',
             ];
+            if ($measurements) {
+                $audio['data'] = $this->formatResourceMeasurements($measurements);
+            }
+            return $audio;
         }
         return [];
     }
 
     /**
      * Function to return a video in associative array
-     * - desc           Default is false
+     * - desc           Default is null
      * - url            Video url
      * - embed          Video embed is video
      * - videosources
      *  - src           Different sources for the video
-     *  - type          Codec type
+     *  - type          Codec type.
      *
-     * @param string $url         Url of the video
-     * @param string $format      Format of the video
-     * @param string $description Description of the video
+     * @param string  $url          Url of the video
+     * @param string  $format       Format of the video
+     * @param string  $description  Description of the video
+     * @param array[] $measurements Measurements nodes
      *
      * @return array
      */
     protected function getVideo(
         string $url,
         string $format,
-        string $description
+        string $description,
+        array $measurements
     ): array {
-        if ($codec = $this->supportedVideoFormats[$format] ?? false) {
-            return [
-                'desc' => $description ?: false,
+        $mediaType = $this->supportedVideoFormats[$format] ?? false;
+        if ($this->maxAmountOfURLs()) {
+            $this->urlsCount++;
+            return [];
+        }
+        $video = match ($mediaType) {
+            'text/html' => [
+                'desc' => $description ?: null,
+                'url' => $url,
+                'embed' => 'iframe',
+                'format' => $format,
+            ],
+            false => [],
+            default => [
+                'desc' => $description ?: null,
                 'url' => $url,
                 'embed' => 'video',
                 'format' => $format,
                 'videoSources' => [
                     'src' => $url,
-                    'type' => $codec,
-                ]
-            ];
+                    'type' => $mediaType,
+                ],
+            ],
+        };
+        if ($video && $measurements) {
+            $video['data'] = $this->formatResourceMeasurements($measurements);
         }
-        return [];
+        return $video;
     }
 
     /**
-     * Function to return document in associative array
+     * Function to return document in associative array.
      *
      * @param string $url         Url of the document
      * @param string $format      Format of the document
      * @param string $description Description of the document
+     * @param array  $rights      Array of document rights
+     * @param bool   $linkType    Type of document link, default is 'proxy-link'.
+     * @param string $type        Type of resource.
      *
      * @return array
      */
     protected function getDocument(
         string $url,
         string $format,
-        string $description
+        string $description,
+        array $rights,
+        string $linkType = 'proxy-link',
+        string $type = '',
     ): array {
+        if ($this->maxAmountOfURLs()) {
+            $this->urlsCount++;
+            return [];
+        }
+        $format = strtolower($format);
+        // Do not display text/html mediatype
+        if ('text/html' === $format) {
+            $format = '';
+        }
+        $label = $type === 'provided_3D' ? '3D' : '';
         return [
             'description' => $description ?: false,
             'url' => $url,
-            'format' => strtolower($format)
+            'format' => $format,
+            'rights' => $rights,
+            'linkType' => $linkType,
+            'label' => $label,
         ];
     }
 
     /**
-     * Get rights from the given resourceSet
+     * Get rights from the given resourceSet.
      *
-     * @param \SimpleXmlElement $resourceSet Given resourceSet from lido
-     * @param string            $language    Language to look for
+     * @param array  $resourceSet Given resourceSet from lido
+     * @param string $language    Language to look for
+     * @param bool   $useDefault  Use default rights as fallback, default true
      *
      * @return array
      */
     protected function getResourceRights(
-        \SimpleXmlElement $resourceSet,
-        string $language
+        array $resourceSet,
+        string $language,
+        bool $useDefault = true
     ): array {
-        $defaultRights = $this->getImageRights($language, true);
         $rights = [];
-        foreach ($resourceSet->rightsResource ?? [] as $rightsResource) {
-            if (!empty($rightsResource->rightsType->conceptID)) {
-                $conceptID = $rightsResource->rightsType->conceptID;
-                $type = strtolower((string)$conceptID->attributes()->type);
-                if ($type === 'copyright' && trim((string)$conceptID)) {
-                    $rights['copyright']
-                        = $this->getMappedRights((string)$conceptID);
-                    $link
-                        = $this->getRightsLink($rights['copyright'], $language);
+        $reader = $this->getXmlReader();
+        foreach ($reader->all($resourceSet, 'rightsResource') as $rightsResource) {
+            foreach ($reader->all($rightsResource, 'rightsType/conceptID') as $conceptID) {
+                if ('' !== ($conceptValue = $reader->value($conceptID) ?? '')) {
+                    $rights['copyright'] = $this->getMappedRights($conceptValue);
+                    $link = $this->getRightsLink($rights['copyright'], $language);
                     if ($link) {
                         $rights['link'] = $link;
                     }
                 }
             }
 
-            foreach ($rightsResource->rightsHolder ?? [] as $holder) {
-                if (empty($holder->legalBodyName->appellationValue)) {
+            foreach ($reader->all($rightsResource, 'rightsHolder') as $rightsHolder) {
+                if (!($name = $reader->firstValue($rightsHolder, 'legalBodyName/appellationValue'))) {
                     continue;
                 }
-                $rightsHolder = [
-                    'name' => (string)$holder->legalBodyName->appellationValue
-                ];
-
-                if (!empty($holder->legalBodyWeblink)) {
-                    $rightsHolder['link']
-                        = (string)$holder->legalBodyWeblink;
-                }
+                $link = $reader->firstValue($rightsHolder, 'legalBodyWeblink');
+                $rightsHolder = compact('name', 'link');
                 $rights['rightsHolders'][] = $rightsHolder;
             }
 
-            if (!empty($rightsResource->creditLine)) {
-                $rights['creditLine'] = (string)$this->getLanguageSpecificItem(
-                    $rightsResource->creditLine,
-                    $language
-                );
+            if ($creditLine = $this->getLanguageSpecificValueByPath($rightsResource, 'creditLine', $language)) {
+                $rights['creditLine'] = $creditLine;
             }
         }
 
-        if (!empty($resourceSet->rightsResource->rightsType->term)) {
-            $term = (string)$this->getLanguageSpecificItem(
-                $resourceSet->rightsResource->rightsType->term,
-                $language
-            );
-            if (!isset($rights['copyright'])
-                || $rights['copyright'] !== $term
-            ) {
+        if ($term = $this->getLanguageSpecificValueByPath($resourceSet, 'rightsResource/rightsType/term', $language)) {
+            if (($rights['copyright'] ?? null) !== $term) {
                 $rights['description'][] = $term;
             }
         }
 
-        if (!is_array($defaultRights)) {
-            $defaultRights = [];
+        if ($rights) {
+            return $rights;
         }
-
-        return $rights ?: $defaultRights;
+        return $useDefault ? ($this->getImageRights($language, true) ?: []) : [];
     }
 
     /**
-     * Return model settings from config
+     * Return model settings from config.
      *
      * @return array settings
      */
     public function getModelSettings(): array
     {
-        $datasource = $this->getDataSource();
         $settings = [];
         if ($iniData = $this->recordConfig->Models ?? []) {
             $settings = [
                 'debug' => boolval($iniData->debug ?? 0),
-                'previewImages' => $this->allowModelPreviewImages()
+                'previewImages' => $this->allowModelPreviewImages(),
             ];
         }
 
@@ -972,7 +1154,33 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Can model preview images be shown
+     * Return all labels for the record.
+     *
+     * @return array
+     */
+    public function getLabels(): array
+    {
+        if ($this->has3DResources()) {
+            return array_merge($this->labels, [['label' => '3D', 'class' => 'resource-type']]);
+        }
+        return $this->labels;
+    }
+
+    /**
+     * If record has 3D resources.
+     *
+     * @return bool
+     */
+    public function has3DResources(): bool
+    {
+        if ($this->getModels()) {
+            return true;
+        }
+        return in_array('3D', array_column($this->getDocuments(), 'label'));
+    }
+
+    /**
+     * Can model preview images be shown.
      *
      * @return bool
      */
@@ -999,30 +1207,65 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getRelatedPublications()
     {
+        $reader = $this->getXmlReader();
         $results = [];
-        $publicationTypes = ['kirjallisuus', 'lähteet', 'julkaisu'];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/'
-            . 'relatedWorkSet'
-        ) as $node) {
-            if (!empty($node->relatedWork->displayObject)) {
-                $title = trim((string)$node->relatedWork->displayObject);
-                $attributes = $node->relatedWork->displayObject->attributes();
-                $label = !empty($attributes->label)
-                    ? (string)$attributes->label : '';
-                $term = !empty($node->relatedWorkRelType->term)
-                    ? (string)$node->relatedWorkRelType->term : '';
-                $termLC = mb_strtolower($term, 'UTF-8');
-                if ($title && in_array($termLC, $publicationTypes)) {
-                    $term = $termLC != 'julkaisu' ? $term : '';
-                    $results[] = [
-                      'title' => $title,
-                      'label' => $label ?: $term
-                    ];
+        foreach (
+            $reader->all(path: 'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/relatedWorkSet') as $node
+        ) {
+            if ($title = $searchTitle = ($reader->firstValue($node, 'relatedWork/displayObject') ?? '')) {
+                $term = $reader->firstValue($node, 'relatedWorkRelType/term') ?? '';
+                $termLC = $this->toLower($term);
+                if (!in_array($termLC, $this->relatedPulicationRelationTypes)) {
+                    continue;
                 }
+                $label = $reader->attr($reader->first($node, 'relatedWork/displayObject'), 'label') ?? '';
+                $term = !in_array($termLC, ['julkaisu', 'is reproduced in']) ? $term : '';
+                // Check if title can be used as search link.
+                // Discard titles that are extremely long as they usually contain excessive information
+                // or contain semicolons which are commonly used to combine multiple titles in one field.
+                if (
+                    in_array($this->toLower($label), $this->relatedPulicationTitlesExcludedFromSearch)
+                    || strlen($searchTitle) > 400
+                    || str_contains($searchTitle, ';')
+                ) {
+                    $searchTitle = '';
+                }
+                // Remove page numbers like "s. 36-38, s. 196" from the end of the search title
+                if (preg_match('{^(.*?),[s\.,\-–\s\d]+$}', $searchTitle, $matches)) {
+                    $searchTitle = $matches[1];
+                }
+                // Limit search title to 30 words for better result
+                if (preg_match('{((.+?\s+){29}\S*).*}', $searchTitle, $matches)) {
+                    $searchTitle = $matches[1];
+                }
+                $isbn = '';
+                foreach ($reader->allValues($node, 'relatedWork/object/objectID') as $identifier) {
+                    $trimmed = trim(preg_replace('/\s+/', ' ', $identifier));
+                    if (preg_match('{^(URN:ISBN:)(.*)}', $trimmed, $matches)) {
+                        $isbn = trim($matches[2]);
+                        continue;
+                    }
+                }
+                $results[] = [
+                    'title' => $title,
+                    'searchTitle' => $searchTitle,
+                    'label' => $label ?: $term,
+                    'url' => '',
+                    'isbn' => $isbn,
+                ];
             }
         }
         return $results;
+    }
+
+    /**
+     * Get online URLs.
+     *
+     * @return array
+     */
+    public function getOnlineURLs(): array
+    {
+        return $this->getDocuments();
     }
 
     /**
@@ -1032,34 +1275,68 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getOtherClassifications()
     {
-        $preferredLanguages = $this->getPreferredLanguageCodes();
-        $preferredLangResults = $allResults = [];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectClassificationWrap/classificationWrap/'
-            . 'classification'
-        ) as $node) {
-            $type = trim((string)$node->attributes()->type);
-            if (in_array($type, $this->excludedClassifications)) {
-                continue;
-            }
-            if (isset($node->term)) {
-                $term = trim((string)$node->term);
-                if ('' !== $term) {
-                    $attributes = $node->term->attributes();
-                    $label = (string)($attributes->label ?? '');
-                    $data = $label ? compact('term', 'label') : $term;
-                    $allResults[] = $data;
-                    if (in_array(
-                        (string)$node->attributes()->lang,
-                        $preferredLanguages
-                    )
-                    ) {
-                        $preferredLangResults[] = $data;
-                    }
-                }
+        $reader = $this->getXmlReader();
+        $results = $langNodes = [];
+        $path = 'lido/descriptiveMetadata/objectClassificationWrap/classificationWrap/classification';
+        foreach ($reader->all(path: $path) as $node) {
+            if (!in_array($reader->attr($node, 'type'), $this->excludedClassifications)) {
+                $langNodes = [
+                    ...$langNodes,
+                    ...$reader->all($node, 'term'),
+                ];
             }
         }
-        return $preferredLangResults ?: $allResults;
+        $langNodes = $this->getAllLanguageSpecificNodes($langNodes, $this->getLocale(), true);
+        foreach ($langNodes as $langNode) {
+            if ($term = $reader->value($langNode)) {
+                $label = $reader->attr($langNode, 'label');
+                $results[] = $label ? compact('term', 'label') : $term;
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Return attributes of an element as an associative array.
+     * - id            Id attribute
+     * - source        Source attribute.
+     *
+     * @param array $conceptID The element to get attributes from
+     *
+     * @return array
+     */
+    protected function getSubjectConceptIdAttributes(array $conceptID): array
+    {
+        $reader = $this->getXmlReader();
+        $results = [];
+        if ($id = $reader->value($conceptID)) {
+            $type = $this->toLower($reader->attr($conceptID, 'type') ?? '');
+            if (in_array($type, $this->subjectConceptIDTypes)) {
+                $results['id'] = $id;
+                $results['source'] = $reader->attr($conceptID, 'source') ?? '';
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Return attributes of any conceptID nodes of a node as an associative array.
+     * - id            Id attribute
+     * - source        Source attribute.
+     *
+     * @param array $parentNode The node that contains conceptID nodes
+     *
+     * @return array
+     */
+    protected function getFirstConceptIdAttributes(array $parentNode): array
+    {
+        $reader = $this->getXmlReader();
+        foreach ($reader->all($parentNode, 'conceptID') as $conceptID) {
+            if ($values = $this->getSubjectConceptIdAttributes($conceptID)) {
+                return $values;
+            }
+        }
+        return [];
     }
 
     /**
@@ -1069,20 +1346,33 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getCollections()
     {
+        $reader = $this->getXmlReader();
         $results = [];
         $allowedTypes = ['Kokoelma', 'kuuluu kokoelmaan', 'kokoelma', 'Alakokoelma',
             'Erityiskokoelma'];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/'
-            . 'relatedWorkSet'
-        ) as $node) {
-            $term = $node->relatedWorkRelType->term ?? '';
-            $collection = trim((string)$node->relatedWork->displayObject ?? '');
-            if ($collection && in_array($term, $allowedTypes)) {
-                $results[] = $collection;
+        foreach (
+            $reader->all(path: 'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/relatedWorkSet') as $set
+        ) {
+            $term = $reader->firstValue($set, 'relatedWorkRelType/term');
+            if (in_array($term, $allowedTypes)) {
+                foreach ($reader->all($set, 'relatedWork/displayObject') as $object) {
+                    if ('' !== $reader->value($object)) {
+                        $results[] = $object;
+                    }
+                }
             }
         }
-        return $results;
+        return $this->getAllLanguageSpecificValues($results, $this->getLocale());
+    }
+
+    /**
+     * Get archive type.
+     *
+     * @return string
+     */
+    public function getArchiveType(): string
+    {
+        return 'collection';
     }
 
     /**
@@ -1094,24 +1384,14 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $events = [];
         $language = $this->getLocale();
-        foreach ($this->getXmlRecord()->xpath(
-            '/lidoWrap/lido/descriptiveMetadata/eventWrap/eventSet/event'
-        ) as $node) {
-            $name = (string)($node->eventName->appellationValue ?? '');
-            $type = isset($node->eventType->term)
-                ? mb_strtolower((string)$node->eventType->term, 'UTF-8') : '';
-            if (!empty($node->eventDate->displayDate)) {
-                $date = (string)($this->getLanguageSpecificItem(
-                    $node->eventDate->displayDate,
-                    $language
-                ));
-            } else {
-                $date = '';
-            }
-            if (!$date && !empty($node->eventDate->date)) {
-                $startDate
-                    = trim((string)($node->eventDate->date->earliestDate ?? ''));
-                $endDate = trim((string)($node->eventDate->date->latestDate ?? ''));
+        $reader = $this->getXmlReader();
+        foreach ($reader->all(path: 'lido/descriptiveMetadata/eventWrap/eventSet/event') as $node) {
+            $name = $reader->firstValue($node, 'eventName/appellationValue') ?? '';
+            $type = $this->toLower($reader->firstValue($node, 'eventType/term') ?? '');
+            $date = $this->getLanguageSpecificValueByPath($node, 'eventDate/displayDate', $language);
+            if (!$date && $dateNode = $reader->first($node, 'eventDate/date')) {
+                $startDate = $reader->firstValue($dateNode, 'earliestDate') ?? '';
+                $endDate = $reader->firstValue($dateNode, 'latestDate') ?? '';
                 if (strlen($startDate) == 4 && strlen($endDate) == 4) {
                     $date = "$startDate-$endDate";
                 } else {
@@ -1132,7 +1412,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
                         : $startDate;
 
                     if ($endDate && $startDate != $endDate) {
-                        $date .= '-' . ($this->dateConverter
+                        $date .= ' - ' . ($this->dateConverter
                             ? $this->dateConverter->convertToDisplayDate(
                                 $endDateType,
                                 $endDate
@@ -1144,130 +1424,197 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
             if ($type == 'valmistus') {
                 $confParam = 'lido_augment_display_date_with_period';
                 if ($this->getDataSourceConfigurationValue($confParam)) {
-                    if ($period = ($node->periodName->term ?? '')) {
-                        if ($date) {
-                            $date = $period . ', ' . $date;
-                        } else {
-                            $date = $period;
-                        }
+                    if ($period = $reader->firstValue($node, 'periodName/term')) {
+                        $date = $date ? $period . ', ' . $date : $period;
                     }
                 }
             }
             $methods = [];
-            foreach ($node->eventMethod ?? [] as $eventMethod) {
-                foreach ($eventMethod->term ?? [] as $term) {
-                    if ($method = trim((string)$term)) {
-                        $methods[] = $method;
+            $methodsExtended = [];
+            $langMethodsExtended = [];
+            foreach ($reader->all($node, 'eventMethod') as $eventMethod) {
+                $id = $source = '';
+                if ($values = $this->getFirstConceptIdAttributes($eventMethod)) {
+                    $id = $values['id'];
+                    $source = $values['source'];
+                }
+                foreach ($reader->all($eventMethod, 'term') as $term) {
+                    $termStr = $reader->value($term);
+                    if ($termStr === '') {
+                        continue;
+                    }
+                    $methods[] = $termStr;
+                    $methodsExtended[] = [
+                        'data' => $termStr,
+                        'id' => $id,
+                        'source' => $source,
+                    ];
+                    $lang = $reader->attr($term, 'lang');
+                    if ($lang === $language) {
+                        $langMethodsExtended[] = [
+                            'data' => $termStr,
+                            'id' => $id,
+                            'source' => $source,
+                        ];
                     }
                 }
             }
             $materials = [];
-
-            if (isset($node->eventMaterialsTech->displayMaterialsTech)) {
-                // Use displayMaterialTech (default)
-                $materials[] = (string)$node->eventMaterialsTech
-                    ->displayMaterialsTech;
-            } elseif (isset($node->eventMaterialsTech->materialsTech)) {
-                // display label not defined, build from materialsTech
-                $materials = [];
-                foreach ($node->xpath('eventMaterialsTech/materialsTech')
-                    as $materialsTech
-                ) {
-                    if ($terms = $materialsTech->xpath('termMaterialsTech/term')) {
-                        foreach ($terms as $term) {
+            $materialsExtended = [];
+            $langMaterialsExtended = [];
+            foreach ($reader->all($node, 'eventMaterialsTech') as $eventMaterialsTech) {
+                $display
+                    = $this->getLanguageSpecificValueByPath($eventMaterialsTech, 'displayMaterialsTech', $language);
+                if ($display) {
+                    $materials[] = $display;
+                    $langMaterialsExtended[] = [
+                        'data' => $display,
+                        'id' => '',
+                        'source' => '',
+                    ];
+                    continue;
+                }
+                foreach ($reader->all($eventMaterialsTech, 'materialsTech') as $materialsTech) {
+                    foreach ($reader->all($materialsTech, 'termMaterialsTech') as $termMaterialsTech) {
+                        $id = $source = '';
+                        if ($values = $this->getFirstConceptIdAttributes($termMaterialsTech)) {
+                            $id = $values['id'];
+                            $source = $values['source'];
+                        }
+                        foreach ($reader->all($termMaterialsTech, 'term') as $term) {
+                            $termStr = $reader->value($term);
+                            if ($termStr === '') {
+                                continue;
+                            }
                             $label = null;
-                            $attributes = $term->attributes();
-                            if (isset($attributes->label)) {
-                                // Musketti
-                                $label = $attributes->label;
-                            } elseif (isset($materialsTech->extentMaterialsTech)) {
+                            $lang = $reader->attr($term, 'lang');
+                            // Musketti
+                            $label = $reader->attr($term, 'label');
+                            if (!$label) {
                                 // Siiri
-                                $label = $materialsTech->extentMaterialsTech;
+                                $label = $reader->attr($reader->first($materialsTech, 'extentMaterialsTech'), 'label');
                             }
                             if ($label) {
-                                $term = "$term ($label)";
+                                $termStr = "$termStr ($label)";
                             }
-                            $materials[] = $term;
+                            $materialsExtended[] = [
+                                'data' => $termStr,
+                                'id' => $id,
+                                'source' => $source,
+                            ];
+                            if ($lang === $language) {
+                                $langMaterialsExtended[] = [
+                                    'data' => $termStr,
+                                    'id' => $id,
+                                    'source' => $source,
+                                ];
+                            }
+                            $materials[] = $termStr;
                         }
                     }
                 }
             }
 
             $places = [];
-            foreach ($node->eventPlace ?? [] as $placenode) {
-                $place = trim((string)$placenode->displayPlace ?? '');
-                if (!$place) {
-                    $eventPlace = [];
-                    foreach ($placenode->place->namePlaceSet ?? [] as $nameSet) {
-                        $value = trim((string)$nameSet->appellationValue ?? '');
-                        if ($value) {
-                            $eventPlace[] = $value;
+            foreach ($reader->all($node, 'eventPlace') as $eventPlace) {
+                $displayPlace = trim($reader->firstValue($eventPlace, 'displayPlace') ?? '', ", \n\r\t\v\0");
+                $placeId = $reader->first($eventPlace, 'place/placeID');
+                if (!$displayPlace) {
+                    // Gather display name from placeNameSet:
+                    $partOfPlaceName = [];
+                    foreach ($reader->all($eventPlace, 'place/namePlaceSet') as $nameSet) {
+                        $value = $reader->firstValue($nameSet, 'appellationValue') ?? '';
+                        if ('' !== $value) {
+                            $partOfPlaceName[] = $value;
                         }
                     }
-                    if ($eventPlace) {
-                        $places[] = implode(', ', $eventPlace);
-                    }
-                    foreach ($placenode->place->partOfPlace ?? [] as $part) {
-                        $partOfPlaceName = [];
-                        while ($part->namePlaceSet ?? false) {
-                            $appellationValue = trim(
-                                (string)$part->namePlaceSet->appellationValue ?? ''
-                            );
-                            if ($appellationValue) {
+                    foreach ($reader->all($eventPlace, 'place/partOfPlace') as $part) {
+                        while ($part) {
+                            $appellationValue = $reader->firstValue($part, 'namePlaceSet/appellationValue') ?? '';
+                            if ('' !== $appellationValue) {
                                 $partOfPlaceName[] = $appellationValue;
                             }
-                            $part = $part->partOfPlace;
-                        }
-                        if ($partOfPlaceName) {
-                            $places[] = implode(', ', $partOfPlaceName);
+                            $part = $reader->first($part, 'partOfPlace');
                         }
                     }
+                    if (!$partOfPlaceName) {
+                        continue;
+                    }
+                    $displayPlace = implode(', ', $partOfPlaceName);
+                }
+                if ($placeId) {
+                    $placeData = [
+                        'placeName' => $displayPlace,
+                    ];
+                    $idTypeFirst = $this->getPlaceIDType($placeId);
+                    $prependType = $idTypeFirst !== ''
+                        && !in_array(strtolower($idTypeFirst), $this->uniquePlaceIDTypes);
+                    $placeData['type'] = $idTypeFirst;
+                    $placeIdStr = $reader->value($placeId);
+                    $placeData['id'] = $prependType ? "($idTypeFirst)$placeIdStr" : $placeIdStr;
+                    foreach ($reader->all($eventPlace, 'place/placeID') as $item) {
+                        $details = [];
+                        $id = $reader->value($item);
+                        $idType = $this->getPlaceIDType($item);
+                        $prependType = $idType !== '' && !in_array(strtolower($idType), $this->uniquePlaceIDTypes);
+                        $placeData['ids'][] = $prependType ? "($idType)$id" : $id;
+                        $typeDesc = $idType ? 'place_id_type_' . $idType : '';
+                        $details[] = $typeDesc;
+                        if ($typeDesc) {
+                            $placeData['details'] = $details;
+                        }
+                    }
+                    $places[] = $placeData;
                 } else {
-                    $places[] = $place;
-                }
-            }
-            $actors = [];
-            if (isset($node->eventActor)) {
-                foreach ($node->eventActor as $actor) {
-                    $appellationValue = trim(
-                        $actor->actorInRole->actor->nameActorSet->appellationValue
-                        ?? ''
-                    );
-                    if ($appellationValue !== '') {
-                        $role = (string)($actor->actorInRole->roleActor->term ?? '');
-                        $earliestDate = (string)($actor->actorInRole->actor
-                            ->vitalDatesActor->earliestDate ?? '');
-                        $latestDate = (string)($actor->actorInRole->actor
-                            ->vitalDatesActor->latestDate ?? '');
-                        $actors[] = [
-                            'name' => $appellationValue,
-                            'role' => $role,
-                            'birth' => $earliestDate,
-                            'death' => $latestDate
-                        ];
-                    }
-                }
-            }
-            $culture = (string)($node->culture->term ?? '');
-            $descriptions = [];
-            foreach ($node->eventDescriptionSet ?? [] as $set) {
-                if ($note = trim((string)($set->descriptiveNoteValue ?? ''))) {
-                    $descriptions[] = $note;
+                    $places[] = $displayPlace;
                 }
             }
 
+            $actors = [];
+            foreach ($reader->all($node, 'eventActor') as $actor) {
+                $appellationValue
+                    = $reader->firstValue($actor, 'actorInRole/actor/nameActorSet/appellationValue') ?? '';
+                if ('' !== $appellationValue) {
+                    $role = '';
+                    $langRoles = $reader->all($actor, 'actorInRole/roleActor/term');
+                    if ($langRoles) {
+                        $roles = $this->getAllLanguageSpecificValues($langRoles, $language);
+                        $role = implode(', ', $roles);
+                    }
+                    $earliestDate = $reader->firstValue($actor, 'actorInRole/actor/vitalDatesActor/earliestDate')
+                        ?? '';
+                    $latestDate = $reader->firstValue($actor, 'actorInRole/actor/vitalDatesActor/latestDate')
+                        ?? '';
+                    $id = $this->getPrimaryActorId($actor);
+                    $actors[] = [
+                        'name' => $appellationValue,
+                        'role' => $role,
+                        'birth' => $earliestDate,
+                        'death' => $latestDate,
+                        'id' => $id,
+                    ];
+                }
+            }
+            $culture = $reader->firstValue($node, 'culture/term') ?? '';
+            $descriptions = [];
+            $desc = $this->getLanguageSpecificValueByPath($node, 'eventDescriptionSet/descriptiveNoteValue', $language);
+            if ($desc) {
+                $descriptions[] = $desc;
+            }
             $event = [
                 'type' => $type,
                 'name' => $name,
                 'date' => $date,
                 'methods' => $methods,
+                'methodsExtended' => $langMethodsExtended ?: $methodsExtended,
                 'materials' => $materials,
+                'materialsExtended' => $langMaterialsExtended ?: $materialsExtended,
                 'places' => $places,
                 'actors' => $actors,
                 'culture' => $culture,
                 'descriptions' => $descriptions,
                 // For backward compatibility
-                'description' => $descriptions[0] ?? ''
+                'description' => $descriptions[0] ?? '',
             ];
             // Only add the event if it has content
             foreach ($event as $key => $field) {
@@ -1281,50 +1628,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get an array of format classifications for the record.
-     *
-     * @return array
-     */
-    public function getFormatClassifications()
-    {
-        $results = [];
-        foreach ($this->getXmlRecord()->lido->descriptiveMetadata
-            ->objectClassificationWrap ?? [] as $node
-        ) {
-            $workTypeTerm = trim(
-                (string)($node->objectWorkTypeWrap->objectWorkType->term ?? '')
-            );
-            foreach ($node->classificationWrap->classification ?? []
-                as $classification
-            ) {
-                $type = trim((string)$classification->attributes()->type);
-                if (in_array($type, $this->excludedClassifications)) {
-                    continue;
-                }
-                $getDisplayString = function (string $term, string $extra) {
-                    return $extra ? "$term ($extra)" : $term;
-                };
-                foreach ($classification->term as $term) {
-                    $termString = trim((string)$term);
-                    $termType = trim((string)$term->attributes()->type);
-                    $termLabel = trim((string)$term->attributes()->label);
-
-                    switch ($workTypeTerm) {
-                    case 'rakennetun ympäristön kohde':
-                        $results[] = $getDisplayString($termString, $termType);
-                        break 2;
-                    case 'arkeologinen kohde':
-                        $results[] = $getDisplayString($termString, $termLabel);
-                        break;
-                    }
-                }
-            }
-        }
-        return $results;
-    }
-
-    /**
-     * Get identifier
+     * Get identifier.
      *
      * @return array
      */
@@ -1356,15 +1660,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
             return false;
         }
 
-        $rights = [];
-
-        if ($type = $this->getAccessRestrictionsType($language)) {
-            $rights['copyright'] = $type['copyright'];
-            if (isset($type['link'])) {
-                $rights['link'] = $type['link'];
-            }
-        }
-
+        $rights = $this->getAccessRestrictionsType($language) ?: [];
         $desc = $this->getAccessRestrictions($language);
         if ($desc && count($desc)) {
             $description = [];
@@ -1386,19 +1682,22 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getInscriptions()
     {
+        $reader = $this->getXmlReader();
         $results = [];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectIdentificationWrap/inscriptionsWrap/'
-            . 'inscriptions'
-        ) as $inscriptions) {
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/inscriptionsWrap/inscriptions';
+        foreach ($reader->all(path: $path) as $inscriptions) {
             $group = [];
-            foreach ($inscriptions->inscriptionDescription as $node) {
-                $content = trim((string)$node->descriptiveNoteValue ?? '');
-                $type = $node->attributes()->type ?? '';
-                $label = $node->descriptiveNoteValue->attributes()->label ?? '';
-                if ($content) {
-                    $group[] = compact('type', 'label', 'content');
+            foreach ($reader->all($inscriptions, 'inscriptionDescription') as $node) {
+                if (!($descriptiveNoteValue = $reader->first($node, 'descriptiveNoteValue'))) {
+                    continue;
                 }
+                if ('' === ($content = $reader->value($descriptiveNoteValue) ?? '')) {
+                    continue;
+                }
+                $type = $this->toLower($reader->attr($node, 'type') ?? '');
+                $type = $this->inscriptionTypeMappings[$type] ?? $type;
+                $label = $reader->attr($descriptiveNoteValue, 'label') ?? '';
+                $group[] = compact('type', 'label', 'content');
             }
             if ($group) {
                 $results[] = $group;
@@ -1493,68 +1792,44 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $results = [];
         $exclude = $include ? [] : $this->excludedMeasurements;
-        foreach ($this->getXmlRecord()->lido->descriptiveMetadata
-            ->objectIdentificationWrap->objectMeasurementsWrap
-            ->objectMeasurementsSet ?? [] as $set
-        ) {
-            $setExtents = [];
-            foreach ($set->objectMeasurements->extentMeasurements ?? []
-                as $extent
-            ) {
-                if ($value = trim((string)$extent)) {
-                    $setExtents[] = $value;
+        $language = $this->getLocale();
+        $reader = $this->getXmlReader();
+        $objectMeasurementsSets = $reader->all(
+            path: 'lido/descriptiveMetadata/objectIdentificationWrap/objectMeasurementsWrap/objectMeasurementsSet'
+        );
+        foreach ($objectMeasurementsSets as $set) {
+            // Get set extents to be displayed
+            $extentNodes = $reader->all($set, 'objectMeasurements/extentMeasurements');
+            $extentMeasurements = $this->getAllLanguageSpecificValues($extentNodes, $language, true);
+            $displayExtents = implode(', ', $extentMeasurements);
+            // Use display element with allowed type
+            $displayNode = $this->getLanguageSpecificNode($reader->all($set, 'displayObjectMeasurements'), $language);
+            if ($displayNode && ($displayMeasurements = $reader->value($displayNode))) {
+                $label = $reader->attr($displayNode, 'label') ?? '';
+                if (($include && !in_array($label, $include)) || ($exclude && in_array($label, $exclude))) {
+                    continue;
                 }
-            }
-            $setExtents = implode(', ', $setExtents);
-            // Use allowed display elements
-            $displayFound = false;
-            foreach ($set->displayObjectMeasurements as $measurements) {
-                if ($value = trim((string)$measurements)) {
-                    $displayFound = true;
-                    $label = $measurements->attributes()->label ?? '';
-                    if (($include && !in_array($label, $include))
-                        || ($exclude && in_array($label, $exclude))
-                    ) {
-                        continue;
-                    }
-                    if ($setExtents) {
-                        $value .= " ($setExtents)";
-                    }
-                    $results[] = $value;
-                }
+                $results[] = $displayExtents ? "$displayMeasurements ($displayExtents)" : $displayMeasurements;
+                continue;
             }
             // Use measurementsSet only if no display elements exist
-            if (!$displayFound) {
-                foreach ($set->objectMeasurements->measurementsSet ?? []
-                    as $measurements
-                ) {
-                    $type = trim(
-                        (string)($measurements->measurementType->term ?? '')
-                    );
-                    if (($include && !in_array($type, $include))
-                        || ($exclude && in_array($type, $exclude))
-                    ) {
-                        continue;
-                    }
-                    $parts = [];
-                    if ($type = trim((string)($measurements->measurementType ?? ''))
-                    ) {
-                        $parts[] = $type;
-                    }
-                    if ($val = trim((string)($measurements->measurementValue ?? ''))
-                    ) {
-                        $parts[] = $val;
-                    }
-                    if ($unit = trim((string)($measurements->measurementUnit ?? ''))
-                    ) {
-                        $parts[] = $unit;
-                    }
-                    if ($parts) {
-                        if ($setExtents) {
-                            $parts[] = "($setExtents)";
-                        }
-                        $results[] = implode(' ', $parts);
-                    }
+            foreach ($reader->all($set, 'objectMeasurements/measurementsSet') as $measurements) {
+                $type = $reader->firstValue($measurements, 'measurementType/term') ?? '';
+                if (($include && !in_array($type, $include)) || ($exclude && in_array($type, $exclude))) {
+                    continue;
+                }
+                $parts = [];
+                if ($type = $this->getLanguageSpecificValueByPath($measurements, 'measurementType', $language)) {
+                    $parts[] = $type;
+                }
+                if ($val = $this->getLanguageSpecificValueByPath($measurements, 'measurementValue', $language)) {
+                    $parts[] = $val;
+                }
+                if ($unit = $this->getLanguageSpecificValueByPath($measurements, 'measurementUnit', $language)) {
+                    $parts[] = $unit;
+                }
+                if ($combined = implode(' ', $parts)) {
+                    $results[] = $displayExtents ? "$combined ($displayExtents)" : $combined;
                 }
             }
         }
@@ -1562,48 +1837,46 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get all authors apart from presenters
+     * Get all authors apart from presenters.
      *
      * @return array
      */
     public function getNonPresenterAuthors()
     {
+        $reader = $this->getXmlReader();
         $authors = [];
         $index = 0;
-        foreach ($this->getXmlRecord()->lido->descriptiveMetadata
-            ->eventWrap->eventSet ?? [] as $set
-        ) {
-            if (!($event = $set->event ?? '')) {
-                continue;
-            }
-            $eventType = (string)($event->eventType->term ?? '');
+        $language = $this->getLocale();
+        foreach ($reader->all(path: 'lido/descriptiveMetadata/eventWrap/eventSet/event') as $event) {
+            $eventType = $this->toLower($reader->firstValue($event, 'eventType/term') ?? '');
             $priority = $this->authorEvents[$eventType] ?? null;
             if (null === $priority) {
                 continue;
             }
-            foreach ($event->eventActor ?? [] as $actor) {
-                $name
-                    = trim(
-                        (string)($actor->actorInRole->actor->nameActorSet
-                            ->appellationValue
-                        ?? '')
-                    );
+            foreach ($reader->all($event, 'eventActor') as $actor) {
+                $name = $reader->firstValue($actor, 'actorInRole/actor/nameActorSet/appellationValue') ?? '';
                 if ($name) {
-                    $role = (string)($actor->actorInRole->roleActor->term ?? '');
-                    ++$index;
-                    $authors["$priority/{$index}"] = compact(
+                    $role = '';
+                    if ($langRoles = $reader->all($actor, 'actorInRole/roleActor/term')) {
+                        $roles = $this->getAllLanguageSpecificValues($langRoles, $language);
+                        $role = implode(', ', $roles);
+                    }
+                    $id = $this->getPrimaryActorId($actor);
+                    $key = $priority * 1000 + $index++;
+                    $authors[$key] = compact(
                         'name',
-                        'role'
+                        'role',
+                        'id'
                     );
                 }
             }
         }
-        ksort($authors);
+        ksort($authors, SORT_NUMERIC);
         return array_values($authors);
     }
 
     /**
-     * Get hierarchy parent archives
+     * Get hierarchy parent archives.
      *
      * @return array
      */
@@ -1613,7 +1886,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get hierarchy parent collections
+     * Get hierarchy parent collections.
      *
      * @return array
      */
@@ -1623,7 +1896,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get hierarchy parent subcollections
+     * Get hierarchy parent subcollections.
      *
      * @return array
      */
@@ -1633,7 +1906,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get hierarchy parent series
+     * Get hierarchy parent series.
      *
      * @return array
      */
@@ -1643,17 +1916,19 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get hierarchy parent purchase batches
+     * Get hierarchy parent purchase batches.
      *
      * @return array
+     *
+     * @deprecated No longer used
      */
     public function getParentPurchaseBatches()
     {
-        return $this->getParentLinksByType('purchaseBatch');
+        return [];
     }
 
     /**
-     * Get hierarchy parent unclassified entities
+     * Get hierarchy parent unclassified entities.
      *
      * Returns entities not belonging to any of the separately handled classes.
      *
@@ -1665,7 +1940,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get hierarchy parent works
+     * Get hierarchy parent works.
      *
      * @return array
      */
@@ -1675,9 +1950,10 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get an array of dates for results list display
+     * Get an array of dates for results list display.
      *
-     * @return ?array Array of two dates or null if not available
+     * @return ?array Array of one or two dates or null if not available.
+     * If date range is still continuing end year will be an empty string.
      */
     public function getResultDateRange()
     {
@@ -1685,70 +1961,119 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get subject actors
+     * Get subject actors.
+     *
+     * @param bool $extended Whether to return a keyed array with the following keys:
+     * - name: name of the actor
+     * - id: primary authority id (if defined)
      *
      * @return array
      */
-    public function getSubjectActors()
+    public function getSubjectActors(bool $extended = false): array
     {
+        $reader = $this->getXmlReader();
         $results = [];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/'
-            . 'subjectSet/subject/subjectActor/actor/nameActorSet/appellationValue'
-        ) as $node) {
-            if ($actor = trim((string)$node)) {
-                $results[] = $actor;
+        $path = 'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/subjectSet/subject/subjectActor';
+        foreach ($reader->all(path: $path) as $subjectActor) {
+            if ($name = $reader->firstValue($subjectActor, 'actor/nameActorSet/appellationValue')) {
+                $results[] = $extended ? [
+                    'name' => $name,
+                    'id' => $this->getPrimaryActorId($subjectActor),
+                ] : $name;
             }
         }
         return $results;
     }
 
     /**
-     * Get subject dates
+     * Get extended subject actors.
+     *
+     * @return array
+     */
+    public function getSubjectActorsExtended(): array
+    {
+        return $this->getSubjectActors(true);
+    }
+
+    /**
+     * Get subject dates.
      *
      * @return array
      */
     public function getSubjectDates()
     {
+        $reader = $this->getXmlReader();
         $results = [];
         $language = $this->getLocale();
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/'
-            . 'subjectSet/subject'
-        ) as $node) {
-            if (!empty($node->subjectDate->displayDate)) {
-                $term = (string)($this->getLanguageSpecificItem(
-                    $node->subjectDate->displayDate,
-                    $language
-                ));
-                if ($term) {
-                    $results[] = $term;
-                }
+        $path = 'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/subjectSet/subject';
+        foreach ($reader->all(path: $path) as $node) {
+            if ($term = $this->getLanguageSpecificValueByPath($node, 'subjectDate/displayDate', $language)) {
+                $results[] = $term;
             }
         }
         return $results;
     }
 
     /**
-     * Get subject details
+     * Get subject details.
      *
      * @return array
      */
     public function getSubjectDetails()
     {
+        $reader = $this->getXmlReader();
         $results = [];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectIdentificationWrap/titleWrap/titleSet/'
-            . "appellationValue[@label='aiheen tarkenne']"
-        ) as $node) {
-            $results[] = (string)$node;
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/titleWrap/titleSet/appellationValue';
+        foreach ($reader->all(path: $path) as $node) {
+            if ($reader->attr($node, 'label') === 'aiheen tarkenne') {
+                $results[] = $reader->value($node);
+            }
         }
         return $results;
     }
 
     /**
+     * Return all subject headings.
+     *
+     * @param bool $extended Whether to return a keyed array with the following
+     * keys:
+     * - heading: the actual subject heading
+     * - type: heading type
+     * - source: source vocabulary
+     * - id: first authority id (if defined)
+     * - ids: multiple authority ids (if defined)
+     * - authType: authority type (if id is defined)
+     *
+     * @return array
+     */
+    public function getAllSubjectHeadings($extended = false)
+    {
+        $headings = $this->getAllSubjectHeadingsForDisplay($extended);
+        foreach ($this->getSubjectActors($extended) as $actor) {
+            $headings[] = $extended ? [
+                'heading' => [$actor['name']],
+                'type' => 'topic',
+                'id' => $actor['id'],
+            ] : [$actor];
+        }
+        if ($places = $this->getSubjectPlaces($extended, false)) {
+            $headings = [...$headings, ...$places];
+        }
+        // Ensure that all the values are an array
+        if (!$extended) {
+            foreach ($headings as &$value) {
+                if (!is_array($value)) {
+                    $value = [$value];
+                }
+            }
+            unset($value);
+        }
+        return $headings;
+    }
+
+    /**
      * Get all subject headings associated with this record apart from geographic
-     * places.  Each heading is returned as an array of chunks, increasing from least
+     * places and subject actors. Each heading is returned as an array of chunks, increasing from least
      * specific to most specific.
      *
      * @param bool $extended Whether to return a keyed array with the following
@@ -1762,25 +2087,28 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      *
      * @return array
      */
-    public function getAllSubjectHeadingsWithoutPlaces(bool $extended = false): array
+    public function getAllSubjectHeadingsForDisplay(bool $extended = false): array
     {
         $headings = [];
+        $headings = $this->getTopics();
         $language = $this->getLocale();
-        foreach (['topic', 'genre'] as $field) {
-            if (isset($this->fields[$field])) {
-                $headings = array_merge($headings, (array)$this->fields[$field]);
-            }
-        }
-        // Include all display dates from events
-        foreach ($this->getXmlRecord()->lido->descriptiveMetadata->eventWrap
-            ->eventSet ?? [] as $node) {
-            if (!empty($node->eventDate->displayDate)) {
-                $date = (string)($this->getLanguageSpecificItem(
-                    $node->eventDate->displayDate,
-                    $language
-                ));
-                if ($date) {
-                    $headings[] = $date;
+
+        $headings = array_merge(
+            $headings,
+            array_map(
+                function ($term) {
+                    return ['data' => $term];
+                },
+                $this->fields['genre'] ?? []
+            )
+        );
+        // Include all display dates from events except creation date
+        $reader = $this->getXmlReader();
+        foreach ($reader->all(path: 'lido/descriptiveMetadata/eventWrap/eventSet/event') as $event) {
+            $type = $this->toLower($reader->firstValue($event, 'eventType/term'));
+            if (!in_array($type, $this->nonPlaceEvents)) {
+                if ($date = $this->getLanguageSpecificValueByPath($event, 'eventDate/displayDate', $language)) {
+                    $headings[] = ['data' => $date];
                 }
             }
         }
@@ -1790,17 +2118,99 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         // Other record drivers (i.e. SolrMarc) can offer this data in a more
         // granular format.
         $callback = function ($i) use ($extended) {
-            return $extended
-                ? ['heading' => [$i], 'type' => '', 'source' => '']
-                : [$i];
+            if ($extended) {
+                $data = [
+                    'heading' => [$i['data']],
+                    'type' => 'topic',
+                    'source' => $i['source'] ?? '',
+                ];
+                if ($id = $i['id'] ?? '') {
+                    $data['id'] = $id;
+                    // Categorize non-URI ID's as Unknown Names, since the
+                    // actual authority format can not be determined from metadata.
+                    $data['authType'] = preg_match('/^https?:/', $id)
+                        ? null : 'Unknown Name';
+                }
+            } else {
+                return [$i['data']];
+            }
+            return $data;
         };
-        return array_map($callback, array_unique($headings));
+        return array_map($callback, $headings);
     }
 
     /**
-     * Get subject places
+     * Get extended subject information.
      *
-     * @param bool $extended Whether to return a keyed array with the following
+     * @return array
+     */
+    public function getAllSubjectHeadingsForDisplayExtended(): array
+    {
+        return $this->getAllSubjectHeadingsForDisplay(true);
+    }
+
+    /**
+     * Get topics.
+     *
+     * @return array
+     */
+    public function getTopics(): array
+    {
+        $reader = $this->getXmlReader();
+        $topics = [];
+        $langTopics = [];
+        $language = $this->getLocale();
+        foreach (
+            $reader->all(path: 'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/subjectSet/subject') as $subject
+        ) {
+            $type = $reader->attr($subject, 'type');
+            if (in_array($this->toLower($type), $this->excludedSubjectTypes)) {
+                continue;
+            }
+            foreach ($reader->all($subject, 'subjectConcept') as $concept) {
+                $id = $source = '';
+                if ($values = $this->getFirstConceptIdAttributes($concept)) {
+                    $id = $values['id'];
+                    $source = $values['source'];
+                }
+                foreach ($reader->all($concept, 'term') as $term) {
+                    if ('' === ($str = $reader->value($term) ?? '')) {
+                        continue;
+                    }
+                    $langAttr = $reader->attr($term, 'lang');
+                    if ($id !== '') {
+                        $topics[] = [
+                            'data' => $str,
+                            'id' => $id,
+                            'source' => $source,
+                        ];
+                        if ($langAttr === $language) {
+                            $langTopics[] = [
+                                'data' => $str,
+                                'id' => $id,
+                                'source' => $source,
+                            ];
+                        }
+                    } else {
+                        foreach (explode(',', $reader->value($term) ?? '') as $explodedTerm) {
+                            if ('' !== ($str = trim($explodedTerm))) {
+                                $topics[] = ['data' => $str];
+                                if ($langAttr === $language) {
+                                    $langTopics[] = ['data' => $str];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return $langTopics ? $langTopics : $topics;
+    }
+
+    /**
+     * Get subject places.
+     *
+     * @param bool $extended    Whether to return a keyed array with the following
      * keys:
      * - heading: the actual subject heading chunks
      * - type: heading type
@@ -1809,17 +2219,30 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      * - id: authority id (if defined)
      * - ids: multiple authority ids (if defined)
      * - authType: authority type (if id is defined)
+     * @param bool $prependType Should type be prepended in front of an id. Default is true.
      *
      * @return array
      */
-    public function getSubjectPlaces(bool $extended = false)
+    public function getSubjectPlaces(bool $extended = false, bool $prependType = true)
     {
+        $reader = $this->getXmlReader();
         $results = [];
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/'
-            . 'subjectSet/subject/subjectPlace'
-        ) as $subjectPlace) {
-            if (!($displayPlace = (string)($subjectPlace->displayPlace ?? ''))) {
+        $path = 'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/subjectSet/subject/subjectPlace';
+        foreach ($reader->all(path: $path) as $subjectPlace) {
+            $displayPlace = trim($reader->firstValue($subjectPlace, 'displayPlace') ?? '', ", \n\r\t\v\0");
+            if ('' === $displayPlace) {
+                $placeNames = $reader->allValues($subjectPlace, 'place/namePlaceSet/appellationValue');
+                foreach ($reader->all($subjectPlace, 'place/partOfPlace') as $part) {
+                    while ($part) {
+                        if ($partName = $reader->firstValue($part, 'namePlaceSet/appellationValue')) {
+                            $placeNames[] = $partName;
+                        }
+                        $part = $reader->first($part, 'partOfPlace');
+                    }
+                }
+                $displayPlace = implode(', ', $placeNames);
+            }
+            if (!$displayPlace) {
                 continue;
             }
             if ($extended) {
@@ -1828,10 +2251,10 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
                 ];
                 // Collect all ids but use only the first for type etc:
                 $details = [];
-                foreach ($subjectPlace->place->placeID ?? [] as $placeId) {
-                    $id = (string)$placeId;
-                    $type = (string)($placeId->attributes()->type ?? '');
-                    if ($type) {
+                foreach ($reader->all($subjectPlace, 'place/placeID') as $placeId) {
+                    $id = $reader->value($placeId);
+                    $type = $this->getPlaceIDType($placeId);
+                    if ($type && $prependType && !in_array(strtolower($type), $this->uniquePlaceIDTypes)) {
                         $id = "($type)$id";
                     }
                     $typeDesc = $this->translate('place_id_type_' . $type, [], '');
@@ -1858,7 +2281,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get extended subject places
+     * Get extended subject places.
      *
      * @return array
      */
@@ -1883,15 +2306,11 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getURLs()
     {
-        $urls = [];
-        foreach (parent::getURLs() as $url) {
-            if (!$this->urlBlocked($url['url'] ?? '', $url['desc'] ?? '')) {
-                $urls[] = $url;
-            }
+        if (isset($this->cache[__FUNCTION__])) {
+            return $this->cache[__FUNCTION__];
         }
-        $urls = $this->resolveUrlTypes($urls);
-        $urls = array_merge($urls, $this->getAudios(), $this->getVideos());
-        return $urls;
+        $this->cache[__FUNCTION__] = array_merge($this->getAudios(), $this->getVideos());
+        return $this->cache[__FUNCTION__];
     }
 
     /**
@@ -1901,49 +2320,33 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getWebResources(): array
     {
-        $relatedWorks = $this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/'
-            . 'relatedWorkSet/relatedWork'
-        );
-        $data = [];
+        $reader = $this->getXmlReader();
+        $path = 'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/relatedWorkSet/relatedWork';
+        $results = [];
         $language = $this->getLocale();
-        foreach ($relatedWorks as $work) {
-            if (!empty($work->object->objectWebResource)) {
-                $tmp = [];
-                $url = trim(
-                    (string)$this->getLanguageSpecificItem(
-                        $work->object->objectWebResource,
-                        $language
-                    )
-                );
-                if ($this->urlBlocked($url)) {
+        foreach ($reader->all(path: $path) as $work) {
+            $url = $this->getLanguageSpecificValueByPath($work, 'object/objectWebResource', $language);
+            if (!$url || $this->urlBlocked($url)) {
+                continue;
+            }
+            $result = [
+                'url' => $url,
+            ];
+            if ('' !== ($desc = $this->getLanguageSpecificValueByPath($work, 'displayObject', $language))) {
+                $result['desc'] = $desc;
+            }
+            if ($objectIDs = $reader->all($work, 'object/objectID')) {
+                if (!($objectID = $this->getLanguageSpecificNode($objectIDs, $language))) {
                     continue;
                 }
-                $tmp['url'] = $url;
-                if (!empty($work->displayObject)) {
-                    $tmp['desc'] = trim(
-                        (string)$this->getLanguageSpecificItem(
-                            $work->displayObject,
-                            $language
-                        )
-                    );
+                $result['info'] = $reader->value($objectID) ?? '';
+                if ($label = $reader->attr($objectID, 'label')) {
+                    $result['label'] = $label;
                 }
-                if (!empty($work->object->objectID)) {
-                    $tmp['info'] = trim((string)$work->object->objectID);
-                    $objectAttrs = $work->object->objectID->attributes();
-                    if (!empty($objectAttrs->label)) {
-                        $tmp['label'] = trim(
-                            (string)$this->getLanguageSpecificItem(
-                                $objectAttrs->label,
-                                $language
-                            )
-                        );
-                    }
-                }
-                $data[] = $tmp;
             }
+            $results[] = $result;
         }
-        return $data;
+        return $results;
     }
 
     /**
@@ -1951,7 +2354,7 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      *
      * @param mixed $data Raw data representing the record; Record Model
      * objects are normally constructed by Record Driver objects using data
-     * passed in from a Search Results object.  The exact nature of the data may
+     * passed in from a Search Results object. The exact nature of the data may
      * vary depending on the data source -- the important thing is that the
      * Record Driver + Search Results objects work together correctly.
      *
@@ -1960,20 +2363,6 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     public function setRawData($data)
     {
         parent::setRawData($data);
-    }
-
-    /**
-     * Is social media sharing allowed
-     *
-     * @return boolean
-     */
-    public function socialMediaSharingAllowed()
-    {
-        $rights = $this->getXmlRecord()->xpath(
-            'lido/administrativeMetadata/resourceWrap/resourceSet/rightsResource/'
-            . 'rightsType/conceptID[@type="Social media links"]'
-        );
-        return empty($rights) || (string)$rights[0] != 'no';
     }
 
     /**
@@ -1993,44 +2382,11 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     }
 
     /**
-     * Get a Date Range from Index Fields
-     *
-     * @param string $event Event name
-     *
-     * @return ?array Array of two dates or null if not available
-     */
-    protected function getDateRange($event)
-    {
-        $key = "{$event}_daterange";
-        if (!isset($this->fields[$key])) {
-            return null;
-        }
-        if (preg_match(
-            '/\[(-?\d{4}).* TO (-?\d{4})/',
-            $this->fields[$key],
-            $matches
-        )
-        ) {
-            $end = (string)(intval($matches[2]));
-            return [
-                (string)(intval($matches[1])),
-                $end == '9999' ? null : $end
-            ];
-        } elseif (preg_match('/^(-?\d{4})-/', $this->fields[$key], $matches)) {
-            return [
-                (string)(intval($matches[1])),
-                null
-            ];
-        }
-        return null;
-    }
-
-    /**
-     * Get identifiers by type
+     * Get identifiers by type.
      *
      * @param bool  $includeType Whether to include identifier type in parenthesis
-     * @param array $include     Type attributes to include
-     * @param array $exclude     Type attributes to exclude
+     * @param array $include     Type and label attributes to include
+     * @param array $exclude     Type and label attributes to exclude
      *
      * @return array
      */
@@ -2039,106 +2395,351 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         array $include = [],
         array $exclude = []
     ): array {
+        $reader = $this->getXmlReader();
         $results = [];
-        foreach ($this->getXmlRecord()->lido->descriptiveMetadata
-            ->objectIdentificationWrap->repositoryWrap
-            ->repositorySet ?? [] as $repository
-        ) {
-            foreach ($repository->workID ?? [] as $node) {
-                $type = $node->attributes()->type ?? '';
-                if (($include && !in_array($type, $include))
-                    || ($exclude && in_array($type, $exclude))
-                ) {
-                    continue;
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/repositoryWrap/repositorySet/workID';
+        foreach ($reader->all(path: $path) as $workID) {
+            if ('' === ($identifier = $reader->value($workID) ?? '')) {
+                continue;
+            }
+            $label = $reader->attr($workID, 'label') ?? '';
+            $type = $reader->attr($workID, 'type') ?? '';
+            $typesLC = [$this->toLower($label), $this->toLower($type)];
+            if (
+                ($include && !array_intersect($typesLC, $include))
+                || ($exclude && array_intersect($typesLC, $exclude))
+            ) {
+                continue;
+            }
+            // Never display type if value is URI
+            $displayType = preg_match('/^http?:/', $type) ? '' : $type;
+            if (($label || $displayType) && $includeType) {
+                $identifier .= ' (' . ($label ?: $displayType) . ')';
+            }
+            $results[] = $identifier;
+        }
+        return $results;
+    }
+
+    /**
+     * Get physical locations.
+     *
+     * @return array
+     */
+    public function getPhysicalLocations(): array
+    {
+        $result = $this->getPhysicalLocationsExtended();
+        return array_column($result, 'location');
+    }
+
+    /**
+     * Get physical locations and additional information.
+     *
+     * Returns a multidimensional array containing arrays with keys:
+     *  - 'location'        string  Physical location
+     *  - 'locationInfo'    array   Additional information
+     *  - 'locationAsLink'  bool    If location should be a link
+     *
+     * @return array
+     */
+    public function getPhysicalLocationsExtended(): array
+    {
+        $reader = $this->getXmlReader();
+        $results = [];
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/repositoryWrap/repositorySet';
+
+        foreach ($reader->all(path: $path) as $repository) {
+            $type = $this->toLower($reader->attr($repository, 'type') ?? '');
+            if (!in_array($type, ['current location', 'http://terminology.lido-schema.org/lido01018'])) {
+                continue;
+            }
+            $locations = [];
+            foreach ($reader->all($repository, 'repositoryLocation/namePlaceSet') as $nameSet) {
+                if ('' !== ($name = $reader->firstValue($nameSet, 'appellationValue') ?? '')) {
+                    $locations[] = $name;
                 }
-                if ($identifier = trim((string)$node ?? '')) {
-                    if ($type && $includeType) {
-                        $identifier .= " ($type)";
+            }
+            foreach ($reader->all($repository, 'repositoryLocation/partOfPlace') as $part) {
+                while ($part) {
+                    if ('' !== ($partName = $reader->firstValue($part, 'namePlaceSet/appellationValue') ?? '')) {
+                        $locations[] = $partName;
                     }
-                    $results[] = $identifier;
+                    $part = $reader->first($part, 'partOfPlace');
                 }
+            }
+            if ($locations) {
+                $locationInfo = [];
+                foreach ($reader->all($repository, 'repositoryLocation/placeID') as $placeId) {
+                    if (!($placeIdStr = $reader->value($placeId))) {
+                        continue;
+                    }
+                    $idType = $this->getPlaceIDType($placeId);
+                    $prependType = $idType !== '' && !in_array(strtolower($idType), $this->uniquePlaceIDTypes);
+                    $id = $prependType ? "($idType)$placeIdStr" : $placeIdStr;
+                    $locationInfo['ids'][] = $id;
+                }
+                $results[] = [
+                    'location' => implode(', ', $locations),
+                    'locationInfo' => $locationInfo,
+                    'locationAsLink' => true,
+                ];
+            }
+            $lang = $this->getLocale();
+            if ($display = $this->getLanguageSpecificValueByPath($repository, 'displayRepository', $lang)) {
+                $results[] = [
+                    'location' => $display,
+                    'locationInfo' => [],
+                    'locationAsLink' => false,
+                ];
             }
         }
         return $results;
     }
 
     /**
-     * Get a language-specific item from an element array
+     * Get a language-specific node from an array of nodes.
      *
-     * @param SimpleXMLElement $element  Element to use
-     * @param string           $language Language to look for
+     * @param array  $nodeList Nodes to look in
+     * @param string $language Language to look for
      *
-     * @return SimpleXMLElement
+     * @return ?array
      */
-    protected function getLanguageSpecificItem($element, $language)
+    protected function getLanguageSpecificNode(array $nodeList, string $language): ?array
     {
         $languages = [];
+        if ($language) {
+            $languages[] = $language;
+            // Add region-less language if needed:
+            $parts = explode('-', $language, 2);
+            if (isset($parts[1])) {
+                $languages[] = $parts[0];
+            }
+        }
+
+        $firstNode = null;
+        $reader = $this->getXmlReader();
+        foreach ($languages as $lng) {
+            foreach ($nodeList as $node) {
+                $contents = $reader->value($node);
+                if (null === $firstNode && '' !== $contents) {
+                    $firstNode = $node;
+                }
+                $langAttr = $reader->attr($node, "{{$this->xmlNs}}lang") ?? $reader->attr($node, 'lang');
+                if ($langAttr === $lng && '' !== $contents) {
+                    return $node;
+                }
+            }
+        }
+        // Return first non-empty node if available or first node otherwise, or null if there are no nodes:
+        return $firstNode ?? $nodeList[0] ?? null;
+    }
+
+    /**
+     * Get a language-specific value from an array of nodes.
+     *
+     * @param array  $nodeList Nodes to look in
+     * @param string $language Language to look for
+     *
+     * @return string
+     */
+    protected function getLanguageSpecificValue(array $nodeList, string $language): string
+    {
+        $node = $this->getLanguageSpecificNode($nodeList, $language);
+        return $node ? $this->getXmlReader()->value($node) : '';
+    }
+
+    /**
+     * Get a language-specific value from an array of nodes.
+     *
+     * @param ?array $node     Parent node
+     * @param string $path     Element path
+     * @param string $language Language to look for
+     *
+     * @return string
+     */
+    protected function getLanguageSpecificValueByPath(?array $node, string $path, string $language): string
+    {
+        $reader = $this->getXmlReader();
+        if (!($nodes = $reader->all($node, $path))) {
+            return '';
+        }
+        return $this->getLanguageSpecificValue($nodes, $language);
+    }
+
+    /**
+     * Get all fitting language-specific nodes from a node list.
+     *
+     * @param array  $nodeList Array of nodes to look in
+     * @param string $language Language to look for
+     * @param bool   $useFirst Use first appearing language as fallback, otherwise returns all items
+     *
+     * @return array
+     */
+    protected function getAllLanguageSpecificNodes(
+        array $nodeList,
+        string $language,
+        bool $useFirst = false
+    ): array {
+        $languages = [];
+        $items = [];
+        $allItems = [];
         if ($language) {
             $languages[] = $language;
             if (strlen($language) > 2) {
                 $languages[] = substr($language, 0, 2);
             }
         }
-        foreach ($languages as $lng) {
-            foreach ($element as $item) {
-                $attrs = $item->attributes();
-                if (!empty($attrs->lang) && (string)$attrs->lang == $lng) {
-                    if ('' !== trim((string)$item)) {
-                        return $item;
-                    }
+        $first = '';
+        $reader = $this->getXmlReader();
+        foreach ($nodeList as $node) {
+            if ('' !== ($reader->value($node))) {
+                $lang = $reader->attr($node, 'lang') ?? 'no_locale';
+                $first = $first ?: $lang;
+                if (in_array($lang, $languages)) {
+                    $items[] = $node;
+                } elseif (!$useFirst || $lang === $first) {
+                    $allItems[] = $node;
                 }
             }
         }
-        // Return first non-empty item if available
-        foreach ($element as $item) {
-            if ('' !== trim((string)$item)) {
-                return $item;
-            }
-        }
-
-        return $element;
+        // Return either language specific results or all given items.
+        return $items ?: $allItems;
     }
 
     /**
-     * Get the displaysubject and description info to summary
+     * Get all fitting language-specific values from a node list.
+     *
+     * @param array  $nodeList Array of nodes to look in
+     * @param string $language Language to look for
+     * @param bool   $useFirst Use first appearing language as fallback, otherwise returns all items
+     *
+     * @return array
+     */
+    protected function getAllLanguageSpecificValues(
+        array $nodeList,
+        string $language,
+        bool $useFirst = false
+    ): array {
+        $reader = $this->getXmlReader();
+        return array_map(
+            [$reader, 'value'],
+            $this->getAllLanguageSpecificNodes($nodeList, $language, $useFirst)
+        );
+    }
+
+    /**
+     * Get the displaysubject and description info to summary.
      *
      * @return array $results with summary from displaySubject or description field
      */
     public function getSummary()
     {
-        $results = [];
-        $label = null;
-        $title = str_replace([',', ';'], ' ', $this->getTitle());
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/subjectSet'
-        ) as $node) {
-            $subject = $node->displaySubject;
-            $checkTitle = str_replace([',', ';'], ' ', (string)$subject) != $title;
-            foreach ($subject as $attributes) {
-                $label = $attributes->attributes()->label;
-                if (($label == 'aihe' || $label == null) && $checkTitle) {
-                    $results[] = (string)$subject;
+        $collected = [];
+        $descriptions = [];
+        $descriptionsTyped = [];
+        $descriptionsUntyped = [];
+        $subjectsLabeled = [];
+        $subjectsUnlabeled = [];
+        $language = $this->getLocale();
+        // Collect all fitting description objects
+        $reader = $this->getXmlReader();
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/objectDescriptionWrap/objectDescriptionSet';
+        foreach ($reader->all(path: $path) as $node) {
+            $type = $reader->attr($node, 'type');
+            // Descriptions divided to typed and untyped
+            foreach ($reader->all($node, 'descriptiveNoteValue') as $desc) {
+                if (!$type) {
+                    $descriptionsUntyped[] = $desc;
+                } elseif ($type === 'description') {
+                    $descriptionsTyped[] = $desc;
                 }
             }
         }
+        // Collect all fitting subject objects
+        $path = 'lido/descriptiveMetadata/objectRelationWrap/subjectWrap/subjectSet/displaySubject';
+        foreach ($reader->all(path: $path) as $subj) {
+            $label = $reader->attr($subj, 'label');
+            // Subjects divided to labeled and unlabeled
+            if (!$label) {
+                $subjectsUnlabeled[] = $subj;
+            } elseif ($label === 'aihe') {
+                $subjectsLabeled[] = $subj;
+            }
+        }
+        // Check for matching language variations
+        if ($descriptionsTyped ?: $descriptionsUntyped) {
+            $collectedDesc = $this->getAllLanguageSpecificValues(
+                $descriptionsTyped ?: $descriptionsUntyped,
+                $language
+            );
+            //Discard values matching the object title
+            $collected = $this->compareWithTitle($collectedDesc);
+            foreach ($collected as $item) {
+                $descriptions[] = (string)$item;
+            }
+        }
+        if ($subjectsLabeled ?: $subjectsUnlabeled) {
+            $collectedSubj = $this->getAllLanguageSpecificValues(
+                $subjectsLabeled ?: $subjectsUnlabeled,
+                $language
+            );
+            $collected = $this->compareWithTitle($collectedSubj);
+            foreach ($collected as $item) {
+                $descriptions[] = (string)$item;
+            }
+        }
+        $descriptions = array_unique($descriptions);
 
-        $preferredLanguages = $this->getPreferredLanguageCodes();
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectIdentificationWrap/objectDescriptionWrap'
-            . '/objectDescriptionSet[@type="description"]/descriptiveNoteValue'
-        ) as $node) {
-            if (in_array((string)$node->attributes()->lang, $preferredLanguages)) {
-                if ($term = trim((string)$node)) {
-                    $results[] = $term;
+        // Collect all titles to be checked
+        $titleNodes = [];
+        $titlesNotInDesc = [];
+        $displayTitle = $this->getTitle();
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/titleWrap/titleSet/appellationValue';
+        foreach ($reader->all(path: $path) as $title) {
+            $pref = $reader->attr($title, 'pref');
+            $titleNodes[] = $title;
+            if (in_array($pref, $this->preferredTitleLabels) || in_array($pref, $this->alternativeTitleLabels)) {
+                $titlesNotInDesc[] = $reader->value($title);
+            }
+        }
+        foreach ($this->getAlternativeTitles() as $title) {
+            $titlesNotInDesc[] = $title;
+        }
+        // Get language specific titles
+        if ($titleNodes) {
+            $titleValues = $this->getAllLanguageSpecificValues(
+                $titleNodes,
+                $language,
+                true
+            );
+            // Discard values matching the object title
+            $titleValues = $this->compareWithTitle($titleValues);
+            // Discard values matching the alternate titles
+            if ($titlesNotInDesc) {
+                $titleValues = array_diff($titleValues, $titlesNotInDesc);
+            }
+            // Check for partial titles
+            $checkWord = preg_replace('/[^a-zA-Z0-9]/', '', $displayTitle);
+            $checkLength = strlen($checkWord);
+            foreach ($titleValues as $title) {
+                $checkItem = preg_replace('/[^a-zA-Z0-9]/', '', $title);
+                if (
+                    strncmp($checkItem, $checkWord, $checkLength) == 0
+                    && $checkLength !== strlen($checkItem)
+                ) {
+                    $title = ltrim(substr($title, strlen($displayTitle)), ' .,;:!?');
+                    $collectedTitles[] = $title;
+                } elseif ($displayTitle !== $title) {
+                    $collectedTitles[] = $title;
                 }
+            }
+            // Add titles to the beginning of descriptions
+            if (isset($collectedTitles)) {
+                $descriptions = array_merge($collectedTitles, $descriptions);
             }
         }
 
-        if (!$results && !empty($this->fields['description'])) {
-            $results[] = (string)($this->fields['description']) != $title
-                ? (string)$this->fields['description'] : '';
-        }
-        return array_unique($results);
+        return $descriptions;
     }
 
     /**
@@ -2150,13 +2751,17 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
     {
         $results = [];
         $preferredLanguages = $this->getPreferredLanguageCodes();
-        foreach ($this->getXmlRecord()->xpath(
-            'lido/descriptiveMetadata/objectIdentificationWrap/objectDescriptionWrap'
-            . '/objectDescriptionSet[@type="introduction"]/descriptiveNoteValue'
-        ) as $node) {
-            if (in_array((string)$node->attributes()->lang, $preferredLanguages)) {
-                if ($term = trim((string)$node)) {
-                    $results[] = $term;
+        $path = 'lido/descriptiveMetadata/objectIdentificationWrap/objectDescriptionWrap/objectDescriptionSet';
+        $reader = $this->getXmlReader();
+        foreach ($reader->all(path: $path) as $objectDescriptionSet) {
+            if ($reader->attr($objectDescriptionSet, 'type') !== 'introduction') {
+                continue;
+            }
+            foreach ($reader->all($objectDescriptionSet, 'descriptiveNoteValue') as $node) {
+                if (in_array($reader->attr($node, 'lang'), $preferredLanguages)) {
+                    if ('' !== ($term = $reader->value($node))) {
+                        $results[] = $term;
+                    }
                 }
             }
         }
@@ -2202,17 +2807,13 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
      */
     public function getEditions()
     {
-        $results = [];
-        foreach ($this->getXmlRecord()->lido->descriptiveMetadata
-            ->objectIdentificationWrap->displayStateEditionWrap
-            ->displayEdition ?? [] as $edition) {
-            $results[] = (string)$edition;
-        }
-        return $results;
+        return $this->getXmlReader()->allValues(
+            path: 'lido/descriptiveMetadata/objectIdentificationWrap/displayStateEditionWrap/displayEdition'
+        );
     }
 
     /**
-     * Get hierarchy parent links by type
+     * Get hierarchy parent links by type.
      *
      * @param string $relatedWorkType Related work type to include, empty string for
      * "others"
@@ -2228,31 +2829,35 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
                 'array_merge',
                 array_values($this->relatedWorkTypeMap)
             );
-        $sets = $this->getXmlRecord()->lido->descriptiveMetadata->objectRelationWrap
-            ->relatedWorksWrap->relatedWorkSet ?? [];
         $sourceId = $this->getSource();
         $result = [];
-        foreach ($sets as $set) {
-            if ('is part of' !== (string)($set->relatedWorkRelType->term ?? '')) {
+        $reader = $this->getXmlReader();
+        $path = 'lido/descriptiveMetadata/objectRelationWrap/relatedWorksWrap/relatedWorkSet';
+        foreach ($reader->all(path: $path) as $set) {
+            if ('is part of' !== $reader->firstValue($set, 'relatedWorkRelType/term')) {
                 continue;
             }
             $workType = '';
-            foreach ($set->relatedWork->object->objectNote ?? [] as $note) {
-                if ('objectWorkType' === (string)($note['type'] ?? '')) {
-                    $workType = mb_strtolower(trim((string)$note), 'UTF-8');
+            foreach ($reader->all($set, 'relatedWork/object/objectNote') as $note) {
+                if ('objectWorkType' === $reader->attr($note, 'type')) {
+                    $workType = $this->toLower($reader->value($note));
                     break;
                 }
             }
-            if (($allowedTypes && !in_array($workType, $allowedTypes))
+            if (
+                ($allowedTypes && !in_array($workType, $allowedTypes))
                 || ($disallowedTypes && in_array($workType, $disallowedTypes))
             ) {
                 continue;
             }
-            if ($id = (string)($set->relatedWork->object->objectID ?? '')) {
+            if ($id = $reader->firstValue($set, 'relatedWork/object/objectID')) {
                 $id = "$sourceId.$id";
             }
-            $title = (string)($set->relatedWork->displayObject ?? '');
-            if ($id && $title && $id !== $this->getUniqueID()
+            $title = $reader->firstValue($set, 'relatedWork/displayObject');
+            if (
+                $id
+                && $title
+                && $id !== $this->getUniqueID()
                 && !in_array($id, array_column($result, 'id'))
             ) {
                 $result[] = compact('id', 'title');
@@ -2260,5 +2865,74 @@ class SolrLido extends \VuFind\RecordDriver\SolrDefault
         }
 
         return $result;
+    }
+
+    /**
+     * Get placeID type.
+     *
+     * @param array $placeID element
+     *
+     * @return string
+     */
+    protected function getPlaceIDType(array $placeID): string
+    {
+        $reader = $this->getXmlReader();
+        $type = $reader->attr($placeID, 'type') ?? '';
+        if (
+            !in_array($this->toLower($type), $this->uniquePlaceIDTypes)
+            && $source = $reader->attr($placeID, 'source')
+        ) {
+            $type = $this->placeIDSourceMappings[$this->toLower($source)] ?? $source;
+        }
+        return $type;
+    }
+
+    /**
+     * Get actor's primary ID.
+     *
+     * @param array $actor Actor
+     *
+     * @return string
+     */
+    protected function getPrimaryActorId(array $actor): string
+    {
+        $reader = $this->getXmlReader();
+        $id = '';
+        $actorIds = $reader->all($actor, 'actorInRole/actor/actorID') ?: $reader->all($actor, 'actor/actorID');
+        foreach ($actorIds as $actorId) {
+            if ($actorIdValue = $reader->value($actorId)) {
+                if (str_starts_with($actorIdValue, 'http://urn.fi/URN:NBN:fi:au:finaf:')) {
+                    return $actorIdValue;
+                } elseif (str_starts_with($actorIdValue, 'https://isni.org/isni/')) {
+                    // Grab ISNI to return as the fallback value if we can't find a KANTO (finaf) URI:
+                    $id = $actorIdValue;
+                }
+            }
+        }
+        return $id;
+    }
+
+    /**
+     * Get XmlDoc from fullrecord.
+     *
+     * @return XmlDoc
+     */
+    protected function getXMLReader(): XmlDoc
+    {
+        $xmlDoc = $this->getXmlDoc();
+        $xmlDoc->setDefaultNamespace(static::LIDO_NAMESPACE);
+        return $xmlDoc;
+    }
+
+    /**
+     * Lowercase a string (also handles null).
+     *
+     * @param ?string $string String
+     *
+     * @return ?string
+     */
+    protected function toLower(?string $string): ?string
+    {
+        return $string ? mb_strtolower($string, 'UTF-8') : $string;
     }
 }

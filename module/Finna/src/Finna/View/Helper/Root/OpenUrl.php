@@ -1,8 +1,9 @@
 <?php
+
 /**
- * OpenURL view helper
+ * OpenURL view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2014.
  *
@@ -16,41 +17,42 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
 /**
- * OpenURL view helper
+ * OpenURL view helper.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class OpenUrl extends \VuFind\View\Helper\Root\OpenUrl
 {
     /**
-     * Public method to render the OpenURL more options template
+     * Public method to render the OpenURL more options template.
      *
      * @return string
      */
     public function renderMoreOptions()
     {
-        if (null !== $this->config && isset($this->config->url)) {
+        if (null !== $this->config && !empty($this->config->url)) {
             // Trim off any parameters (for legacy compatibility -- default config
             // used to include extraneous parameters):
             [$base] = explode('?', $this->config->url);
         } else {
-            $base = false;
+            return '';
         }
 
         // Build parameters needed to display the control:

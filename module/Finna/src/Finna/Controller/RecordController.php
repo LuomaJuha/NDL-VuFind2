@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Record Controller
+ * Record Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015.
+ * Copyright (C) The National Library of Finland 2015-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,33 +17,45 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
+use Finna\Controller\Feature\FinnaRecordPreviewSupportTrait;
+use Finna\Controller\Plugin\Preview;
 use Finna\Form\Form;
-use VuFindSearch\ParamBag;
+use Psr\Log\LoggerAwareInterface;
+
+use function count;
+use function in_array;
+use function is_array;
+use function is_string;
 
 /**
- * Record Controller
+ * Record Controller.
  *
  * @category VuFind
  * @package  Controller
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
-class RecordController extends \VuFind\Controller\RecordController
+class RecordController extends \VuFind\Controller\RecordController implements LoggerAwareInterface
 {
     use FinnaRecordControllerTrait;
     use \Finna\Statistics\ReporterTrait;
+    use FinnaRecordPreviewSupportTrait;
+    use \VuFind\Log\LoggerAwareTrait;
 
     /**
      * Create record feedback form and send feedback to correct recipient.
@@ -75,6 +88,18 @@ class RecordController extends \VuFind\Controller\RecordController
     }
 
     /**
+     * Create archive request form and send to correct recipient.
+     *
+     * @return     \Laminas\View\Model\ViewModel
+     * @throws     \Exception
+     * @deprecated Use ReservationList::placeSingleOrderAction
+     */
+    public function archiveRequestAction()
+    {
+        return $this->getRecordForm(Form::ARCHIVE_MATERIAL_REQUEST);
+    }
+
+    /**
      * Home (default) action -- forward to requested (or default) tab.
      *
      * @return mixed
@@ -83,163 +108,8 @@ class RecordController extends \VuFind\Controller\RecordController
     {
         $result = parent::homeAction();
         $this->triggerStatsRecordView($result->driver ?? null);
+        $this->addValidationResultMessage();
         return $result;
-    }
-
-    /**
-     * Helper for building a route to a record form
-     * (Feedback, Repository library request).
-     *
-     * @param string $id Form id
-     *
-     * @return \Laminas\View\Model\ViewModel
-     */
-    protected function getRecordForm($id)
-    {
-        $driver = $this->loadRecord();
-        return $this->redirect()->toRoute(
-            'feedback-form',
-            ['id' => $id],
-            ['query' => [
-                'layout' => $this->getRequest()->getQuery('layout', false),
-                'record_id'
-                    => $driver->getSourceIdentifier() . '|' . $driver->getUniqueID()
-            ]]
-        );
-    }
-
-    /**
-     * Load normalized record metadata from RecordManager for preview
-     *
-     * @param string $data   Record Metadata
-     * @param string $format Metadata format
-     * @param string $source Data source
-     *
-     * @return array
-     * @throw  \Exception
-     */
-    protected function loadPreviewRecordData($data, $format, $source): array
-    {
-        $config = $this->getConfig();
-        if (empty($config->NormalizationPreview->url)) {
-            throw new \Exception('Normalization preview URL not configured');
-        }
-
-        $httpService = $this->serviceLocator->get(\VuFindHttp\HttpService::class);
-        $client = $httpService->createClient(
-            $config->NormalizationPreview->url,
-            \Laminas\Http\Request::METHOD_POST
-        );
-        $client->setOptions(['useragent' => 'FinnaRecordPreview VuFind']);
-        $client->setParameterPost(
-            ['data' => $data, 'format' => $format, 'source' => $source]
-        );
-        $response = $client->send();
-        if (!$response->isSuccess()) {
-            if ($response->getStatusCode() === 400) {
-                $this->flashMessenger()->addErrorMessage('Failed to load preview');
-                $result = json_decode($response->getBody(), true);
-                foreach (explode("\n", $result['error_message']) as $msg) {
-                    if ($msg) {
-                        $this->flashMessenger()->addErrorMessage($msg);
-                    }
-                }
-                $metadata = [
-                    'id' => '1',
-                    'record_format' => $format,
-                    'title' => 'Failed to load preview',
-                    'title_short' => 'Failed to load preview',
-                    'title_full' => 'Failed to load preview',
-                    // This works for MARC and other XML loaders too
-                    'fullrecord'
-                        => '<collection><record><leader/></record></collection>'
-                ];
-            } else {
-                throw new \Exception(
-                    'Failed to load preview: ' . $response->getStatusCode() . ' '
-                    . $response->getReasonPhrase()
-                );
-            }
-        } else {
-            $body = $response->getBody();
-            $metadata = json_decode($body, true);
-        }
-
-        return $metadata;
-    }
-
-    /**
-     * Load the record requested by the user; note that this is not done in the
-     * init() method since we don't want to perform an expensive search twice
-     * when homeAction() forwards to another method.
-     *
-     * @param ParamBag $params Search backend parameters
-     * @param bool     $force  Set to true to force a reload of the record, even if
-     * already loaded (useful if loading a record using different parameters)
-     *
-     * @return AbstractRecordDriver
-     */
-    protected function loadRecord(ParamBag $params = null, bool $force = false)
-    {
-        $id = $this->params()->fromRoute('id', $this->params()->fromQuery('id'));
-        // 0 = preview record
-        if ($id != '0') {
-            return parent::loadRecord($params, $force);
-        }
-
-        $data = $this->params()->fromPost('data')
-            ?: $this->params()->fromQuery('data');
-        $format = $this->params()->fromPost('format')
-            ?: $this->params()->fromQuery('format');
-        $source = $this->params()->fromPost('source')
-            ?: $this->params()->fromQuery('source');
-
-        $manager
-            = $this->serviceLocator->get(\Laminas\Session\SessionManager::class);
-        $sessionContainer = new \Laminas\Session\Container(
-            'RecordPreview',
-            $manager
-        );
-        if ($data && $format && $source) {
-            $metadata = $this->loadPreviewRecordData($data, $format, $source);
-            $sessionContainer['metadata'] = $metadata;
-        } elseif (null === $data && !empty($sessionContainer['metadata'])) {
-            // Use cached record for tab support:
-            $metadata = $sessionContainer['metadata'];
-        } else {
-            throw new \Exception('Missing parameters');
-        }
-        $recordFactory = $this->serviceLocator
-            ->get(\VuFind\RecordDriver\PluginManager::class);
-        return $this->driver = $recordFactory->getSolrRecord($metadata);
-    }
-
-    /**
-     * Display a particular tab.
-     *
-     * @param string $tab  Name of tab to display
-     * @param bool   $ajax Are we in AJAX mode?
-     *
-     * @return mixed
-     */
-    protected function showTab($tab, $ajax = false)
-    {
-        // Special case -- handle lightbox login request if login has already been
-        // done
-        if ($this->inLightbox()
-            && $this->params()->fromQuery('catalogLogin', 'false') == 'true'
-            && is_array($this->catalogLogin())
-        ) {
-            $response = $this->getResponse();
-            $response->setStatusCode(205);
-            return $response;
-        }
-
-        $view = parent::showTab($tab, $ajax);
-        //$view->scrollData = $this->resultScroller()->getScrollData($driver);
-
-        $this->getSearchMemory()->rememberScrollData($view->scrollData);
-        return $view;
     }
 
     /**
@@ -262,7 +132,7 @@ class RecordController extends \VuFind\Controller\RecordController
             'Holds',
             [
                 'id' => $driver->getUniqueID(),
-                'patron' => $patron
+                'patron' => $patron,
             ]
         );
         if (!$checkHolds) {
@@ -324,7 +194,7 @@ class RecordController extends \VuFind\Controller\RecordController
             $gatheredDetails
         ) : [];
         $extraHoldFields = isset($checkHolds['extraHoldFields'])
-            ? explode(":", $checkHolds['extraHoldFields']) : [];
+            ? explode(':', $checkHolds['extraHoldFields']) : [];
 
         $requestGroupNeeded = in_array('requestGroup', $extraHoldFields)
             && !empty($requestGroups)
@@ -333,7 +203,8 @@ class RecordController extends \VuFind\Controller\RecordController
                     || count($requestGroups) > 1));
 
         $pickupDetails = $gatheredDetails;
-        if (!$requestGroupNeeded && !empty($requestGroups)
+        if (
+            !$requestGroupNeeded && !empty($requestGroups)
             && count($requestGroups) == 1
         ) {
             // Request group selection is not required, but we have a single request
@@ -381,14 +252,16 @@ class RecordController extends \VuFind\Controller\RecordController
             if (!$termsOk) {
                 $this->flashMessenger()->addErrorMessage('must_accept_terms');
             }
-            if ($termsOk && $validGroup && $validPickup
+            if (
+                $termsOk && $validGroup && $validPickup
                 && !$dateValidationResults['errors']
             ) {
                 // If we made it this far, we're ready to place the hold;
                 // if successful, we will redirect and can stop here.
 
                 // Pass start date to the driver only if it's in the future:
-                if (!empty($gatheredDetails['startDate'])
+                if (
+                    !empty($gatheredDetails['startDate'])
                     && $dateValidationResults['startDateTS'] < strtotime('+1 day')
                 ) {
                     $gatheredDetails['startDate'] = '';
@@ -412,10 +285,10 @@ class RecordController extends \VuFind\Controller\RecordController
                         'html' => true,
                         'msg' => 'hold_place_success_html',
                         'tokens' => [
-                            '%%url%%' => $this->url()->fromRoute('holds-list')
+                            '%%url%%' => $this->url()->fromRoute('holds-list'),
                         ],
                     ];
-                    $this->flashMessenger()->addMessage($msg, 'success');
+                    $this->flashMessenger()->addSuccessMessage($msg);
                     if (!empty($results['warningMessage'])) {
                         $this->flashMessenger()
                             ->addWarningMessage($results['warningMessage']);
@@ -447,15 +320,17 @@ class RecordController extends \VuFind\Controller\RecordController
         $defaultStartDate = $dateConverter->convertToDisplayDate('U', time());
 
         // Find and format the default required date:
-        $defaultRequiredDate = $dateConverter->convertToDisplayDate(
-            'U',
-            $this->holds()->getDefaultRequiredDate(
-                $checkHolds,
-                $catalog,
-                $patron,
-                $gatheredDetails
-            )
+        $defaultRequiredTS = $this->holds()->getDefaultRequiredDate(
+            $checkHolds,
+            $catalog,
+            $patron,
+            $gatheredDetails
         );
+        $defaultRequiredDate = $defaultRequiredTS
+            ? $dateConverter->convertToDisplayDate(
+                'U',
+                $defaultRequiredTS
+            ) : '';
         try {
             $defaultPickup
                 = $catalog->getDefaultPickUpLocation($patron, $gatheredDetails);
@@ -472,7 +347,7 @@ class RecordController extends \VuFind\Controller\RecordController
 
         $config = $this->getConfig();
         $homeLibrary = ($config->Account->set_home_library ?? true)
-            ? $this->getUser()->home_library : '';
+            ? $this->getUser()->getHomeLibrary() : '';
         $helpText = $checkHolds['helpText'] ?? null;
         // acceptTermsText kept for backward-compatibility:
         $acceptTermsText = $acceptTermsTextHtml
@@ -540,7 +415,7 @@ class RecordController extends \VuFind\Controller\RecordController
             'StorageRetrievalRequests',
             [
                 'id' => $driver->getUniqueID(),
-                'patron' => $patron
+                'patron' => $patron,
             ]
         );
         if (!$checkRequests) {
@@ -574,17 +449,15 @@ class RecordController extends \VuFind\Controller\RecordController
         // Send various values to the view so we can build the form:
         $pickup = $catalog->getPickUpLocations($patron, $gatheredDetails);
         $extraFields = isset($checkRequests['extraFields'])
-            ? explode(":", $checkRequests['extraFields']) : [];
+            ? explode(':', $checkRequests['extraFields']) : [];
 
         // Process form submissions if necessary:
         if (null !== $this->params()->fromPost('placeStorageRetrievalRequest')) {
-            if (in_array('acceptTerms', $extraFields)
+            if (
+                in_array('acceptTerms', $extraFields)
                 && empty($gatheredDetails['acceptTerms'])
             ) {
-                $this->flashMessenger()->addMessage(
-                    'must_accept_terms',
-                    'error'
-                );
+                $this->flashMessenger()->addErrorMessage('must_accept_terms');
             } else {
                 // If we made it this far, we're ready to place the hold;
                 // if successful, we will redirect and can stop here.
@@ -603,23 +476,19 @@ class RecordController extends \VuFind\Controller\RecordController
                         'msg' => 'storage_retrieval_request_place_success_html',
                         'tokens' => [
                             '%%url%%' => $this->url()
-                                ->fromRoute('myresearch-storageretrievalrequests')
+                                ->fromRoute('myresearch-storageretrievalrequests'),
                         ],
                     ];
-                    $this->flashMessenger()->addMessage($msg, 'success');
+                    $this->flashMessenger()->addSuccessMessage($msg);
                     return $this->redirectToRecord('#top');
                 } else {
                     // Failure: use flash messenger to display messages, stay on
                     // the current form.
                     if (isset($results['status'])) {
-                        $this->flashMessenger()->addMessage(
-                            $results['status'],
-                            'error'
-                        );
+                        $this->flashMessenger()->addErrorMessage($results['status']);
                     }
                     if (isset($results['sysMessage'])) {
-                        $this->flashMessenger()
-                            ->addMessage($results['sysMessage'], 'error');
+                        $this->flashMessenger()->addErrorMessage($results['sysMessage']);
                     }
                 }
             }
@@ -629,7 +498,7 @@ class RecordController extends \VuFind\Controller\RecordController
         $defaultRequired = $this->storageRetrievalRequests()
             ->getDefaultRequiredDate($checkRequests);
         $defaultRequired = $this->serviceLocator->get(\VuFind\Date\Converter::class)
-            ->convertToDisplayDate("U", $defaultRequired);
+            ->convertToDisplayDate('U', $defaultRequired);
         try {
             $defaultPickup
                 = $catalog->getDefaultPickUpLocation($patron, $gatheredDetails);
@@ -642,13 +511,13 @@ class RecordController extends \VuFind\Controller\RecordController
                 'gatheredDetails' => $gatheredDetails,
                 'pickup' => $pickup,
                 'defaultPickup' => $defaultPickup,
-                'homeLibrary' => $this->getUser()->home_library,
+                'homeLibrary' => $this->getUser()->getHomeLibrary(),
                 'extraFields' => $extraFields,
                 'defaultRequiredDate' => $defaultRequired,
                 'helpText' => $checkRequests['helpText'] ?? null,
                 // For backward-compatibility:
                 'acceptTermsText' => $checkRequests['acceptTermsText'] ?? null,
-                'acceptTermsTextHtml' => $checkRequests['acceptTermsText'] ?? null
+                'acceptTermsTextHtml' => $checkRequests['acceptTermsText'] ?? null,
             ]
         );
         $view->setTemplate('record/storageretrievalrequest');
@@ -675,7 +544,7 @@ class RecordController extends \VuFind\Controller\RecordController
             'ILLRequests',
             [
                 'id' => $driver->getUniqueID(),
-                'patron' => $patron
+                'patron' => $patron,
             ]
         );
         if (!$checkRequests) {
@@ -708,17 +577,15 @@ class RecordController extends \VuFind\Controller\RecordController
         // Send various values to the view so we can build the form:
 
         $extraFields = isset($checkRequests['extraFields'])
-            ? explode(":", $checkRequests['extraFields']) : [];
+            ? explode(':', $checkRequests['extraFields']) : [];
 
         // Process form submissions if necessary:
         if (null !== $this->params()->fromPost('placeILLRequest')) {
-            if (in_array('acceptTerms', $extraFields)
+            if (
+                in_array('acceptTerms', $extraFields)
                 && empty($gatheredDetails['acceptTerms'])
             ) {
-                $this->flashMessenger()->addMessage(
-                    'must_accept_terms',
-                    'error'
-                );
+                $this->flashMessenger()->addErrorMessage('must_accept_terms');
             } else {
                 // If we made it this far, we're ready to place the hold;
                 // if successful, we will redirect and can stop here.
@@ -737,21 +604,21 @@ class RecordController extends \VuFind\Controller\RecordController
                         'msg' => 'ill_request_place_success_html',
                         'tokens' => [
                             '%%url%%' => $this->url()
-                                ->fromRoute('myresearch-illrequests')
+                                ->fromRoute('myresearch-illrequests'),
                         ],
                     ];
-                    $this->flashMessenger()->addMessage($msg, 'success');
+                    $this->flashMessenger()->addSuccessMessage($msg);
                     return $this->redirectToRecord('#top');
                 } else {
                     // Failure: use flash messenger to display messages, stay on
                     // the current form.
                     if (isset($results['status'])) {
                         $this->flashMessenger()
-                            ->addMessage($results['status'], 'error');
+                            ->addErrorMessage($results['status']);
                     }
                     if (isset($results['sysMessage'])) {
                         $this->flashMessenger()
-                            ->addMessage($results['sysMessage'], 'error');
+                            ->addErrorMessage($results['sysMessage']);
                     }
                 }
             }
@@ -761,7 +628,7 @@ class RecordController extends \VuFind\Controller\RecordController
         $defaultRequired = $this->ILLRequests()
             ->getDefaultRequiredDate($checkRequests);
         $defaultRequired = $this->serviceLocator->get(\VuFind\Date\Converter::class)
-            ->convertToDisplayDate("U", $defaultRequired);
+            ->convertToDisplayDate('U', $defaultRequired);
 
         // Get pickup libraries
         $pickupLibraries = $catalog->getILLPickUpLibraries(
@@ -780,13 +647,13 @@ class RecordController extends \VuFind\Controller\RecordController
                 'gatheredDetails' => $gatheredDetails,
                 'pickupLibraries' => $pickupLibraries,
                 'pickupLocations' => $pickupLocations,
-                'homeLibrary' => $this->getUser()->home_library,
+                'homeLibrary' => $this->getUser()->getHomeLibrary(),
                 'extraFields' => $extraFields,
                 'defaultRequiredDate' => $defaultRequired,
                 'helpText' => $checkRequests['helpText'] ?? null,
                 // For backward-compatibility:
                 'acceptTermsText' => $checkRequests['acceptTermsText'] ?? null,
-                'acceptTermsTextHtml' => $checkRequests['acceptTermsText'] ?? null
+                'acceptTermsTextHtml' => $checkRequests['acceptTermsText'] ?? null,
             ]
         );
         $view->setTemplate('record/illrequest');
@@ -794,79 +661,19 @@ class RecordController extends \VuFind\Controller\RecordController
     }
 
     /**
-     * Action for record preview form.
+     * Action for displaying a record validation report.
      *
      * @return mixed
      */
-    public function previewFormAction()
+    public function validationReportAction()
     {
-        $config = $this->getConfig();
-        if (empty($config->NormalizationPreview->url)) {
-            throw new \Exception('Normalization preview URL not configured');
+        $manager = $this->serviceLocator->get(\Laminas\Session\SessionManager::class);
+        $sessionContainer = new \Laminas\Session\Container('RecordPreview', $manager);
+        if (null === ($validationReport = $sessionContainer->validation_report ?? null)) {
+            $this->flashMessenger()->addErrorMessage('Validation report unavailable');
         }
 
-        $httpService = $this->serviceLocator->get(\VuFindHttp\HttpService::class);
-        $client = $httpService->createClient(
-            $config->NormalizationPreview->url,
-            \Laminas\Http\Request::METHOD_POST
-        );
-        $client->setOptions(['useragent' => 'FinnaRecordPreview VuFind']);
-        $client->setParameterPost(
-            ['func' => 'get_sources']
-        );
-        $response = $client->send();
-        if (!$response->isSuccess()) {
-            throw new \Exception(
-                'Failed to load source list: ' . $response->getStatusCode() . ' '
-                . $response->getReasonPhrase()
-            );
-        }
-        $body = $response->getBody();
-        $sources = json_decode($body, true);
-        array_walk(
-            $sources,
-            function (&$a) {
-                if ($a['institution'] === '_preview') {
-                    $a['institutionName'] = $this->translate('Generic Preview');
-                } else {
-                    $a['institutionName'] = $this->translate(
-                        '0/' . $a['institution'] . '/',
-                        [],
-                        $a['institution']
-                    );
-                }
-            }
-        );
-        $searchConfig = $this->getConfig('searches');
-        if (!empty($searchConfig->Records->sources)) {
-            foreach (explode(',', $searchConfig->Records->sources)
-                as $priority => $id
-            ) {
-                foreach ($sources as &$source) {
-                    if ($id === $source['id']) {
-                        $source['priority'] = $priority;
-                        break;
-                    }
-                }
-                unset($source);
-            }
-        }
-        usort(
-            $sources,
-            function ($a, $b) {
-                $res = strcmp($a['institutionName'], $b['institutionName']);
-                if ($res === 0) {
-                    $res = strcasecmp($a['id'], $b['id']);
-                }
-                return $res;
-            }
-        );
-        $view = new \Laminas\View\Model\ViewModel(
-            [
-                'sources' => $sources
-            ]
-        );
-        return $view;
+        return $this->createViewModel(compact('validationReport'));
     }
 
     /**
@@ -894,7 +701,7 @@ class RecordController extends \VuFind\Controller\RecordController
     }
 
     /**
-     * Download 3D model
+     * Download 3D model.
      *
      * @return \Laminas\Http\Response
      */
@@ -903,60 +710,63 @@ class RecordController extends \VuFind\Controller\RecordController
         $params = $this->params();
         $index = $params->fromQuery('index');
         $format = $params->fromQuery('format');
-        $response = $this->getResponse();
-        if ($format && $index) {
-            $driver = $this->loadRecord();
-            $id = $driver->getUniqueID();
-            $models = $driver->tryMethod('getModels');
-            $url = $models[$index][$format]['preview'] ?? false;
-            if (!empty($url)) {
-                $fileName = urlencode($id) . '-' . $index . '.' . $format;
-                $fileLoader = $this->serviceLocator->get(\Finna\File\Loader::class);
-                $file = $fileLoader->getFile(
-                    $url,
-                    $fileName,
-                    'Models',
-                    'public'
-                );
-                if (empty($file['result'])) {
-                    $response->setStatusCode(500);
-                } else {
-                    $contentType = '';
-                    switch ($format) {
-                    case 'gltf':
-                        $contentType = 'model/gltf+json';
-                        break;
-                    case 'glb':
-                        $contentType = 'model/gltf+binary';
-                        break;
-                    default:
-                        $contentType = 'application/octet-stream';
-                        break;
-                    }
-                    // Set headers for downloadable file
-                    header("Content-Type: $contentType");
-                    header(
-                        "Content-disposition: attachment; filename=\"{$fileName}\""
-                    );
-                    header('Pragma: public');
-                    header('Content-Length: ' . filesize($file['path']));
-                    if (ob_get_level()) {
-                        ob_end_clean();
-                    }
-                    readfile($file['path']);
-                }
-            } else {
-                $response->setStatusCode(404);
-            }
-        } else {
+        $response = new \Laminas\Http\Response\Stream();
+        if (null === $format || null === $index) {
             $response->setStatusCode(400);
+            return $response;
         }
+        $driver = $this->loadRecord();
+        $models = $driver->tryMethod('getModels')[$index]['models'] ?? [];
+        $found = array_search('preview', array_column($models, 'type'));
+        if (false === $found) {
+            $response->setStatusCode(404);
+            return $response;
+        }
+        // Always force preview model to be fetched
+        $url = $models[$found]['url'];
+        if (empty($url)) {
+            $response->setStatusCode(404);
+            return $response;
+        }
+        $id = $driver->getUniqueID();
+        $fileName = urlencode($id) . '-' . $index . '.' . $format;
+        $fileLoader = $this->serviceLocator->get(\Finna\File\Loader::class);
+        $file = $fileLoader->getFile(
+            $url,
+            $fileName,
+            'Models',
+            'public'
+        );
+        if (empty($file['result'])) {
+            $response->setStatusCode(500);
+            return $response;
+        }
+        $contentType = match ($format) {
+            'gltf' => 'model/gltf+json',
+            'glb' => 'model/gltf+binary',
+            default => 'application/octet-stream'
+        };
+        // Set headers for downloadable file
+        $headers = $response->getHeaders();
+        $headers->addHeaderLine('Content-Type', $contentType);
+        $headers->addHeaderLine(
+            'Content-Disposition',
+            "attachment; filename=\"{$fileName}\""
+        );
+        $headers->addHeaderLine(
+            'Cache-Control',
+            'public, s-maxage=' . (string)(24 * 60 * 60)
+        );
+        $headers->addHeaderLine('Content-Length', filesize($file['path']));
+
+        $stream = fopen($file['path'], 'r');
+        $response->setStream($stream);
 
         return $response;
     }
 
     /**
-     * Download a file
+     * Download a file.
      *
      * @return \Laminas\Http\Response
      */
@@ -974,22 +784,22 @@ class RecordController extends \VuFind\Controller\RecordController
             $formedFilename = "$id-$index.$format";
             $representation = [];
             switch ($type) {
-            case 'highresimg':
-                $size = $params->fromQuery('size');
-                $key = $params->fromQuery('key', -1);
-                $representations = $driver->tryMethod('getAllImages');
-                $representation
-                    = $representations[$index]['highResolution'][$size][$key]
-                    ?? [];
-                $formedFilename = "$id-$index-$size.$format";
-                break;
-            case 'document':
-                $representations = $driver->tryMethod('getDocuments');
-                $representation = $representations[$index] ?? [];
-                break;
-            default:
-                $response->setStatusCode(400);
-                break;
+                case 'highresimg':
+                    $size = $params->fromQuery('size');
+                    $key = $params->fromQuery('key', -1);
+                    $representations = $driver->tryMethod('getAllImages');
+                    $representation
+                        = $representations[$index]['highResolution'][$size][$key]
+                        ?? [];
+                    $formedFilename = "$id-$index-$size.$format";
+                    break;
+                case 'document':
+                    $representations = $driver->tryMethod('getDocuments');
+                    $representation = $representations[$index] ?? [];
+                    break;
+                default:
+                    $response->setStatusCode(400);
+                    break;
             }
 
             if ($url = $representation['url'] ?? false) {
@@ -997,12 +807,12 @@ class RecordController extends \VuFind\Controller\RecordController
                     ?? $representation['desc']
                     ?? $formedFilename;
                 $fileLoader = $this->serviceLocator->get(\Finna\File\Loader::class);
-                $file = $fileLoader->proxyFileLoad(
+                $success = $fileLoader->proxyFileLoad(
                     $url,
                     $fileName,
                     $format
                 );
-                if (empty($file['result'])) {
+                if (!$success) {
                     $response->setStatusCode(500);
                 }
             } else {
@@ -1012,6 +822,99 @@ class RecordController extends \VuFind\Controller\RecordController
             $response->setStatusCode(400);
         }
 
+        return $response;
+    }
+
+    /**
+     * Helper for building a route to a record form
+     * (Feedback, Repository library request).
+     *
+     * @param string $id Form id
+     *
+     * @return \Laminas\View\Model\ViewModel
+     */
+    protected function getRecordForm($id)
+    {
+        $driver = $this->loadRecord();
+        return $this->redirect()->toRoute(
+            'feedback-form',
+            ['id' => $id],
+            ['query' => [
+                'layout' => $this->getRequest()->getQuery('layout', false),
+                'record_id'
+                    => $driver->getSourceIdentifier() . '|' . $driver->getUniqueID(),
+            ]]
+        );
+    }
+
+    /**
+     * Display a particular tab.
+     *
+     * @param string $tab  Name of tab to display
+     * @param bool   $ajax Are we in AJAX mode?
+     *
+     * @return mixed
+     */
+    protected function showTab($tab, $ajax = false)
+    {
+        // Special case -- handle lightbox login request if login has already been
+        // done
+        if (
+            $this->inLightbox()
+            && $this->params()->fromQuery('catalogLogin', 'false') == 'true'
+            && is_array($this->catalogLogin())
+        ) {
+            $response = $this->getResponse();
+            $response->setStatusCode(205);
+            return $response;
+        }
+
+        return parent::showTab($tab, $ajax);
+    }
+
+    /**
+     * Call IIIF manifest generator and encode body in JSON.
+     *
+     * @return \Laminas\Http\Response
+     */
+    protected function iiifManifestAction()
+    {
+        $driver = $this->loadRecord();
+        $response = $this->getResponse();
+        $headers = $response->getHeaders();
+
+        if ($datasourceManifests = $driver->tryMethod('getIiifManifests')) {
+            $headers->addHeaderLine('Location', $datasourceManifests[0]['url']);
+            $response->setStatusCode(302);
+            return $response;
+        }
+
+        $generator = $this->serviceLocator->get(\Finna\Record\IIIF\IIIFManifestGenerator::class);
+        $config = $this->getConfigArray();
+        $corsAllow = $config['IIIF']['manifestCORS'] ?? [];
+        foreach ($corsAllow as $allow) {
+            $headers->addHeaderLine('Access-Control-Allow-Origin', $allow);
+        }
+        if ($manifest = $generator->generate($driver)) {
+            if ($manifestJson = json_encode($manifest)) {
+                $headers->addHeaderLine(
+                    'Content-Type: application/json;' .
+                    'profile="http://iiif.io/api/presentation/3/context.json"'
+                );
+                $response->setContent($manifestJson);
+            } else {
+                $headers->addHeaderLine('Content-Type: text/plain');
+                $response->setStatusCode(500);
+                $response->setContent('Error encoding JSON');
+                $this->logError(
+                    'IIIFManifest: Error encoding JSON for ' .
+                    $driver->getUniqueID() . ': ' .
+                    json_last_error_msg()
+                );
+            }
+        } else {
+            $response->setStatusCode(404);
+        }
         return $response;
     }
 }

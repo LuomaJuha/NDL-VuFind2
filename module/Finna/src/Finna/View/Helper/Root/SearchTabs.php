@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Search tabs" view helper
+ * "Search tabs" view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,79 +17,67 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
 use Laminas\Session\SessionManager;
 use Laminas\View\Helper\Url;
-use VuFind\Db\Table\PluginManager as TableManager;
-use VuFind\Search\Results\PluginManager as ResultsManager;
+use VuFind\Db\Service\SearchServiceInterface;
+use VuFind\Search\Results\PluginManager;
 use VuFind\Search\SearchTabsHelper;
 use VuFind\Search\UrlQueryHelper;
 
+use function in_array;
+use function is_callable;
+
 /**
- * "Search tabs" view helper
+ * "Search tabs" view helper.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class SearchTabs extends \VuFind\View\Helper\Root\SearchTabs
 {
     /**
-     * Database manager
-     *
-     * @var TableManager
-     */
-    protected $table;
-
-    /**
-     * Session manager
-     *
-     * @var SessionManager
-     */
-    protected $session;
-
-    /**
-     * Active search class
+     * Active search class.
      *
      * @var string
      */
-    protected $activeSearchClass;
+    protected $activeSearchClass = null;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param PluginManager    $results Search results plugin manager
-     * @param Url              $url     URL helper
-     * @param SearchTabsHelper $helper  Search tabs helper
-     * @param SessionManager   $session Session manager
-     * @param TableManager     $table   Database manager
+     * @param PluginManager          $results       Search results plugin manager
+     * @param Url                    $url           URL helper
+     * @param SearchTabsHelper       $helper        Search tabs helper
+     * @param SessionManager         $session       Session manager
+     * @param SearchServiceInterface $searchService Search database service
      */
     public function __construct(
-        ResultsManager $results,
+        PluginManager $results,
         Url $url,
         SearchTabsHelper $helper,
-        SessionManager $session,
-        TableManager $table
+        protected SessionManager $session,
+        protected SearchServiceInterface $searchService
     ) {
         parent::__construct($results, $url, $helper);
-        $this->session = $session;
-        $this->table = $table;
     }
 
     /**
-     * Determine information about search tabs
+     * Determine information about search tabs.
      *
      * @param string $activeSearchClass The search class ID of the active search
      * @param string $query             The current search query
@@ -285,15 +274,13 @@ class SearchTabs extends \VuFind\View\Helper\Root\SearchTabs
      */
     protected function getSearchSettings($id)
     {
-        $search
-            = $this->table->get('Search')
-            ->select(['id' => $id])->current();
+        $search = $this->searchService->getSearchById($id);
         if (empty($search)) {
             return false;
         }
 
         $sessId = $this->session->getId();
-        if ($search->session_id == $sessId) {
+        if ($search->getSessionId() == $sessId) {
             $minSO = $search->getSearchObject();
             $savedSearch = $minSO->deminify($this->results);
 
@@ -311,7 +298,7 @@ class SearchTabs extends \VuFind\View\Helper\Root\SearchTabs
 
     /**
      * Find out the tab id with search class and hidden filters and return it
-     * url-encoded to avoid it containing e.g. colon
+     * url-encoded to avoid it containing e.g. colon.
      *
      * @param string $searchClass   Search class
      * @param array  $hiddenFilters Hidden filters

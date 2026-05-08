@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Summon Search Results
+ * Summon Search Results.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Summon
@@ -25,12 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search\Summon;
 
 use VuFindSearch\Command\SearchCommand;
 
+use function in_array;
+use function is_array;
+
 /**
- * Summon Search Parameters
+ * Summon Search Parameters.
  *
  * @category VuFind
  * @package  Search_Summon
@@ -48,21 +53,21 @@ class Results extends \VuFind\Search\Base\Results
     protected $responseFacets = null;
 
     /**
-     * Best bets
+     * Best bets.
      *
      * @var array|bool
      */
     protected $bestBets = false;
 
     /**
-     * Database recommendations
+     * Database recommendations.
      *
      * @var array|bool
      */
     protected $databaseRecommendations = false;
 
     /**
-     * Topic recommendations
+     * Topic recommendations.
      *
      * @var array|bool
      */
@@ -120,7 +125,7 @@ class Results extends \VuFind\Search\Base\Results
                 $this->responseFacets[] = [
                     'fieldName' => $dateFacet,
                     'displayName' => $dateFacet,
-                    'counts' => []
+                    'counts' => [],
                 ];
             }
         }
@@ -130,7 +135,7 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
-     * Returns the stored list of facets for the last search
+     * Returns the stored list of facets for the last search.
      *
      * @param array $filter Array of field => on-screen description listing
      * all of the desired facet fields; set to null to get all configured values.
@@ -149,7 +154,7 @@ class Results extends \VuFind\Search\Base\Results
             ? $this->getParams()->getFacetConfig()
             : $this->stripFilterParameters($filter);
 
-        // We want to sort the facets to match the order in the .ini file.  Let's
+        // We want to sort the facets to match the order in the .ini file. Let's
         // create a lookup array to determine order:
         $order = array_flip(array_keys($filter));
 
@@ -240,7 +245,7 @@ class Results extends \VuFind\Search\Base\Results
             }
 
             // We need to check two things to determine if the current
-            // value is an applied filter.  First, is the current field
+            // value is an applied filter. First, is the current field
             // present in the filter list?  Second, is the current value
             // an active filter for the current field?
             $orField = '~' . $field;
@@ -272,7 +277,7 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
-     * Process spelling suggestions from the results object
+     * Process spelling suggestions from the results object.
      *
      * @param array $spelling Suggestions from Summon
      *
@@ -285,7 +290,7 @@ class Results extends \VuFind\Search\Base\Results
             $current = $current['suggestion'];
             if (!isset($this->suggestions[$current['originalQuery']])) {
                 $this->suggestions[$current['originalQuery']] = [
-                    'suggestions' => []
+                    'suggestions' => [],
                 ];
             }
             $this->suggestions[$current['originalQuery']]['suggestions'][]
@@ -344,7 +349,7 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
-     * Get complete facet counts for several index fields
+     * Get complete facet counts for several index fields.
      *
      * @param array  $facetfields  name of the Solr fields to return facets for
      * @param bool   $removeFilter Clear existing filters from selected fields (true)
@@ -407,7 +412,7 @@ class Results extends \VuFind\Search\Base\Results
                         'label' => $data['displayName'],
                         'list' => $list,
                     ],
-                    'more' => null
+                    'more' => null,
                 ];
             }
         }

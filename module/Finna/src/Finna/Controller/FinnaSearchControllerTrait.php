@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Finna search controller trait.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,7 +27,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace Finna\Controller;
+
+use VuFind\Db\Service\SearchServiceInterface;
+
+use function in_array;
 
 /**
  * Finna search controller trait.
@@ -41,26 +47,6 @@ namespace Finna\Controller;
 trait FinnaSearchControllerTrait
 {
     /**
-     * Save a search to the history in the database.
-     * Save search Id and type to memory
-     *
-     * @param \VuFind\Search\Base\Results $results Search results
-     *
-     * @return void
-     */
-    public function saveSearchToHistory($results)
-    {
-        parent::saveSearchToHistory($results);
-        $this->getSearchMemory()->rememberSearchData(
-            $results->getSearchId(),
-            $results->getParams()->getSearchType(),
-            $results->getUrlQuery()->isQuerySuppressed()
-                ? '' : $results->getParams()->getDisplayQuery(),
-            $results->getBackendId()
-        );
-    }
-
-    /**
      * Pass saved search ids from all tabs to layout.
      *
      * @return void
@@ -69,9 +55,11 @@ trait FinnaSearchControllerTrait
     {
         if ($savedTabs = $this->getRequest()->getQuery()->get('search')) {
             $saved = [];
-            foreach ($savedTabs as $tab) {
-                [$searchClass, $searchId] = explode(':', $tab);
-                $saved[$searchClass] = $searchId;
+            foreach ((array)$savedTabs as $tab) {
+                $parts = explode(':', $tab);
+                if (isset($parts[1])) {
+                    $saved[$parts[0]] = $parts[1];
+                }
             }
             $this->layout()->savedTabs = $saved;
         }
@@ -97,7 +85,7 @@ trait FinnaSearchControllerTrait
         }
 
         $searchId = $combined[$this->searchClassId];
-        $search = $this->getTable('Search')->getRowById($searchId, false);
+        $search = $this->getDbService(SearchServiceInterface::class)->getSearchById($searchId);
         if (!$search) {
             return;
         }
@@ -147,12 +135,12 @@ trait FinnaSearchControllerTrait
         // Enable recommendations unless explicitly told to disable them:
         $all = ['top', 'results_top', 'side', 'noresults', 'bottom'];
         $noRecommend = $this->params()->fromQuery('noRecommend', false);
-        if ($noRecommend === 1 || $noRecommend === '1'
-            || $noRecommend === 'true' || $noRecommend === true
+        if (
+            in_array($noRecommend, [1, '1', 'true', true], true)
         ) {
             return [];
-        } elseif ($noRecommend === 0 || $noRecommend === '0'
-            || $noRecommend === 'false' || $noRecommend === false
+        } elseif (
+            in_array($noRecommend, [0, '0', 'false', false], true)
         ) {
             return $all;
         }

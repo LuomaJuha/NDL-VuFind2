@@ -1,37 +1,64 @@
 <?php //Don't add START and END comments ?>
 <div class="truncate-field">
 <?php foreach ($data as $event): ?>
-  <?php if ($event != $data[0]): ?><br/><?php endif; ?>
-  <?php if (!empty($event['name'])): ?><?=$this->escapeHtml($event['name'])?><br/><?php endif; ?>
-  <?php if (!empty($event['date'])): ?><?=$this->escapeHtml($event['date'])?><br/><?php endif; ?>
-  <?php if (!empty($event['methods'])): ?>
-    <?=implode('<br/>', array_map([$this, 'escapeHtml'], $event['methods']))?><br/>
+  <?php if ($event != $data[0]): ?><br><?php endif; ?>
+  <?php if (!empty($event['name'])): ?><?=$this->escapeHtml($event['name'])?><br><?php endif; ?>
+  <?php if (!empty($event['date'])): ?><?=$this->escapeHtml($event['date'])?><br><?php endif; ?>
+  <?php if (!empty($event['methodsExtended'])): ?>
+    <?php foreach ($event['methodsExtended'] as $method): ?>
+      <?php
+          $id = $method['id'] ?? null;
+          $source = $method['source'] ?? null;
+        ?>
+      <?php if (!$id): ?>
+        <?=$this->escapeHtml($method['data']);?><br>
+      <?php else: ?>
+        <?=$this->record($this->driver)->getLinkedFieldElement($this->headingType ?? 'subject', $method['data'], ['name' => $method['data'], 'id' => $id, 'source' => $source], ['class' => ['backlink']])?><br>
+      <?php endif; ?>
+    <?php endforeach; ?>
   <?php endif; ?>
-  <?php if (!empty($event['materials'])): ?>
-    <?=implode('<br/>', array_map([$this, 'escapeHtml'], $event['materials']))?><br/>
+  <?php if (!empty($event['materialsExtended'])): ?>
+    <?php foreach ($event['materialsExtended'] as $material): ?>
+      <?php
+          $id = $material['id'] ?? null;
+          $source = $material['source'] ?? null;
+        ?>
+      <?php if (!$id): ?>
+        <?=$this->escapeHtml($material['data']);?><br>
+      <?php else: ?>
+        <?=$this->record($this->driver)->getLinkedFieldElement($this->headingType ?? 'subject', $material['data'], ['name' => $material['data'], 'id' => $id, 'source' => $source], ['class' => ['backlink']])?><br>
+      <?php endif; ?>
+    <?php endforeach; ?>
   <?php endif; ?>
   <?php if (!empty($event['places'])): ?>
-    <?=implode('<br/>', array_map([$this, 'escapeHtml'], $event['places']))?><br/>
+    <?php foreach ($event['places'] as $placeEvent): ?>
+      <?php if (!is_array($placeEvent)): ?>
+        <?=$this->record($this->driver)->getLinkedFieldElement($this->headingType ?? 'subject', $placeEvent, ['name' => $placeEvent], ['class' => ['backlink'], 'description' => true])?><br>
+      <?php else: ?>
+        <?php
+          $id = $placeEvent['id'] ?? null;
+          $ids = $placeEvent['ids'] ?? null;
+          $authType = $placeEvent['authType'] ?? null;
+          $detail = $this->transEsc($placeEvent['details'][0] ?? '', null, '');
+        ?>
+        <?=$this->record($this->driver)->getLinkedFieldElement($this->headingType ?? 'subject', $placeEvent['placeName'], ['name' => $placeEvent['placeName'], 'id' => $id, 'ids' => $ids, 'description' => $detail], ['authorityType' => $authType, 'class' => ['backlink'], 'description' => true])?><br>
+      <?php endif; ?>
+    <?php endforeach; ?>
   <?php endif; ?>
-  <?php if (!empty($event['culture'])): ?><?=$this->escapeHtml($event['culture'])?><br/><?php endif; ?>
+  <?php if (!empty($event['culture'])): ?><?=$this->escapeHtml($event['culture'])?><br><?php endif; ?>
   <?php if (!empty($event['actors'])): ?>
     <?php
-      $displayActors = [];
-      foreach ($event['actors'] as $actor) {
-        $str = $actor['name'];
-        if (!empty($actor['role'])) {
-            $str .= ', ' . $actor['role'];
-        }
-        if (!empty($actor['birth']) || !empty($actor['death'])) {
-            $str .= ', ';
-            $sep = !empty($actor['birth']) && !empty($actor['death']) ? ' - ' : '--';
-            $str .= ($actor['birth'] ?? '') . $sep . ($actor['death'] ?? '');
-        }
-        $displayActors[] = $this->escapeHtml($str);
-      }
-    ?>
-    <?=implode(' ; ', $displayActors); ?>
-    <br>
+      foreach ($event['actors'] as $index => $actor): ?>
+        <?php
+          $actorDates = '';
+          if (!empty($actor['birth']) || !empty($actor['death'])) {
+              $actorDates .= ', ';
+              $sep = !empty($actor['birth']) && !empty($actor['death']) ? ' - ' : '--';
+              $actorDates .= ($actor['birth'] ?? '') . $sep . ($actor['death'] ?? '');
+          }
+        ?>
+        <?=($index > 0 ? '<br> ' : '')?><?=$this->record($this->driver)->renderTemplate('data-contributors-single.phtml', ['author' => $actor])?><?=$this->escapeHtml($actorDates);?>
+    <?php endforeach; ?>
   <?php endif; ?>
   <?php if (!empty($event['descriptions'])): ?>
     <?=$this->recordFieldMarkdown()->toHtml(implode("\n\n", $event['descriptions'])) ?>

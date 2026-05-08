@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Encapsulated Records aspect of the Search Multi-class (Results)
+ * Encapsulated Records aspect of the Search Multi-class (Results).
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2022.
+ * Copyright (C) The National Library of Finland 2022-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_EncapsulatedRecords
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\EncapsulatedRecords;
 
 use Finna\RecordDriver\Feature\ContainerFormatInterface;
+use VuFind\RecordDriver\AbstractBase;
 
 /**
- * Encapsulated Records Search Results
+ * Encapsulated Records Search Results.
  *
  * @category VuFind
  * @package  Search_EncapsulatedRecords
@@ -43,12 +46,12 @@ class Results extends \VuFind\Search\Base\Results
     /**
      * Active container record (false if none).
      *
-     * @var \VuFind\RecordDriver\AbstractBase|bool
+     * @var AbstractBase|bool
      */
-    protected $containerRecord = false;
+    protected AbstractBase|bool $containerRecord = false;
 
     /**
-     * Returns the stored list of facets for the last search
+     * Returns the stored list of facets for the last search.
      *
      * @param array $filter Array of field => on-screen description listing
      * all of the desired facet fields; set to null to get all configured values.
@@ -63,7 +66,7 @@ class Results extends \VuFind\Search\Base\Results
 
     /**
      * Support method for performAndProcessSearch -- perform a search based
-     * on the parameters passed to the object.  This method is responsible for
+     * on the parameters passed to the object. This method is responsible for
      * filling in all of the key class properties: results, resultTotal, etc.
      *
      * @return void
@@ -84,12 +87,24 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
+     * Set the active container record.
+     *
+     * @param AbstractBase $containerRecord Container record
+     *
+     * @return void
+     */
+    public function setContainerRecord(AbstractBase $containerRecord): void
+    {
+        $this->containerRecord = $containerRecord;
+    }
+
+    /**
      * Get the container record associated with the current search (null if no record
      * selected).
      *
-     * @return bool|\VuFind\RecordDriver\AbstractBase|null
+     * @return AbstractBase|bool
      */
-    public function getContainerRecord()
+    public function getContainerRecord(): AbstractBase|bool
     {
         $filters = $this->getParams()->getRawFilters();
         $id = $filters['ids'][0] ?? null;
@@ -99,16 +114,13 @@ class Results extends \VuFind\Search\Base\Results
         //      ($this->containerRecord = false)
         //   b. if the requested container record is not the same as previously
         //      loaded container record
-        if ($this->containerRecord === false
-            || ($id && ($this->containerRecord->getUniqueID() ?? null) !== $id)
+        if (
+            $this->containerRecord === false
+            || $this->containerRecord->getUniqueID() !== $id
         ) {
             // Check the filters for a record ID, and load the corresponding object
             // if one is found:
-            if (null === $id) {
-                $this->containerRecord = null;
-            } else {
-                $this->containerRecord = $this->recordLoader->load($id);
-            }
+            $this->containerRecord = null === $id ? false : $this->recordLoader->load($id);
         }
         return $this->containerRecord;
     }

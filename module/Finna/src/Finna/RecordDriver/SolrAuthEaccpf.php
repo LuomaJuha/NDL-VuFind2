@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Model for EAC-CPF records in Solr.
  *
- * PHP version 5
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2012-2019.
@@ -25,9 +26,12 @@
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
+
+use function in_array;
 
 /**
  * Model for EAC-CPF records in Solr.
@@ -37,7 +41,7 @@ namespace Finna\RecordDriver;
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
 class SolrAuthEaccpf extends SolrAuthDefault
 {
@@ -47,7 +51,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     use Feature\FinnaXmlReaderTrait;
 
     /**
-     * Get authority title
+     * Get authority title.
      *
      * @return string
      */
@@ -103,7 +107,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     }
 
     /**
-     * Get dates from either date or dateRange elements
+     * Get dates from either date or dateRange elements.
      *
      * @param \SimpleXmlElement $dateElement date element
      *
@@ -142,7 +146,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     }
 
     /**
-     * Return description
+     * Return description.
      *
      * @return array|null
      */
@@ -158,7 +162,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     /**
      * Return birth date.
      *
-     * @param boolean $force Return established date for corporations?
+     * @param bool $force Return established date for corporations?
      *
      * @return string
      */
@@ -175,7 +179,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     /**
      * Return death date.
      *
-     * @param boolean $force Return terminated date for corporations?
+     * @param bool $force Return terminated date for corporations?
      *
      * @return string
      */
@@ -190,22 +194,16 @@ class SolrAuthEaccpf extends SolrAuthDefault
     }
 
     /**
-     * Return exist date
+     * Return exist date.
      *
      * @param string $localType localType attribute
      *
      * @return null|string
      */
-    protected function getExistDate(string $localType) : ?string
+    protected function getExistDate(string $localType): ?string
     {
         $record = $this->getXmlRecord();
-        if (!isset($record->cpfDescription->description->existDates->dateSet->date)
-        ) {
-            return null;
-        }
-        foreach ($record->cpfDescription->description->existDates->dateSet->date
-            as $date
-        ) {
+        foreach ($record->cpfDescription->description->existDates->dateSet->date ?? [] as $date) {
             $attrs = $date->attributes();
             $type = (string)$attrs->localType;
             if ($localType === $type) {
@@ -216,7 +214,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     }
 
     /**
-     * Get related places
+     * Get related places.
      *
      * @return array
      */
@@ -230,12 +228,10 @@ class SolrAuthEaccpf extends SolrAuthDefault
         $languages = $this->mapLanguageCode($this->getLocale());
         foreach ($record->cpfDescription->description->places->place as $place) {
             $attr = $place->attributes();
-            if ($attr->placeEntry
-                && !$attr->lang || in_array((string)$attr->lang, $languages)
-            ) {
+            if ($attr->placeEntry && !$attr->lang || in_array((string)$attr->lang, $languages)) {
                 $result[] = [
                     'data' => (string)$place->placeEntry,
-                    'detail' => (string)$place->placeRole
+                    'detail' => (string)$place->placeRole,
                 ];
             }
         }
@@ -253,9 +249,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
         $result = [];
         $sourceId = $this->getDataSource();
 
-        foreach ($record->cpfDescription->relations->cpfRelation ?? []
-            as $relation
-        ) {
+        foreach ($record->cpfDescription->relations->cpfRelation ?? [] as $relation) {
             $attr = $relation->attributes();
             $id = (string)$attr->href;
             $name = (string)$relation->relationEntry;
@@ -282,9 +276,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
         $record = $this->getXmlRecord();
         if (isset($record->cpfDescription->description->occupations)) {
             $languages = $this->mapLanguageCode($this->getLocale());
-            foreach ($record->cpfDescription->description->occupations
-                as $occupations
-            ) {
+            foreach ($record->cpfDescription->description->occupations as $occupations) {
                 if (!isset($occupations->occupation)) {
                     continue;
                 }
@@ -294,8 +286,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
                     }
                     $term = $occupation->term;
                     $attr = $term->attributes();
-                    if ($attr->lang && in_array((string)$attr->lang, $languages)
-                    ) {
+                    if ($attr->lang && in_array((string)$attr->lang, $languages)) {
                         $result[] = (string)$term;
                     }
                 }
@@ -305,7 +296,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     }
 
     /**
-     * Return sources
+     * Return sources.
      *
      * @return array
      */
@@ -326,7 +317,36 @@ class SolrAuthEaccpf extends SolrAuthDefault
                     $result[] = [
                         'title' => $title ? $title : (string)$source->sourceEntry,
                         'url' => (string)($source->attributes()->href ?? ''),
-                        'subtitle' => ''
+                        'subtitle' => '',
+                    ];
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Get an array of related publications for the record.
+     *
+     * @return array
+     */
+    public function getRelatedPublications()
+    {
+        $result = [];
+        $record = $this->getXmlRecord();
+        foreach ($record->cpfDescription->description->localDescriptions->localDescription ?? [] as $description) {
+            $type = $description->attributes()->localType ?? '';
+            if ($type != 'TJ17') {
+                continue;
+            }
+            foreach ($description->citation ?? [] as $citation) {
+                if ($title = trim((string)$citation ?? '')) {
+                    $result[] = [
+                        'title' => $title,
+                        'searchTitle' => '',
+                        'label' => '',
+                        'url' => (string)($citation->attributes()->href ?? ''),
+                        'isbn' => '',
                     ];
                 }
             }
@@ -346,7 +366,7 @@ class SolrAuthEaccpf extends SolrAuthDefault
     }
 
     /**
-     * Format date
+     * Format date.
      *
      * @param string $date Date
      *

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Trait for view path handling.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2020.
  *
@@ -16,16 +17,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Util;
 
 /**
@@ -36,12 +38,12 @@ namespace FinnaConsole\Command\Util;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 trait ViewPathTrait
 {
     /**
-     * Get the default view path
+     * Get the default view path.
      *
      * @return string
      */
@@ -51,7 +53,7 @@ trait ViewPathTrait
     }
 
     /**
-     * Check if the given view path points to the default view
+     * Check if the given view path points to the default view.
      *
      * @param string $path View path
      *
@@ -72,7 +74,7 @@ trait ViewPathTrait
      * @param string $institution Institution
      * @param string $view        View
      *
-     * @return string|boolean view path or false on error
+     * @return string|false view path or false on error
      */
     protected function resolveViewPath($institution, $view = false)
     {
@@ -81,22 +83,25 @@ trait ViewPathTrait
         }
         if (!$view) {
             $view = $this->getDefaultViewPath();
-            if (isset($this->datasourceConfig)
+            if (
+                isset($this->datasourceConfig)
                 && isset($this->datasourceConfig[$institution]['mainView'])
             ) {
-                [$institution, $view]
-                    = explode(
-                        '/',
-                        $this->datasourceConfig[$institution]['mainView'],
-                        2
-                    );
+                $parts = explode('/', $this->datasourceConfig[$institution]['mainView'], 2);
+                $institution = $parts[0];
+                if (isset($parts[1])) {
+                    $view = $parts[1];
+                }
             }
         }
         $path = "{$this->viewBaseDir}/$institution/$view";
 
         // Assume that view is functional if index.php exists.
         if (!is_file("$path/public/index.php")) {
-            $this->err("Could not resolve view path for $institution/$view", '=');
+            $this->err(
+                "Could not resolve view path for $institution/$view ($path/public/index.php does not exist)",
+                "Could not resolve view path for $institution/$view"
+            );
             return false;
         }
 

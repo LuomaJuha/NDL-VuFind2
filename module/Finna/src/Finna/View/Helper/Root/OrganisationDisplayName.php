@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Organisation display name view helper for Solr records.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,7 +26,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\View\Helper\Root;
+
+use function count;
 
 /**
  * Organisation display name view helper for Solr records.
@@ -42,8 +46,9 @@ class OrganisationDisplayName extends \Laminas\View\Helper\AbstractHelper
      * Get translated organisation display name.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record   Record
-     * @param boolean                           $fullName Return full
-     * name with datasource
+     * @param bool                              $fullName Return full
+     *                                                    name with
+     *                                                    datasource
      *
      * @return string
      */
@@ -68,7 +73,7 @@ class OrganisationDisplayName extends \Laminas\View\Helper\AbstractHelper
         // use the first one found
         if ($buildings) {
             foreach ($buildings as $building) {
-                if (strpos($building, $institution) !== false) {
+                if (str_contains($building, $institution)) {
                     $displayName = (string)$translate($building);
                     break;
                 }

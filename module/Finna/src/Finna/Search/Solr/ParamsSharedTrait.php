@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Additional functionality for Solr parameters shared with Blender.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library 2022.
  *
@@ -16,16 +17,21 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Search\Solr;
+
+use function array_slice;
+use function in_array;
+use function sprintf;
 
 /**
  * Additional functionality for Solr parameters shared with Blender.
@@ -34,7 +40,7 @@ namespace Finna\Search\Solr;
  * @package  Search
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 trait ParamsSharedTrait
 {
@@ -53,10 +59,11 @@ trait ParamsSharedTrait
         if ($id = $this->parseAuthorIdFilter($value)) {
             // Author id filter  (OR query with <field>:<author-id> pairs)
             $displayText = $this->authorityHelper->formatFacet($id);
-        } elseif (in_array(
-            $filter['field'],
-            $this->authorityHelper->getAuthorIdFacets()
-        )
+        } elseif (
+            in_array(
+                $filter['field'],
+                $this->authorityHelper->getAuthorIdFacets()
+            )
         ) {
             $displayText = $this->authorityHelper->formatFacet($displayText);
         }
@@ -65,7 +72,7 @@ trait ParamsSharedTrait
     }
 
     /**
-     * Translate a hierarchical facet filter
+     * Translate a hierarchical facet filter.
      *
      * Translates each facet level and concatenates the result
      *
@@ -79,13 +86,17 @@ trait ParamsSharedTrait
     {
         $domain = $this->getOptions()->getTextDomainForTranslatedFacet($field);
         $parts = explode('/', $value);
-        $result = [];
-        for ($i = 0; $i <= $parts[0]; $i++) {
-            $part = array_slice($parts, 1, $i + 1);
-            $key = $i . '/' . implode('/', $part) . '/';
-            $result[] = $this->translate($key, null, end($part));
+        if (isset($parts[1]) && ctype_digit($parts[0])) {
+            $result = [];
+            for ($i = 0; $i <= $parts[0]; $i++) {
+                $part = array_slice($parts, 1, $i + 1);
+                $key = $i . '/' . implode('/', $part) . '/';
+                $result[] = $this->translate($key, null, end($part));
+            }
+            $displayText = implode(' > ', $result);
+        } else {
+            $displayText = $this->translate($value);
         }
-        $displayText = implode(' > ', $result);
         return compact('value', 'displayText', 'field', 'operator');
     }
 
@@ -111,7 +122,7 @@ trait ParamsSharedTrait
      *
      * @param string|array $filter Facet
      *
-     * @return boolean
+     * @return bool
      */
     public function isGeographicFilter($filter)
     {

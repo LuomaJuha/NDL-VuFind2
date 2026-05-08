@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Hierarchical facet helper interface
+ * Hierarchical facet helper interface.
  *
  * Copyright (C) The National Library of Finland 2022.
  *
- * PHP version 7
+ * PHP version 8
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Base
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search\Base;
 
 /**
- * Hierarchical facet helper interface
+ * Hierarchical facet helper interface.
  *
  * @category VuFind
  * @package  Search_Base
@@ -42,8 +44,8 @@ interface HierarchicalFacetHelperInterface
      * Helper method for building hierarchical facets:
      * Sort a facet list according to the given sort order
      *
-     * @param array          $facetList Facet list returned from Solr
-     * @param boolean|string $order     Sort order:
+     * @param array       $facetList Facet list returned from Solr
+     * @param bool|string $order     Sort order:
      * - true|top  sort top level alphabetically and the rest by count
      * - false|all sort all levels alphabetically
      * - count     sort all levels by count
@@ -75,7 +77,7 @@ interface HierarchicalFacetHelperInterface
     );
 
     /**
-     * Flatten a hierarchical facet list to a simple array
+     * Flatten a hierarchical facet list to a simple array.
      *
      * @param array $facetList Facet list
      *
@@ -84,7 +86,7 @@ interface HierarchicalFacetHelperInterface
     public function flattenFacetHierarchy($facetList);
 
     /**
-     * Format a facet display text for displaying
+     * Format a facet display text for displaying.
      *
      * @param string       $displayText Display text
      * @param bool         $allLevels   Whether to display all levels or only the
@@ -103,7 +105,7 @@ interface HierarchicalFacetHelperInterface
     );
 
     /**
-     * Format a filter string in parts suitable for displaying or translation
+     * Format a filter string in parts suitable for displaying or translation.
      *
      * @param string $filter Filter value
      *

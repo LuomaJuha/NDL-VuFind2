@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Console command: notify users of scheduled searches.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  * Copyright (C) The National Library of Finland 2015-2020.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Console
@@ -28,11 +29,20 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\ScheduledSearch;
 
+use DateTime;
+use Exception;
+use Finna\Db\Service\SearchServiceInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+
+use function assert;
+use function count;
+use function sprintf;
 
 /**
  * Console command: notify users of scheduled searches.
@@ -57,50 +67,44 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+#[AsCommand(
+    name: 'scheduledsearch/notify'
+)]
 class NotifyCommand extends \VuFindConsole\Command\ScheduledSearch\NotifyCommand
 {
     use \FinnaConsole\Command\Util\ConsoleLoggerTrait;
     use \FinnaConsole\Command\Util\ViewPathTrait;
 
     /**
-     * The name of the command (the part after "public/index.php")
-     *
-     * Used via reflection, don't remove even though it's the same as in parent class
-     *
-     * @var string
-     */
-    protected static $defaultName = 'scheduledsearch/notify';
-
-    /**
-     * Local configuration directory name
+     * Local configuration directory name.
      *
      * @var string
      */
     protected $confDir = 'local';
 
     /**
-     * View base directory
+     * View base directory.
      *
      * @var string
      */
     protected $viewBaseDir = '';
 
     /**
-     * View local configuration base directory
+     * View local configuration base directory.
      *
      * @var string
      */
     protected $baseDir = '';
 
     /**
-     * Schedule base url
+     * Schedule base url.
      *
      * @var string
      */
     protected $scheduleBaseUrl = '';
 
     /**
-     * VuFind local directory
+     * VuFind local directory.
      *
      * @var string
      */
@@ -116,7 +120,7 @@ class NotifyCommand extends \VuFindConsole\Command\ScheduledSearch\NotifyCommand
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         // Base directory for all views.
         $this->viewBaseDir = $input->getArgument('view_base');
@@ -139,11 +143,11 @@ class NotifyCommand extends \VuFindConsole\Command\ScheduledSearch\NotifyCommand
             }
         } catch (\Exception $e) {
             $this->err(
-                "Exception: " . $e->getMessage(),
+                'Exception: ' . $e->getMessage(),
                 'Exception occurred'
             );
             while ($e = $e->getPrevious()) {
-                $this->err("  Previous exception: " . $e->getMessage());
+                $this->err('  Previous exception: ' . $e->getMessage());
             }
             return 1;
         }
@@ -163,12 +167,12 @@ class NotifyCommand extends \VuFindConsole\Command\ScheduledSearch\NotifyCommand
         $this
             ->setHelp(
                 <<<EOT
-Sends scheduled search email notifications.
+                    Sends scheduled search email notifications.
 
-For example:
-  scheduledsearch/notify /tmp/finna /tmp/NDL-VuFind2/local
+                    For example:
+                      scheduledsearch/notify /tmp/finna /tmp/NDL-VuFind2/local
 
-EOT
+                    EOT
             )
             ->addArgument(
                 'view_base',
@@ -194,7 +198,8 @@ EOT
      */
     protected function processAlerts()
     {
-        $baseDirs = $this->searchTable->getScheduleBaseUrls();
+        assert($this->searchService instanceof SearchServiceInterface);
+        $baseDirs = $this->searchService->getScheduledNotificationBaseUrls();
         $this->msg('Processing alerts for ' . count($baseDirs) . ' views: ');
         $this->msg('  ' . implode(', ', $baseDirs));
         foreach ($baseDirs as $url) {
@@ -267,20 +272,41 @@ EOT
     protected function processViewAlerts()
     {
         $todayTime = new \DateTime();
-        $scheduled = $this->searchTable
-            ->getScheduledSearches($this->scheduleBaseUrl);
+        assert($this->searchService instanceof \Finna\Db\Service\SearchServiceInterface);
+        $scheduled = $this->searchService->getScheduledSearchesByBaseUrl($this->scheduleBaseUrl);
+        $scheduled = array_filter(
+            $scheduled,
+            function ($s) {
+                return strcasecmp($s->getNotificationBaseUrl(), $this->scheduleBaseUrl) === 0;
+            }
+        );
         $this->msg(sprintf('Processing %d searches', count($scheduled)));
         foreach ($scheduled as $s) {
-            $lastTime = new \DateTime($s->last_notification_sent);
-            if (!$this->validateSchedule($todayTime, $lastTime, $s)
+            $lastTime = $s->getLastNotificationSent();
+            if (
+                !$this->validateSchedule($todayTime, $lastTime, $s)
                 || !($user = $this->getUserForSearch($s))
                 || !($searchObject = $this->getObjectForSearch($s))
-                || !($newRecords = $this->getNewRecords($searchObject, $lastTime))
             ) {
                 continue;
             }
+
+            // Use catalog_date if available as sort option:
+            $this->sort = 'first_indexed desc';
+            $sortOptions = $searchObject->getOptions()->getSortOptions();
+            foreach (array_keys($sortOptions) as $key) {
+                if (str_starts_with($key, 'catalog_date desc')) {
+                    $this->sort = $key;
+                    break;
+                }
+            }
+
+            if (!($newRecords = $this->getNewRecords($searchObject, $lastTime))) {
+                continue;
+            }
+
             // Set email language
-            $this->setLanguage($user->last_language);
+            $this->setLanguage($user->getLastLanguage());
 
             // Prepare email content
             $message = $this->buildEmail($s, $user, $searchObject, $newRecords);
@@ -289,11 +315,33 @@ EOT
                 // the database table.
                 continue;
             }
-            $searchTime = date('Y-m-d H:i:s');
-            if ($s->setLastExecuted($searchTime) === 0) {
-                $this->err("Error updating last_executed date for search {$s->id}");
+            try {
+                $s->setLastNotificationSent(new DateTime());
+                $this->searchService->persistEntity($s);
+            } catch (Exception) {
+                $this->err("Error updating last_executed date for search {$s->getId()}");
             }
         }
         $this->msg('Done processing searches');
+    }
+
+    /**
+     * Load and validate a user object associated with the search; return null
+     * if there is a problem.
+     *
+     * @param SearchEntityInterface $s Current search row.
+     *
+     * @return ?UserEntityInterface
+     */
+    protected function getUserForSearch($s)
+    {
+        $user = parent::getUserForSearch($s);
+        if ($user && trim($user->getEmail()) === '') {
+            $this->warn(
+                'User ' . $user->getUsername() . ' does not have a valid email address, bypassing alert ' . $s->getId()
+            );
+            return null;
+        }
+        return $user;
     }
 }

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Favorites aspect of the Search Multi-class (Options)
+ * Favorites aspect of the Search Multi-class (Options).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Favorites
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Favorites;
 
 use Finna\Controller\MyResearchController;
+use VuFind\Config\ConfigManagerInterface;
 
 /**
- * Search Favorites Options
+ * Search Favorites Options.
  *
  * @category VuFind
  * @package  Search_Favorites
@@ -43,35 +46,34 @@ class Options extends \VuFind\Search\Favorites\Options
     use \Finna\Search\FinnaOptions;
 
     /**
-     * Constructor
+     * Constructor.
+     *
      * Add the limit and views options to Favorites.
      *
-     * @param \VuFind\Config\PluginManager $configLoader Config loader
+     * @param ConfigManagerInterface $configManager Config manager
      */
-    public function __construct(\VuFind\Config\PluginManager $configLoader)
+    public function __construct(ConfigManagerInterface $configManager)
     {
-        parent::__construct($configLoader);
-        $searchSettings = $configLoader->get($this->searchIni);
-        if (isset($searchSettings->General->default_limit)) {
-            $this->defaultLimit = $searchSettings->General->default_limit;
+        parent::__construct($configManager);
+
+        if ($limit = $this->searchSettings['General']['default_limit'] ?? null) {
+            $this->defaultLimit = $limit;
         }
-        if (isset($searchSettings->General->limit_options)) {
-            $this->limitOptions
-                = explode(",", $searchSettings->General->limit_options);
+        if ($options = $this->searchSettings['General']['limit_options'] ?? null) {
+            $this->limitOptions = $this->explodeListSetting($options);
         }
         // Load view preferences (or defaults if none in .ini file):
-        if (isset($searchSettings->Views)) {
-            foreach ($searchSettings->Views as $key => $value) {
-                $this->viewOptions[$key] = $value;
-            }
-        } elseif (isset($searchSettings->General->default_view)) {
-            $this->viewOptions = [$this->defaultView => $this->defaultView];
+        if ($viewOptions = $this->searchSettings['Views'] ?? []) {
+            $this->viewOptions = $viewOptions;
+        } elseif ($defaultView = $this->getConfiguredDefaultView()) {
+            $this->viewOptions = [$defaultView => $defaultView];
         } else {
             $this->viewOptions = ['list' => 'List'];
         }
 
         $this->sortOptions = [];
         $this->defaultSort = '';
+        $this->rssSort = '';
         foreach (MyResearchController::getFavoritesSortList() as $key => $value) {
             if (empty($this->defaultSort)) {
                 $this->defaultSort = $key;

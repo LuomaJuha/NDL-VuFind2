@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Holdings view helper Test Class
+ * Holdings view helper Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,10 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\View\Helper\Root;
 
+use VuFind\ILS\Logic\AvailabilityStatus;
+
 /**
- * Holdings view helper Test Class
+ * Holdings view helper Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -39,17 +43,15 @@ namespace VuFindTest\View\Helper\Root;
 class HoldingsTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * Data provider for testBarcodeVisibilityBehavior()
+     * Data provider for testBarcodeVisibilityBehavior().
      *
-     * @return array
+     * @return \Iterator
      */
-    public function barcodeVisibilityBehaviorProvider(): array
+    public static function barcodeVisibilityBehaviorProvider(): \Iterator
     {
-        return [
-            'default' => [[], true, true],
-            'enabled' => [['display_items_without_barcodes' => true], true, true],
-            'disabled' => [['display_items_without_barcodes' => false], true, false],
-        ];
+        yield 'default' => [[], true, true];
+        yield 'enabled' => [['display_items_without_barcodes' => true], true, true];
+        yield 'disabled' => [['display_items_without_barcodes' => false], true, false];
     }
 
     /**
@@ -61,9 +63,8 @@ class HoldingsTest extends \PHPUnit\Framework\TestCase
      * barcodes
      *
      * @return void
-     *
-     * @dataProvider barcodeVisibilityBehaviorProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('barcodeVisibilityBehaviorProvider')]
     public function testBarcodeVisibilityBehavior(
         array $config,
         bool $expectedBarcodeResult,
@@ -71,13 +72,18 @@ class HoldingsTest extends \PHPUnit\Framework\TestCase
     ): void {
         // Create a helper object:
         $helper = new \VuFind\View\Helper\Root\Holdings(['Catalog' => $config]);
-        $this->assertEquals(
+        $this->assertSame(
             $expectedBarcodeResult,
-            $helper->holdingIsVisible(['barcode' => '1234'])
+            $helper->holdingIsVisible(
+                [
+                    'availability' => new AvailabilityStatus(true, 'Available'),
+                    'barcode' => '1234',
+                ]
+            )
         );
-        $this->assertEquals(
+        $this->assertSame(
             $expectedNoBarcodeResult,
-            $helper->holdingIsVisible([])
+            $helper->holdingIsVisible(['availability' => new AvailabilityStatus(true, 'Available')])
         );
     }
 }

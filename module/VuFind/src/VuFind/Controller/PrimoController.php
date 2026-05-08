@@ -1,10 +1,12 @@
 <?php
+
 /**
- * Primo Central Controller
+ * Primo Central Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
+ * Copyright (C) The National Library of Finland 2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,32 +18,35 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
  * @author   Demian Katz <demian.katz@villanova.edu>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
 use Laminas\ServiceManager\ServiceLocatorInterface;
 
 /**
- * Primo Central Controller
+ * Primo Central Controller.
  *
  * @category VuFind
  * @package  Controller
  * @author   Demian Katz <demian.katz@villanova.edu>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
 class PrimoController extends AbstractSearch
 {
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm Service locator
      */
@@ -53,20 +58,60 @@ class PrimoController extends AbstractSearch
     }
 
     /**
-     * Is the result scroller active?
+     * Show results of "cited by" search.
      *
-     * @return bool
+     * @return mixed
      */
-    protected function resultScrollerActive()
+    public function citedByAction()
     {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class)
-            ->get('Primo');
-        return isset($config->Record->next_prev_navigation)
-            && $config->Record->next_prev_navigation;
+        $this->flashMessenger()->addInfoMessage('results_citing_title_note');
+        return $this->performCitationSearch();
     }
 
     /**
-     * Search action -- call standard results action
+     * Show results of "cites" search.
+     *
+     * @return mixed
+     */
+    public function citesAction()
+    {
+        $this->flashMessenger()->addInfoMessage('results_cited_by_title_note');
+        return $this->performCitationSearch();
+    }
+
+    /**
+     * Perform a "cited" or "cited by" search.
+     *
+     * @return mixed
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    protected function performCitationSearch()
+    {
+        if (!($id = trim($this->params()->fromQuery('lookfor', ''), '"'))) {
+            return $this->forwardTo('Primo', 'Home');
+        }
+        $driver = $this->getRecordLoader()->load($id, $this->searchClassId);
+
+        // Don't save to history -- history page doesn't handle correctly:
+        $this->saveToHistory = false;
+
+        $callback = function ($runner, $params, $searchId): void {
+            $options = $params->getOptions();
+            $options->disableHighlighting();
+            $options->spellcheckEnabled(false);
+            if ($lastLimit = $this->getSearchMemory()->retrieveLastSetting($this->searchClassId, 'limit')) {
+                $params->setLimit($lastLimit);
+            }
+        };
+
+        $view = $this->getSearchResultsView($callback);
+        $view->driver = $driver;
+        return $view;
+    }
+
+    /**
+     * Search action -- call standard results action.
      *
      * @return mixed
      */

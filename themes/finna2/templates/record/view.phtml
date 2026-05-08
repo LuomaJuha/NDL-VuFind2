@@ -1,16 +1,12 @@
 <!-- START of: finna - record/view.phtml -->
 <?php
   // Set up standard record scripts:
-  $this->headScript()->appendFile("record.js");
-  $this->headScript()->appendFile("check_save_statuses.js");
-  $this->headScript()->appendFile("finna-comments.js");
-  // Activate Syndetics Plus if necessary:
-  if ($this->syndeticsPlus()->isActive()) {
-    echo $this->headScript()->appendFile($this->syndeticsPlus()->getScript());
-  }
+  $this->assetManager()->appendScriptLink('record.js');
+  $this->assetManager()->appendScriptLink('check_save_statuses.js');
+  $this->assetManager()->appendScriptLink('finna-comments.js');
   // Add any extra scripts the tabs require:
   foreach ($this->tabsExtraScripts as $script) {
-    $this->headScript()->appendFile($script);
+    $this->assetManager()->appendScriptLink($script);
   }
 
   // Add RDF header link if applicable:
@@ -19,13 +15,16 @@
   }
 
   // Set up breadcrumbs:
-  $this->layout()->breadcrumbs = $this->searchMemory()->getLastSearchLink($this->transEsc('Search'), '<li>', '</li> ') .
-    '<li class="active" aria-current="page">' . $this->recordLinker()->getBreadcrumbHtml($this->driver) . '</li> ';
+  $this->breadcrumbs()->reset();
+  if ($url = $this->searchMemory()->getLastSearchUrl()) {
+    $this->breadcrumbs()->add($this->translate('Search'), $url);
+  }
+  $this->breadcrumbs()->add(...$this->recordLinker()->getBreadcrumbParams($this->driver), active: true);
 
   $this->headMeta()->appendName('format-detection', 'telephone=no');
 
   // Set page title.
-  $title = $this->driver->getTitle();
+  $title = $this->truncate($this->driver->getTitle(), 180);
   $this->layout()->title = $title;
 
   $headText = $title;
@@ -38,7 +37,7 @@
   $this->jsTranslations()->addStrings(
       [
           'map_zoom_in' => 'map_zoom_in',
-          'map_zoom_out' => 'map_zoom_out'
+          'map_zoom_out' => 'map_zoom_out',
       ]
   );
 
@@ -60,27 +59,43 @@
                   'hasDefaultsApplied' => $params->hasDefaultsApplied(),
                   'defaultSortApplied' => $defaultSortApplied,
                   'options' => $options,
-                  'params' => $params
+                  'params' => $params,
               ]
           );
       }
   }
 
   $params = $this->searchMemory()->getLastSearchParams($this->searchClassId);
+  $recordFormat = $this->driver->tryMethod('getRecordFormat');
+  $fullWidthLayout = $this->record($this->driver)->hasFullWidthLayout();
   $largeImageLayout = $this->record($this->driver)->hasLargeImageLayout();
 
   if ($oldRecordId = $this->driver->getExtraDetail('redirectedFromId')) {
-      echo $this->inlineScript(
-          \Laminas\View\Helper\HeadScript::SCRIPT,
-          'finna.record.handleRedirect(' . json_encode($oldRecordId) . ', ' . json_encode($this->driver->getUniqueID()) . ');',
-          'SET'
+      echo $this->assetManager()->outputInlineScriptString(
+          'finna.record.handleRedirect(' . json_encode($oldRecordId) . ', ' . json_encode($this->driver->getUniqueID()) . ');'
       );
   }
+
+  // Store scrollData for searchbox:
+  $this->layout()->scrollData = $this->scrollData;
+
+  // Set record selection data if a Bazaar session is active.
+  $this->bazaarSession()->setSelectionData(
+      $this->driver->getUniqueId(),
+      $this->driver->getTitle()
+  );
 ?>
-</div>
-<div class="container">
-<div class="record source<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?> record-row <?= $largeImageLayout ? 'large-image-layout' : '' ?>">
-  <?= $this->R2()->registeredInfo($this->driver) ?>
+<?= $this->record($this->driver)->getBanner() ?>
+<?php $recordAttributes = $this->htmlAttributes([
+    'class' => [
+      'record',
+      'source' . $this->driver->getSourceIdentifier(),
+      $recordFormat ? 'record-format-' . $recordFormat : '',
+      $fullWidthLayout ? 'full-width-layout' : '',
+      $largeImageLayout ? 'large-image-layout' : '',
+    ],
+  ]); ?>
+<div<?= $recordAttributes ?>>
   <div>
       <?=$this->record($this->driver)->getToolbar()?>
   </div>
@@ -100,131 +115,132 @@
       </div>
     <?php endif; ?>
   <?php endif; ?>
-  <div class="record-main <?= !$largeImageLayout ? 'mainbody left' : ''?>">
-    <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueId())?>" class="hiddenId" />
-    <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier()) ?>" class="hiddenSource" />
+  <?php if ($iiifManifests = $this->driver->tryMethod('getIiifManifests')):
+      echo $this->record($this->driver)->renderTemplate(
+          'record-iiif-viewer.phtml',
+          ['manifests' => $iiifManifests]
+      );
+  endif; ?>
+  <div class="record-main <?= (!$fullWidthLayout && !$largeImageLayout) ? 'mainbody left' : ''?>">
+    <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueId())?>" class="hiddenId">
+    <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier()) ?>" class="hiddenSource">
     <?=$this->flashmessages()?>
     <?=$this->record($this->driver)->getMetaTags();?>
     <?=$this->record($this->driver)->getCoreMetadata()?>
 
-    <?=$this->driver->supportsCoinsOpenURL()?'<span class="Z3988" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenURL()) . '"></span>':''?>
-  </div>
-
-  <?php ob_start(); ?>
-    <?php if ($this->record($this->driver)->getOrganisationMenuPosition() === 'sidebar'): ?>
-      <div class="organisation-menu">
-          <?=$this->render('record/record-organisation-menu.phtml') ?>
-      </div>
-    <?php endif; ?>
-    <?php foreach ($this->related()->getList($this->driver) as $current): ?>
-        <?=$this->related()->render($current)?>
-    <?php endforeach; ?>
-    <?php if ($template = $this->content()->findTemplateForLng("content/Additions/record-post-recommendations")): ?>
-      <div>
-          <?=$this->render($template)?>
-      </div>
-    <?php endif; ?>
-  <?php $sidebar = ob_get_contents(); ?>
-  <?php ob_end_clean(); ?>
-
-  <?php if ($sidebar && !$largeImageLayout):?>
-    <?php // This sidebar is used for larger screens when not in large image layout ?>
-    <div class="sidebar right smaller-image-sidebar hidden-xs hidden-sm">
-      <?=$sidebar ?>
-    </div>
-  <?php endif; ?>
-
-  <div class="clearfix hidden-lg hidden-md"></div>
-
-  <div class="record-tabs record-accordions">
-    <?php if (count($this->tabs) > 0): ?>
-      <a id="tabnav"></a>
-        <?php if (count($this->tabs) > 3): ?>
-        <div class="tabs-responsive">
-        <?php endif; ?>
-        <ul class="recordTabs nav nav-tabs visible-md visible-lg" role="tablist">
-          <?php foreach ($this->tabs as $tab => $obj): ?>
-            <?php // add current tab to breadcrumbs if applicable:
-              $desc = $obj->getDescription();
-              $tabName = preg_replace("/\W/", "-", strtolower($tab));
-              $tabClasses = [ 'record-tab', $tabName ];
-              if (0 === strcasecmp($this->activeTab, $tab)) {
-                if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
-                    $tabClasses[] = 'active';
-                }
-                $tabClasses[] = 'initiallyActive';
-                $activeTabObj = $obj;
-              }
-              if (!$obj->isVisible()) { $tabClasses[] = 'hidden'; }
-              if (!$obj->supportsAjax()) { $tabClasses[] = 'noajax'; }
-              if (strtolower($tab) == 'details') { $tabClasses[] = 'hidden-xs tab-right'; }
-            ?>
-            <li class="<?=implode(' ', $tabClasses)?>" role="tab" data-tab="<?=$this->escapeHtmlAttr($tabName)?>"<?php if ($obj->supportsAjax() && in_array($tab, $this->backgroundTabs)):?> data-background<?php endif ?>>
-              <a class="<?=$this->escapeHtmlAttr(strtolower($tab)) ?>" aria-label="<?=$this->transEscAttr($desc)?>"
-                href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $tab))?>#tabnav" data-lightbox-ignore>
-                <?php if (strtolower($tab) == 'details'): ?><i aria-hidden="true" class="fa fa-lg fa-<?=$this->escapeHtmlAttr($tab)?>"></i><?php endif; ?>
-                <?php if (strtolower($tab) != 'details'): ?><?=$this->transEsc($desc)?><?php endif; ?><?php if (strtolower($tab) == 'usercomments') : ?> (<span class="count"><?= count($this->driver->getComments()) ?></span>)<?php endif; ?>
-              </a>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-        <?php if (count($this->tabs) > 3): ?>
-        </div>
-        <?php endif; ?>
-    <?php endif; ?>
-
-    <div class="record-accordions">
-      <?php foreach ($this->tabs as $accordion => $obj): ?>
-        <?php
-          $desc = $obj->getDescription();
-          $accordion_classes = [
-            'accordion',
-            'accordion-' . strtolower($accordion)
-          ];
-          if (0 === strcasecmp($this->activeTab, $accordion)) {
-            if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
-              $accordion_classes[] = 'active';
-            }
-            $accordion_classes[] = 'initiallyActive';
-          }
-          if (!$obj->isVisible()) { $accordion_classes[] = 'hidden'; }
-          if (!$obj->supportsAjax()) { $accordion_classes[] = 'noajax'; }
-        ?>
-        <div class="<?=implode(' ', $accordion_classes)?>">
-          <div class="accordion-toggle">
-            <a data-tab="<?=$this->escapeHtmlAttr(strtolower($accordion)) ?>" class="accordion-title"
-              href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $accordion))?>#tabnav"<?php if ($obj->supportsAjax() && in_array($accordion, $this->backgroundTabs)):?>
-              data-background<?php endif ?>
-            >
-              <span class="title"><?=$this->transEsc($desc)?><?php if (strtolower($accordion) == 'usercomments') : ?> (<span class="count"><?= count($this->driver->getComments()) ?></span>)<?php endif; ?></span>
-              <i class="icon"></i>
-            </a>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    </div>
-
-    <div class="tab-content">
-      <?php if (!$this->loadInitialTabWithAjax || !isset($activeTabObj) || !$activeTabObj->supportsAjax()): ?>
-        <div class="tab-pane active <?=$this->escapeHtmlAttr($this->activeTab) ?>-tab">
-            <?=isset($activeTabObj) ? $this->record($this->driver)->getTab($activeTabObj) : '' ?>
-        </div>
-      <?php endif; ?>
-    </div>
+    <?=$this->driver->supportsCoinsOpenURL() ? '<span class="Z3988" aria-hidden="true" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenURL()) . '"></span>' : ''?>
 
     <div class="clearfix hidden-lg hidden-md"></div>
+    <div class="record-tabs record-accordions">
+      <?php if (count($this->tabs) > 0): ?>
+        <a id="tabnav"><h2 class="visually-hidden"><?=$this->transEsc('Additional Information')?></h2></a>
+          <?php if (count($this->tabs) > 3): ?>
+            <div class="tabs-responsive">
+          <?php endif; ?>
+          <ul class="recordTabs nav nav-tabs visible-md visible-lg" role="tablist">
+            <?php foreach ($this->tabs as $tab => $obj): ?>
+              <?php // add current tab to breadcrumbs if applicable:
+                $desc = $obj->getDescription();
+                $tabName = preg_replace("/\W/", '-', strtolower($tab));
+                $tabClasses = [ 'nav-item', 'record-tab', $tabName ];
+                $linkClasses = [ 'nav-link', $tabName ];
+                if (0 === strcasecmp($this->activeTab, $tab)) {
+                  if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
+                      $linkClasses[] = 'active';
+                  }
+                  $tabClasses[] = 'initiallyActive';
+                  $activeTabName = $tabName;
+                  $activeTabObj = $obj;
+                }
+                if (!$obj->isVisible()) {
+                  $tabClasses[] = 'hidden';
+                }
+                if (!$obj->supportsAjax()) {
+                  $tabClasses[] = 'noajax';
+                }
+                if (strtolower($tab) == 'details') {
+                  $tabClasses[] = 'hidden-xs tab-right';
+                }
+              ?>
+              <li role="presentation" id="record-tab-<?=$this->escapeHtmlAttr($tabName)?>" class="<?=implode(' ', $tabClasses)?>" data-tab="<?=$this->escapeHtmlAttr($tabName)?>"<?php if ($obj->supportsAjax() && in_array($tab, $this->backgroundTabs)):?> data-background<?php endif ?>>
+                <a role="tab" class="<?=implode(' ', $linkClasses)?>" aria-label="<?=$this->transEscAttr($desc)?>"
+                  href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $tab))?>#tabnav" data-bs-target=".tab-pane.<?=$this->escapeHtmlAttr($tabName)?>" data-lightbox-ignore>
+                  <?php if (strtolower($tab) == 'details'): ?><?=$this->icon('staff-view', 'staff-view-icon')?><?php endif; ?>
+                  <span class="tab-name"><?=$this->transEsc($desc)?></span>
+                  <?php if (strtolower($tab) == 'usercomments') : ?> (<span class="count"><?= count($this->record($this->driver)->getComments()) ?></span>)<?php endif; ?>
+                </a>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+          <?php if (count($this->tabs) > 3): ?>
+            </div>
+          <?php endif; ?>
+      <?php endif; ?>
+
+      <div class="record-accordions">
+        <?php foreach ($this->tabs as $accordion => $obj): ?>
+          <?php
+            $desc = $obj->getDescription();
+            $accordion_classes = [
+              'accordion',
+              'accordion-' . strtolower($accordion),
+            ];
+            if (0 === strcasecmp($this->activeTab, $accordion)) {
+              if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
+                $accordion_classes[] = 'active';
+              }
+              $accordion_classes[] = 'initiallyActive';
+            }
+            if (!$obj->isVisible()) {
+              $accordion_classes[] = 'hidden';
+            }
+            if (!$obj->supportsAjax()) {
+              $accordion_classes[] = 'noajax';
+            }
+          ?>
+          <div class="<?=implode(' ', $accordion_classes)?>">
+            <div class="accordion-toggle">
+              <a data-tab="<?=$this->escapeHtmlAttr(strtolower($accordion)) ?>" class="accordion-title"
+                href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $accordion))?>#tabnav"<?php if ($obj->supportsAjax() && in_array($accordion, $this->backgroundTabs)):?>
+                data-background<?php endif ?>
+              >
+                <span class="title"><?=$this->transEsc($desc)?><?php if (strtolower($accordion) == 'usercomments') : ?> (<span class="count"><?= count($this->record($this->driver)->getComments()) ?></span>)<?php endif; ?></span>
+                <i class="icon"></i>
+              </a>
+            </div>
+          </div>
+        <?php endforeach; ?>
+        <div class="tab-content" tabindex="0">
+          <?php if (!$this->loadInitialTabWithAjax || !isset($activeTabObj) || !$activeTabObj->supportsAjax()): ?>
+            <div class="tab-pane active <?=$this->escapeHtmlAttr($this->activeTab) ?>-tab" aria-labelledby="record-tab-<?=$this->escapeHtmlAttr($activeTabName ?? '')?>">
+              <?=isset($activeTabObj) ? $this->record($this->driver)->getTab($activeTabObj) : '' ?>
+            </div>
+          <?php endif; ?>
+        </div>
+      </div>
+      <div class="clearfix hidden-lg hidden-md"></div>
+    </div>
+  </div>
+    <?php if (!$fullWidthLayout && !$largeImageLayout):?>
+      <?php // This sidebar is used for larger screens when not in full width or large image layout ?>
+      <div class="sidebar right smaller-image-sidebar hidden-xs hidden-sm">
+        <?= $this->render('record/sidebar-contents.phtml'); ?>
+      </div>
+    <?php endif; ?>
   </div>
 
-  <?php if ($sidebar):?>
-    <?php // This sidebar is used for smaller screens and always in large image layout ?>
-    <div class="sidebar left large-image-sidebar<?=$largeImageLayout ? '' : ' visible-xs visible-sm'?>">
-      <?=$sidebar ?>
+  <?php if (!$fullWidthLayout): ?>
+    <?php // This sidebar is used for smaller screens and always in large image layout, but never in full width layout ?>
+    <div class="sidebar left large-image-sidebar <?php if (!$largeImageLayout): ?> visible-xs visible-sm<?php endif; ?>">
+      <?= $this->render('record/sidebar-contents.phtml'); ?>
+    </div>
+  <?php endif; ?>
+  <?php if ($this->config()->getSimilarRecordsCarouselLocation() === 'after_tabs' && $this->driver->getSourceIdentifier() === 'Solr'): ?>
+    <div class="similar-bottom container">
+      <?=$this->render('RecordTab/channels.phtml', ['tab' => $this->record($this->driver)->getChannelsTab()])?>
     </div>
   <?php endif; ?>
 
-  </div>
-</div>
 <?=$this->record($this->driver)->renderTemplate('toolbar_mobile.phtml') ?>
-<div>
-<?=$this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, '$(document).ready(recordDocReady);', 'SET') ?>
+<?=$this->assetManager()->outputInlineScriptString('$(document).ready(recordDocReady);') ?>
 <!-- END of: finna - record/view.phtml -->

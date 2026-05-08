@@ -1,12 +1,13 @@
 <?php
+
 /**
  * Advanced Dummy ILS Driver -- Returns sample values based on Solr index.
  *
  * Note that some sample values (holds, transactions, fines) are stored in
- * the session.  You can log out and log back in to get a different set of
+ * the session. You can log out and log back in to get a different set of
  * values.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2007.
  * Copyright (C) The National Library of Finland 2014-2022.
@@ -21,8 +22,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  ILS_Drivers
@@ -31,9 +32,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:ils_drivers Wiki
  */
+
 namespace Finna\ILS\Driver;
 
-use VuFind\Exception\ILS as ILSException;
+use function count;
 
 /**
  * Advanced Dummy ILS Driver -- Returns sample values based on Solr index.
@@ -60,243 +62,61 @@ class Demo extends \VuFind\ILS\Driver\Demo
      */
     public function getConfig($function, $params = null)
     {
-        if ($function == 'onlinePayment') {
-            // Lower-case o is used in all other drivers, so use it here as well by
-            // default but allow OnlinePayment as a fallback:
-            $functionConfig = $this->config['onlinePayment']
-                ?? $this->config['OnlinePayment'] ?? [];
-            if ($functionConfig) {
-                $functionConfig['exactBalanceRequired'] = true;
-            }
-            return $functionConfig;
+        $result = parent::getConfig($function, $params);
+        if ($function == 'Holdings') {
+            $result['display_total_item_count_in_results']
+                = $this->config['Holdings']['display_total_item_count_in_results'] ?? true;
+            $result['display_ordered_item_count_in_results']
+                = $this->config['Holdings']['display_ordered_item_count_in_results'] ?? false;
         }
-        if ('getPasswordRecoveryToken' === $function
-            || 'recoverPassword' === $function
-        ) {
-            return !empty($this->config['PasswordRecovery']['enabled'])
-                ? $this->config['PasswordRecovery'] : false;
-        }
-
-        return parent::getConfig($function, $params);
+        return $result;
     }
 
     /**
-     * Get Patron Fines
+     * Get Status.
      *
-     * This is responsible for retrieving all fines by a specific patron.
+     * This is responsible for retrieving the status information of a certain
+     * record.
      *
-     * @param array $patron The patron array from patronLogin
+     * @param string $id The record id to retrieve the holdings for
      *
-     * @return mixed        Array of the patron's fines on success.
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @return mixed     On success, an associative array with the following keys:
+     * id, availability (boolean), status, location, reserve, callnumber.
      */
-    public function getMyFines($patron)
+    public function getStatus($id)
     {
-        $fines = parent::getMyFines($patron);
-        if (!empty($fines)) {
-            $fines[0]['fine'] = 'Accrued Fine';
+        $result = parent::getStatus($id);
+        if (!empty($result)) {
+            $result[] = $this->getHoldingsSummary($result, $id);
         }
-        $fines = $this->markOnlinePayableFines($fines);
-        $session = $this->getSession($patron['id'] ?? null);
-        $session->fines = $fines;
-        return $fines;
+        return $result;
     }
 
     /**
-     * Return total amount of fees that may be paid online.
+     * Get Holding.
      *
-     * @param array $patron Patron
-     * @param array $fines  Patron's fines
+     * This is responsible for retrieving the holding information of a certain
+     * record.
      *
-     * @throws ILSException
-     * @return array Associative array of payment info,
-     * false if an ILSException occurred.
+     * @param string $id      The record id to retrieve the holdings for
+     * @param ?array $patron  Patron data
+     * @param array  $options Extra options
+     *
+     * @return array On success, an associative array with the following keys:
+     * id, availability (boolean), status, location, reserve, callnumber,
+     * duedate, number, barcode.
      */
-    public function getOnlinePayableAmount($patron, $fines)
+    public function getHolding($id, ?array $patron = null, array $options = [])
     {
-        if (!empty($fines)) {
-            $nonPayableReason = false;
-            $amount = 0;
-            foreach ($fines as $fine) {
-                if (!$fine['payableOnline'] && !$fine['accruedFine']) {
-                    $nonPayableReason
-                        = 'online_payment_fines_contain_nonpayable_fees';
-                } elseif ($fine['payableOnline']) {
-                    $amount += $fine['balance'];
-                }
-            }
-            $config = $this->getConfig('onlinePayment');
-            if (!$nonPayableReason
-                && isset($config['minimumFee']) && $amount < $config['minimumFee']
-            ) {
-                $nonPayableReason = 'online_payment_minimum_fee';
-            }
-            $res = ['payable' => empty($nonPayableReason), 'amount' => $amount];
-            if ($nonPayableReason) {
-                $res['reason'] = $nonPayableReason;
-            }
-            return $res;
+        $result = parent::getHolding($id, $patron, $options);
+        if (!empty($result['holdings'])) {
+            $result['holdings'][] = $this->getHoldingsSummary($result['holdings'], $id);
         }
-        return [
-            'payable' => false,
-            'amount' => 0,
-            'reason' => 'online_payment_minimum_fee'
-        ];
+        return $result;
     }
 
     /**
-     * Support method for getMyFines.
-     *
-     * Appends booleans 'accruedFine' and 'payableOnline' to a fine.
-     *
-     * @param array $fines Processed fines.
-     *
-     * @return array $fines Fines.
-     */
-    protected function markOnlinePayableFines($fines)
-    {
-        $accruedType = 'Accrued Fine';
-
-        $config = $this->config['OnlinePayment'] ?? [];
-        $nonPayable = $config['nonPayable'] ?? []
-        ;
-        $nonPayable[] = $accruedType;
-        foreach ($fines as &$fine) {
-            $payableOnline = true;
-            if (isset($fine['fine'])) {
-                if (in_array($fine['fine'], $nonPayable)) {
-                    $payableOnline = false;
-                }
-            }
-            $fine['accruedFine'] = ($fine['fine'] === $accruedType);
-            $fine['payableOnline'] = $payableOnline;
-        }
-
-        return $fines;
-    }
-
-    /**
-     * Mark fees as paid.
-     *
-     * This is called after a successful online payment.
-     *
-     * @param array  $patron            Patron
-     * @param int    $amount            Amount to be registered as paid
-     * @param string $transactionId     Transaction ID
-     * @param int    $transactionNumber Internal transaction number
-     *
-     * @throws ILSException
-     * @return boolean success
-     */
-    public function markFeesAsPaid(
-        $patron,
-        $amount,
-        $transactionId,
-        $transactionNumber
-    ) {
-        if ($this->isFailing(__METHOD__, 10)) {
-            throw new ILSException('online_payment_registration_failed');
-        }
-
-        $session = $this->getSession($patron['id'] ?? null);
-        if (isset($session->fines)) {
-            foreach ($session->fines as $key => $fine) {
-                if ($fine['payableOnline']) {
-                    unset($session->fines[$key]);
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Helper method to determine whether or not a certain method can be
-     * called on this driver.  Required method for any smart drivers.
-     *
-     * @param string $method The name of the called method.
-     * @param array  $params Array of passed parameters
-     *
-     * @return bool True if the method can be called with the given parameters,
-     * false otherwise.
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
-     */
-    public function supportsMethod($method, $params)
-    {
-        if ($method == 'markFeesAsPaid') {
-            $required = [
-                'currency', 'enabled'
-            ];
-
-            foreach ($required as $req) {
-                if (!isset($this->config['OnlinePayment'][$req])
-                    || empty($this->config['OnlinePayment'][$req])
-                ) {
-                    return false;
-                }
-            }
-
-            if (!$this->config['OnlinePayment']['enabled']) {
-                return false;
-            }
-
-            return true;
-        }
-        return is_callable([$this, $method]);
-    }
-
-    /**
-     * Get a password recovery token for a user
-     *
-     * @param array $params Required params such as cat_username and email
-     *
-     * @return array Associative array of the results
-     */
-    public function getPasswordRecoveryToken($params)
-    {
-        if ((rand() % 10) > 8) {
-            throw new ILSException('ils_connection_failed');
-        }
-        if ((rand() % 10) > 8) {
-            return [
-                'success' => false,
-                'error' => 'Simulating failure'
-            ];
-        }
-        $session = $this->getSession();
-        $session->passwordRecoveryToken = md5(rand());
-        return [
-            'success' => true,
-            'token' => $session->passwordRecoveryToken
-        ];
-    }
-
-    /**
-     * Recover user's password with a token from getPasswordRecoveryToken
-     *
-     * @param array $params Required params such as cat_username, token and new
-     * password
-     *
-     * @return array Associative array of the results
-     */
-    public function recoverPassword($params)
-    {
-        $session = $this->getSession();
-        if ($session->passwordRecoveryToken != $params['token']) {
-            return [
-                'success' => false,
-                'error' => 'Recovery token mismatch'
-            ];
-        }
-        return [
-            'success' => true
-        ];
-    }
-
-    /**
-     * Change pickup location
+     * Change pickup location.
      *
      * This is responsible for changing the pickup location of a hold
      *
@@ -347,13 +167,18 @@ class Demo extends \VuFind\ILS\Driver\Demo
                 if (!isset($item['available'])) {
                     $list[$key]['available'] = false;
                 }
+                if (!empty($list[$key]['last_pickup_date'])) {
+                    $days = rand(1, 7);
+                    $list[$key]['last_pickup_date'] = $this->dateConverter
+                            ->convertToDisplayDate('U', strtotime("now + $days days"));
+                }
             }
         }
         return $list;
     }
 
     /**
-     * Return a hold error message
+     * Return a hold error message.
      *
      * @param string $message Error message
      *
@@ -363,7 +188,7 @@ class Demo extends \VuFind\ILS\Driver\Demo
     {
         return [
             'success' => false,
-            'sysMessage' => $message
+            'sysMessage' => $message,
         ];
     }
 
@@ -386,5 +211,64 @@ class Demo extends \VuFind\ILS\Driver\Demo
             }
         }
         return false;
+    }
+
+    /**
+     * Return summary of holdings items.
+     *
+     * @param array  $holdings Parsed holdings items
+     * @param string $id       Record id
+     *
+     * @return array summary
+     */
+    protected function getHoldingsSummary($holdings, $id)
+    {
+        $availableTotal = $itemsTotal = 0;
+        $requests = 0;
+        $locations = [];
+
+        foreach ($holdings as $item) {
+            if (!empty($item['availability'])) {
+                $availableTotal++;
+            }
+            $itemsTotal++;
+            $locations[$item['location']] = true;
+            if (($item['requests_placed'] ?? 0) > $requests) {
+                $requests = $item['requests_placed'];
+            }
+        }
+
+        // Since summary data is appended to the holdings array as a fake item,
+        // we need to add a few dummy-fields that VuFind expects to be
+        // defined for all elements.
+
+        // Use a stupid location name to make sure this doesn't get mixed with
+        // real items that don't have a proper location.
+        $result = [
+            'id' => $id,
+            'available' => $availableTotal,
+            'total' => $itemsTotal,
+            'locations' => count($locations),
+            'availability' => null,
+            'callnumber' => '',
+            'location' => '__HOLDINGSSUMMARYLOCATION__',
+            'reservations' => rand(0, 8),
+            'ordered' => rand(0, 20),
+        ];
+        return $result;
+    }
+
+    /**
+     * Generate random fines.
+     *
+     * @return array
+     */
+    protected function getRandomFines(): array
+    {
+        $fines = parent::getRandomFines();
+        foreach ($fines as &$fine) {
+            $fine['organization'] ??= $this->getFakeLoc();
+        }
+        return $fines;
     }
 }

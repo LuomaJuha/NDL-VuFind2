@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Primo Central Controller
+ * Primo Central Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace Finna\Controller;
 
 /**
- * Primo Central Controller
+ * Primo Central Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -48,7 +50,7 @@ class PrimoController extends \VuFind\Controller\PrimoController
     protected $searchClassId = 'Primo';
 
     /**
-     * Home action
+     * Home action.
      *
      * @return mixed
      */
@@ -59,7 +61,7 @@ class PrimoController extends \VuFind\Controller\PrimoController
     }
 
     /**
-     * Handle onDispatch event
+     * Handle onDispatch event.
      *
      * @param \Laminas\Mvc\MvcEvent $e Event
      *
@@ -76,7 +78,7 @@ class PrimoController extends \VuFind\Controller\PrimoController
     }
 
     /**
-     * Search action -- call standard results action
+     * Search action -- call standard results action.
      *
      * @return mixed
      */
@@ -90,24 +92,5 @@ class PrimoController extends \VuFind\Controller\PrimoController
         $this->initSavedTabs();
 
         return $view;
-    }
-
-    /**
-     * Save a search to the history in the database.
-     * Save search Id and type to memory
-     *
-     * @param \VuFind\Search\Base\Results $results Search results
-     *
-     * @return void
-     */
-    public function saveSearchToHistory($results)
-    {
-        parent::saveSearchToHistory($results);
-        $this->getSearchMemory()->rememberSearchData(
-            $results->getSearchId(),
-            $results->getParams()->getSearchType(),
-            $results->getUrlQuery()->isQuerySuppressed()
-                ? '' : $results->getParams()->getDisplayQuery()
-        );
     }
 }

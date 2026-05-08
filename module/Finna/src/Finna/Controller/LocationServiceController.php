@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Location Service Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
 /**
@@ -57,9 +59,9 @@ class LocationServiceController extends \VuFind\Controller\AbstractBase
         }
         $source = $request['source'];
         $callnumber = $request['callnumber'];
-        $collection = $request['collection'];
-        $location = $request['location'];
-        $title = $request['title'];
+        $collection = $request['collection'] ?? null;
+        $location = $request['location'] ?? null;
+        $title = $request['title'] ?? '';
 
         $locationService = $this->serviceLocator
             ->get(\Finna\LocationService\LocationService::class);
@@ -72,7 +74,8 @@ class LocationServiceController extends \VuFind\Controller\AbstractBase
             $callnumber,
             $collection,
             $location,
-            $language
+            $language,
+            $request
         );
         if ($config) {
             $view = $this->createViewModel();

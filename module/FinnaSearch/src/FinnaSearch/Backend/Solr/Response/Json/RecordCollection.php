@@ -3,7 +3,7 @@
 /**
  * Simple JSON-based record collection.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015.
@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -28,7 +28,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org
  */
+
 namespace FinnaSearch\Backend\Solr\Response\Json;
+
+use function count;
 
 /**
  * Simple JSON-based record collection.
@@ -40,11 +43,10 @@ namespace FinnaSearch\Backend\Solr\Response\Json;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org
  */
-class RecordCollection
-    extends \VuFindSearch\Backend\Solr\Response\Json\RecordCollection
+class RecordCollection extends \VuFindSearch\Backend\Solr\Response\Json\RecordCollection
 {
     /**
-     * Get query debug information
+     * Get query debug information.
      *
      * @return array
      */
@@ -73,7 +75,8 @@ class RecordCollection
     protected function getRawSpellcheckSuggestions()
     {
         $query = $this->getSpellcheckQuery();
-        if (str_word_count($query) > 1
+        if (
+            count(preg_split("/[\s,]/u", trim($query))) > 1
             && isset($this->response['spellcheck']['collations'])
         ) {
             // Compose a list that resembles Solr's single-word suggestions
@@ -84,7 +87,7 @@ class RecordCollection
                 }
                 $suggestions[] = [
                     'word' => $collation[1],
-                    'freq' => 0
+                    'freq' => 0,
                 ];
             }
             return [[
@@ -92,8 +95,8 @@ class RecordCollection
                 [
                     'numFound' => count($suggestions),
                     'origFreq' => 0,
-                    'suggestion' => $suggestions
-                ]
+                    'suggestion' => $suggestions,
+                ],
             ]];
         }
         return $this->response['spellcheck']['suggestions'] ?? [];

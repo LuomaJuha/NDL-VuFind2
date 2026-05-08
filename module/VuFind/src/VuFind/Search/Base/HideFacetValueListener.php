@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Hide values of facet for displaying
+ * Hide values of facet for displaying.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2014.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,12 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Base;
 
 use Laminas\EventManager\EventInterface;
 use Laminas\EventManager\SharedEventManagerInterface;
 use VuFindSearch\Backend\BackendInterface;
 use VuFindSearch\Service;
+
+use function is_callable;
 
 /**
  * Hide single facet values from displaying.
@@ -95,14 +99,14 @@ class HideFacetValueListener
         SharedEventManagerInterface $manager
     ) {
         $manager->attach(
-            'VuFind\Search',
+            Service::class,
             Service::EVENT_POST,
             [$this, 'onSearchPost']
         );
     }
 
     /**
-     * Hide facet values from display
+     * Hide facet values from display.
      *
      * @param EventInterface $event Event
      *
@@ -123,7 +127,7 @@ class HideFacetValueListener
     }
 
     /**
-     * Process hide facet value
+     * Process hide facet value.
      *
      * @param EventInterface $event Event
      *
@@ -137,10 +141,14 @@ class HideFacetValueListener
         }
         $facets = $result->getFacets();
 
+        // Count how many values have been filtered as we go:
+        $filteredFacetCounts = [];
+
         foreach ($this->hideFacets as $facet => $values) {
             foreach ((array)$values as $value) {
                 if (isset($facets[$facet][$value])) {
                     unset($facets[$facet][$value]);
+                    $filteredFacetCounts[$facet] = ($filteredFacetCounts[$facet] ?? 0) + 1;
                 }
             }
         }
@@ -153,9 +161,15 @@ class HideFacetValueListener
                 foreach ($valuesToHide as $valueToHide) {
                     if (isset($facets[$facet][$valueToHide])) {
                         unset($facets[$facet][$valueToHide]);
+                        $filteredFacetCounts[$facet] = ($filteredFacetCounts[$facet] ?? 0) + 1;
                     }
                 }
             }
+        }
+
+        // If the result object is capable of receiving filter counts, send the data:
+        if (is_callable([$result, 'setFilteredFacetCounts'])) {
+            $result->setFilteredFacetCounts($filteredFacetCounts);
         }
 
         $result->setFacets($facets);

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * TOC Test Class
+ * TOC Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\RecordTab;
 
 use VuFind\RecordTab\TOC;
 
 /**
- * TOC Test Class
+ * TOC Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -40,6 +42,8 @@ use VuFind\RecordTab\TOC;
  */
 class TOCTest extends \PHPUnit\Framework\TestCase
 {
+    use \VuFindTest\Feature\WithConsecutiveTrait;
+
     /**
      * Test getting Description.
      *
@@ -55,31 +59,33 @@ class TOCTest extends \PHPUnit\Framework\TestCase
     /**
      * Data provider for testIsActive.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function isActiveProvider(): array
+    public static function isActiveProvider(): \Iterator
     {
-        return ['Enabled' => ["foo", true], 'Not Enabled' => ["", false]];
+        yield 'Enabled' => ['foo', true];
+        yield 'Not Enabled' => ['', false];
     }
 
     /**
      * Test if the tab is active.
      *
-     * @param string $toc TOC from record driver
+     * @param string $toc            TOC from record driver
      * @param bool   $expectedResult Expected return value from isActive
      *
      * @return void
-     *
-     * @dataProvider isActiveProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('isActiveProvider')]
     public function testIsActive(string $toc, bool $expectedResult): void
     {
-        $recordDriver = $this->getMockBuilder(\VuFind\RecordDriver\SolrDefault::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $recordDriver->expects($this->any())->method('tryMethod')
-            ->withConsecutive([$this->equalTo('getTOC')], [$this->equalTo('getCleanISBN')])
-            ->willReturnOnConsecutiveCalls($this->returnValue($toc), $this->returnValue("bar"));
+        $recordDriver = $this->createMock(\VuFind\RecordDriver\SolrDefault::class);
+        $this->expectConsecutiveCalls(
+            $recordDriver,
+            'tryMethod',
+            // We'll only do an ISBN lookup if the initial TOC is empty:
+            !empty($toc) ? [['getTOC']] : [['getTOC'], ['getCleanISBN']],
+            [$toc, 'bar']
+        );
         $obj = new TOC();
         $obj->setRecordDriver($recordDriver);
         $this->assertSame($expectedResult, $obj->isActive());

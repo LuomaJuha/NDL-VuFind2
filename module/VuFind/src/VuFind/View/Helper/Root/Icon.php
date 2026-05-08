@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Icon view helper
+ * Icon view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,14 +26,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
 use Laminas\Cache\Storage\StorageInterface;
 use Laminas\View\Helper\AbstractHelper;
 use Laminas\View\Helper\EscapeHtmlAttr;
 
+use function in_array;
+use function is_string;
+
 /**
- * Icon view helper
+ * Icon view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -43,42 +48,42 @@ use Laminas\View\Helper\EscapeHtmlAttr;
 class Icon extends AbstractHelper
 {
     /**
-     * Icon config from theme.config.php
+     * Icon config from theme.config.php.
      *
      * @var array
      */
     protected $config;
 
     /**
-     * Default icon set
+     * Default icon set.
      *
      * @var string
      */
     protected $defaultSet;
 
     /**
-     * Default icon template
+     * Default icon template.
      *
      * @var string
      */
     protected $defaultTemplate;
 
     /**
-     * Transforming map
+     * Transforming map.
      *
      * @var array
      */
     protected $iconMap;
 
     /**
-     * Cache for icons
+     * Cache for icons.
      *
      * @var StorageInterface
      */
     protected $cache;
 
     /**
-     * Escape helper
+     * Escape helper.
      *
      * @var EscapeHtmlAttr
      */
@@ -87,19 +92,19 @@ class Icon extends AbstractHelper
     /**
      * Are we in right to left text mode?
      *
-     * @var boolean
+     * @var bool
      */
     protected $rtl;
 
     /**
-     * Prevent extra work by only appending the stylesheet once
+     * Prevent extra work by only appending the stylesheet once.
      *
-     * @var boolean
+     * @var bool
      */
     protected $styleAppended = false;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array            $config  Icon configuration
      * @param StorageInterface $cache   Cache instance
@@ -138,7 +143,7 @@ class Icon extends AbstractHelper
         $class = null;
 
         // Override set from config (ie. FontAwesome:icon)
-        if (strpos($icon, ':') !== false) {
+        if (str_contains($icon, ':')) {
             $parts = explode(':', $icon, 3);
             $set = $parts[0];
             $icon = $parts[1];
@@ -184,7 +189,7 @@ class Icon extends AbstractHelper
     }
 
     /**
-     * Create a unique key for icon names and extra attributes
+     * Create a unique key for icon names and extra attributes.
      *
      * @param string $name  Icon name or key from theme.config.php
      * @param array  $attrs Additional HTML attributes for the HTML tag
@@ -201,7 +206,7 @@ class Icon extends AbstractHelper
     }
 
     /**
-     * Returns inline HTML for icon
+     * Returns inline HTML for icon.
      *
      * @param string       $name  Which icon?
      * @param array|string $attrs Additional HTML attributes
@@ -229,7 +234,7 @@ class Icon extends AbstractHelper
                     array_merge(
                         $this->config['sets'][$set] ?? [],
                         [
-                            'icon' => ($this->esc)($icon),
+                            'icon' => $icon,
                             'attrs' => $this->compileAttrs($attrs),
                             'extra' => $attrs,
                         ]

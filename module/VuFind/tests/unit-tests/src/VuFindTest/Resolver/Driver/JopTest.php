@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Jop resolver driver test
+ * Jop resolver driver test.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Leipzig University Library 2015.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -26,17 +27,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTest\Resolver\Driver;
 
 use InvalidArgumentException;
-
 use Laminas\Http\Client\Adapter\Test as TestAdapter;
 use Laminas\Http\Response as HttpResponse;
-
 use VuFind\Resolver\Driver\Jop;
 
 /**
- * Jop resolver driver test
+ * Jop resolver driver test.
  *
  * @category VuFind
  * @package  Tests
@@ -50,26 +50,27 @@ class JopTest extends \PHPUnit\Framework\TestCase
     use \VuFindTest\Feature\FixtureTrait;
 
     /**
-     * Test-Config
+     * Test-Config.
      *
      * @var array
      */
     protected $openUrlConfig = [
         'OpenURL' => [
-            'url' => "http://services.d-nb.de/fize-service/gvr/full.xml",
-            'rfr_id' => "www.ub.uni-leipzig.de",
-            'resolver' => "jop",
-            'window_settings' => "toolbar=no,location=no,directories=no,buttons=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=550,height=600",
+            'url' => 'http://services.d-nb.de/fize-service/gvr/full.xml',
+            'rfr_id' => 'www.ub.uni-leipzig.de',
+            'resolver' => 'jop',
+            'window_settings' => 'toolbar=no,location=no,directories=no,buttons=no,status=no,'
+                . 'menubar=no,scrollbars=yes,resizable=yes,width=550,height=600',
             'show_in_results' => false,
             'show_in_record' => false,
             'show_in_holdings' => true,
             'embed' => true,
-            'replace_other_urls' => true
+            'replace_other_urls' => true,
         ],
     ];
 
     /**
-     * Test link parsing
+     * Test link parsing.
      *
      * @return void
      */
@@ -77,7 +78,7 @@ class JopTest extends \PHPUnit\Framework\TestCase
     {
         $conn = $this->createConnector('jop.xml');
 
-        $openUrl = "url_ver=Z39.88-2004&ctx_ver=Z39.88-2004&ctx_enc=info%3Aofi%2Fenc%3AUTF-8&rfr_id=info%3Asid%2Fwww.ub.uni-leipzig.de%3Agenerator&rft.title=No%C3%BBs&rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Adc&rft.creator=&rft.pub=Wiley-Blackwell&rft.format=Journal&rft.language=English&rft.issn=0029-4624&zdbid=339287-9";
+        $openUrl = $this->getFixture('openurl/jop');
         $result = $conn->parseLinks($conn->fetchLinks($openUrl));
 
         $testResult = [
@@ -86,56 +87,59 @@ class JopTest extends \PHPUnit\Framework\TestCase
                 'coverage' => 'ab Vol. 31, Iss. 1 (1997)',
                 'access' => 'limited',
                 'href' => 'http://onlinelibrary.wiley.com/journal/10.1111/(ISSN)1468-0068',
-                'service_type' => 'getFullTxt'
+                'service_type' => 'getFullTxt',
             ],
             1 => [
                 'title' => 'Noûs (ältere Jahrgänge via JSTOR)',
                 'coverage' => 'ab Vol. 1, Iss. 1 (1967); für die Ausgaben der aktuellen 11 Jahrgänge nicht verfügbar',
                 'access' => 'limited',
                 'href' => 'http://www.jstor.org/action/showPublication?journalCode=nous',
-                'service_type' => 'getFullTxt'
+                'service_type' => 'getFullTxt',
             ],
             2 => [
                 'title' => 'Nous (via EBSCO Host)',
                 'coverage' => 'für die Ausgaben der vergangenen 12 Monate nicht verfügbar',
                 'access' => 'limited',
                 'href' => 'http://search.ebscohost.com/direct.asp?db=aph&jid=D97&scope=site',
-                'service_type' => 'getFullTxt'
+                'service_type' => 'getFullTxt',
             ],
             3 => [
                 'title' => 'Nous (via EBSCO Host)',
                 'coverage' => 'für die Ausgaben der vergangenen 12 Monate nicht verfügbar',
                 'access' => 'limited',
                 'href' => 'http://search.ebscohost.com/direct.asp?db=lfh&jid=D97&scope=site',
-                'service_type' => 'getFullTxt'
+                'service_type' => 'getFullTxt',
             ],
             4 => [
                 'title' => 'Philosophical Perspectives (aktuelle Jahrgänge)',
                 'coverage' => 'ab Vol. 17 (2003)',
                 'access' => 'limited',
                 'href' => 'http://onlinelibrary.wiley.com/journal/10.1111/%28ISSN%291520-8583',
-                'service_type' => 'getFullTxt'
+                'service_type' => 'getFullTxt',
             ],
             5 => [
                 'title' => 'Print available',
                 'coverage' => 'Philosophical perspectives; Leipzig UB; Nachweis als Serie',
                 'access' => 'open',
-                'href' => 'http://dispatch.opac.dnb.de/CHARSET=ISO-8859-1/DB=1.1/CMD?ACT=SRCHA&IKT=8509&SRT=LST_ty&TRM=IDN+011960027+or+IDN+01545794X&HLIB=009030085#009030085',
-                'service_type' => 'getHolding'
+                'href' => 'http://dispatch.opac.dnb.de/CHARSET=ISO-8859-1/DB=1.1/CMD'
+                    . '?ACT=SRCHA&IKT=8509&SRT=LST_ty&TRM=IDN+011960027+or+IDN+01545794X'
+                    . '&HLIB=009030085#009030085',
+                'service_type' => 'getHolding',
             ],
             6 => [
                 'title' => 'Print available',
-                'coverage' => 'Noûs; Leipzig UB // HB/FH/ Standortsignatur: 96-7-558; CA 5470 Magazin: 96-7-558; 1.1967 - 27.1993; 30.1996 - 43.2009; Letzten 15 Jg. Freihand',
+                'coverage' => 'Noûs; Leipzig UB // HB/FH/ Standortsignatur: 96-7-558; '
+                    . 'CA 5470 Magazin: 96-7-558; 1.1967 - 27.1993; 30.1996 - 43.2009; Letzten 15 Jg. Freihand',
                 'access' => 'open',
-                'service_type' => 'getHolding'
-            ]
+                'service_type' => 'getHolding',
+            ],
         ];
 
         $this->assertEquals($result, $testResult);
     }
 
     /**
-     * Test URL generation
+     * Test URL generation.
      *
      * @return void
      */
@@ -152,7 +156,7 @@ class JopTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test implicit downgrade of open url
+     * Test implicit downgrade of open url.
      *
      * @return void
      */
@@ -186,7 +190,7 @@ class JopTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test implicit call of downgradeOpenUrl
+     * Test implicit call of downgradeOpenUrl.
      *
      * @return void
      */
@@ -224,11 +228,9 @@ class JopTest extends \PHPUnit\Framework\TestCase
         $client = new \Laminas\Http\Client();
         $client->setAdapter($adapter);
 
-        $ipReader = $this->getMockBuilder(\VuFind\Net\UserIpReader::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $ipReader = $this->createMock(\VuFind\Net\UserIpReader::class);
         $ipReader->expects($this->once())->method('getUserIp')
-            ->will($this->returnValue($ipAddr));
+            ->willReturn($ipAddr);
         $conn = new Jop($this->openUrlConfig['OpenURL']['url'], $client, $ipReader);
         return $conn;
     }

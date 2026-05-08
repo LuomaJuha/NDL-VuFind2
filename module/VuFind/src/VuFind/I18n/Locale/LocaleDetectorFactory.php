@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Locale Detector Delegator Factory
+ * Locale Detector Delegator Factory.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018,
  *               Leipzig University Library <info@ub.uni-leipzig.de> 2018.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  I18n\Locale
@@ -27,6 +28,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\I18n\Locale;
 
 use Laminas\EventManager\EventInterface;
@@ -39,8 +41,10 @@ use SlmLocale\LocaleEvent;
 use SlmLocale\Strategy\QueryStrategy;
 use VuFind\Cookie\CookieManager;
 
+use function call_user_func;
+
 /**
- * Locale Detector Delegator Factory
+ * Locale Detector Delegator Factory.
  *
  * @category VuFind
  * @package  I18n\Locale
@@ -52,7 +56,7 @@ use VuFind\Cookie\CookieManager;
 class LocaleDetectorFactory implements DelegatorFactoryInterface
 {
     /**
-     * A factory that creates delegates of a given service
+     * A factory that creates delegates of a given service.
      *
      * @param ContainerInterface $container Container
      * @param string             $name      Service name
@@ -64,12 +68,14 @@ class LocaleDetectorFactory implements DelegatorFactoryInterface
      * @throws ServiceNotCreatedException if an exception is raised when
      *     creating a service.
      * @throws ContainerException&\Throwable if any other error occurs
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function __invoke(
         ContainerInterface $container,
         $name,
         callable $callback,
-        array $options = null
+        ?array $options = null
     ) {
         $detector = call_user_func($callback);
         $settings = $container->get(LocaleSettings::class);
@@ -85,7 +91,7 @@ class LocaleDetectorFactory implements DelegatorFactoryInterface
         $cookies = $container->get(CookieManager::class);
         $detector->getEventManager()->attach(
             LocaleEvent::EVENT_FOUND,
-            function (EventInterface $event) use ($cookies) {
+            function (EventInterface $event) use ($cookies): void {
                 $language = $event->getParam('locale');
                 if ($language !== $cookies->get('language')) {
                     $cookies->set('language', $language);
@@ -103,7 +109,7 @@ class LocaleDetectorFactory implements DelegatorFactoryInterface
      *
      * @return \Generator
      */
-    protected function getStrategies(LocaleSettings $settings = null): \Generator
+    protected function getStrategies(?LocaleSettings $settings = null): \Generator
     {
         yield new LocaleDetectorParamStrategy();
 

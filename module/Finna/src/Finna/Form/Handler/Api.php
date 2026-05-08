@@ -1,8 +1,7 @@
 <?php
-declare(strict_types=1);
 
 /**
- * Class Api
+ * Class Api.
  *
  * PHP version 8
  *
@@ -18,8 +17,8 @@ declare(strict_types=1);
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Form
@@ -29,16 +28,24 @@ declare(strict_types=1);
  * @license  https://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
+declare(strict_types=1);
+
 namespace Finna\Form\Handler;
 
-use Laminas\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareInterface;
+use VuFind\Db\Entity\UserEntityInterface;
 use VuFind\Form\Handler\HandlerInterface;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\Log\LoggerAwareTrait;
 use VuFindHttp\HttpServiceAwareInterface;
 
+use function in_array;
+use function is_array;
+use function strval;
+
 /**
- * Class Api
+ * Class Api.
  *
  * @category VuFind
  * @package  Form
@@ -46,22 +53,25 @@ use VuFindHttp\HttpServiceAwareInterface;
  * @license  https://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class Api implements HandlerInterface, LoggerAwareInterface,
-    TranslatorAwareInterface, HttpServiceAwareInterface
+class Api implements
+    HandlerInterface,
+    LoggerAwareInterface,
+    TranslatorAwareInterface,
+    HttpServiceAwareInterface
 {
     use LoggerAwareTrait;
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
     use \VuFindHttp\HttpServiceAwareTrait;
 
     /**
-     * Site base url
+     * Site base url.
      *
      * @var string
      */
     protected $baseUrl;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param string $baseUrl Site base url
      */
@@ -75,14 +85,14 @@ class Api implements HandlerInterface, LoggerAwareInterface,
      *
      * @param \VuFind\Form\Form                     $form   Submitted form
      * @param \Laminas\Mvc\Controller\Plugin\Params $params Request params
-     * @param ?\VuFind\Db\Row\User                  $user   Authenticated user
+     * @param ?UserEntityInterface                  $user   Authenticated user
      *
      * @return bool
      */
     public function handle(
         \VuFind\Form\Form $form,
         \Laminas\Mvc\Controller\Plugin\Params $params,
-        ?\VuFind\Db\Row\User $user = null
+        ?UserEntityInterface $user = null
     ): bool {
         if (!($form instanceof \Finna\Form\Form)) {
             throw new \VuFind\Exception\BadConfig('Unexpected form class');
@@ -91,7 +101,7 @@ class Api implements HandlerInterface, LoggerAwareInterface,
         $recordParamMap = [
             'record' => 'record',
             'record_id' => 'recordId',
-            'record_info' => 'recordInfo'
+            'record_info' => 'recordInfo',
         ];
 
         $postParams = (array)$params->fromPost();
@@ -123,7 +133,7 @@ class Api implements HandlerInterface, LoggerAwareInterface,
             }
         }
         $message['emailSubject'] = $form->getEmailSubject($params->fromPost());
-        $message['internalUserId'] = $user ? $user->id : null;
+        $message['internalUserId'] = $user?->getId();
         $message['viewBaseUrl'] = $this->baseUrl;
         if ($driver = $form->getRecord()) {
             $message['recordMetadata'] = [
@@ -172,7 +182,8 @@ class Api implements HandlerInterface, LoggerAwareInterface,
                 "'apiSettings/url' is required for api handler"
             );
         }
-        if (strpos($apiSettings['url'], 'https://') !== 0
+        if (
+            !str_starts_with($apiSettings['url'], 'https://')
             && $apiSettings['url'] !== 'test'
             && 'development' !== APPLICATION_ENV
         ) {
@@ -207,7 +218,7 @@ class Api implements HandlerInterface, LoggerAwareInterface,
         $headers = array_merge(
             [
                 'Content-Type' => 'application/json',
-                'Content-Length' => mb_strlen($messageJson, 'UTF-8')
+                'Content-Length' => mb_strlen($messageJson, 'UTF-8'),
             ],
             (array)($apiSettings['headers'] ?? [])
         );

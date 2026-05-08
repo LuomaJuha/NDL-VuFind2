@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Database authentication test class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTest\Auth;
 
-use Laminas\Config\Config;
-use Laminas\Db\ResultSet\ResultSet;
 use Laminas\Stdlib\Parameters;
+use PHPUnit\Framework\MockObject\MockObject;
 use VuFind\Auth\Database;
+use VuFind\Config\Config;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Db\Service\UserServiceInterface;
+use VuFind\Http\PhpEnvironment\Request;
 
 /**
  * Database authentication test class.
@@ -48,7 +53,7 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testEmptyCreateRequest()
+    public function testEmptyCreateRequest(): void
     {
         $this->expectException(\VuFind\Exception\Auth::class);
         $this->expectExceptionMessage('Username cannot be blank');
@@ -62,7 +67,7 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testEmptyPasswordCreateRequest()
+    public function testEmptyPasswordCreateRequest(): void
     {
         $this->expectException(\VuFind\Exception\Auth::class);
         $this->expectExceptionMessage('Password cannot be blank');
@@ -78,7 +83,7 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testMismatchedPasswordCreateRequest()
+    public function testMismatchedPasswordCreateRequest(): void
     {
         $this->expectException(\VuFind\Exception\Auth::class);
         $this->expectExceptionMessage('Passwords do not match');
@@ -90,11 +95,11 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Data provider for testCreateWithPasswordPolicy
+     * Data provider for testCreateWithPasswordPolicy.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function getTestCreateWithPasswordPolicyData(): array
+    public static function getTestCreateWithPasswordPolicyData(): \Iterator
     {
         $numericConfig = [
             'minimum_password_length' => 4,
@@ -111,106 +116,106 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
             'maximum_password_length' => 5,
             'password_pattern' => '([\p{L}\p{N}]+)',
         ];
-        return [
-            // Numeric:
-            [
-                $numericConfig,
-                '123',
-                \VuFind\Exception\Auth::class,
-                'password_minimum_length',
-            ],
-            [
-                $numericConfig,
-                '123456',
-                \VuFind\Exception\Auth::class,
-                'password_maximum_length',
-            ],
-            [
-                $numericConfig,
-                'pass',
-                \VuFind\Exception\Auth::class,
-                'password_error_invalid',
-            ],
-            [
-                $numericConfig,
-                '1234',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-            [
-                $numericConfig,
-                '12345',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-
-            // Alphanumeric:
-            [
-                $alnumConfig,
-                '1ab',
-                \VuFind\Exception\Auth::class,
-                'password_minimum_length',
-            ],
-            [
-                $alnumConfig,
-                '1abcde',
-                \VuFind\Exception\Auth::class,
-                'password_maximum_length',
-            ],
-            [
-                $alnumConfig,
-                'pass!',
-                \VuFind\Exception\Auth::class,
-                'password_error_invalid',
-            ],
-            [
-                $alnumConfig,
-                '1abc',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-            [
-                $alnumConfig,
-                '1abcd',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-
-            // Pattern:
-            [
-                $patternConfig,
-                '1abc!',
-                \VuFind\Exception\Auth::class,
-                'password_error_invalid',
-            ],
-            [
-                $patternConfig,
-                'abd/e',
-                \VuFind\Exception\Auth::class,
-                'password_error_invalid',
-            ],
-            [
-                $patternConfig,
-                '1abcÖ',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-            [
-                $patternConfig,
-                'abcδ',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
+        // Numeric:
+        yield [
+            $numericConfig,
+            '123',
+            \VuFind\Exception\Auth::class,
+            'password_minimum_length',
+        ];
+        yield [
+            $numericConfig,
+            '123456',
+            \VuFind\Exception\Auth::class,
+            'password_maximum_length',
+        ];
+        yield [
+            $numericConfig,
+            'pass',
+            \VuFind\Exception\Auth::class,
+            'password_error_invalid',
+        ];
+        yield [
+            $numericConfig,
+            '1234',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        yield [
+            $numericConfig,
+            '12345',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        // Alphanumeric:
+        yield [
+            $alnumConfig,
+            '1ab',
+            \VuFind\Exception\Auth::class,
+            'password_minimum_length',
+        ];
+        yield [
+            $alnumConfig,
+            '1abcde',
+            \VuFind\Exception\Auth::class,
+            'password_maximum_length',
+        ];
+        yield [
+            $alnumConfig,
+            'pass!',
+            \VuFind\Exception\Auth::class,
+            'password_error_invalid',
+        ];
+        yield [
+            $alnumConfig,
+            '1abc',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        yield [
+            $alnumConfig,
+            '1abcd',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        // Pattern:
+        yield [
+            $patternConfig,
+            '1abc!',
+            \VuFind\Exception\Auth::class,
+            'password_error_invalid',
+        ];
+        yield [
+            $patternConfig,
+            'abd/e',
+            \VuFind\Exception\Auth::class,
+            'password_error_invalid',
+        ];
+        yield [
+            $patternConfig,
+            '1abcÖ',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        yield [
+            $patternConfig,
+            'abcδ',
+            \Exception::class,
+            'Service manager missing', // == success
         ];
     }
 
     /**
      * Test validation of create request with a password policy.
      *
-     * @dataProvider getTestCreateWithPasswordPolicyData
+     * @param array  $authConfig             Authentication configuration
+     * @param string $password               Password for test
+     * @param string $expectedExceptionClass Expected exception class
+     * @param string $expectedExceptionMsg   Expected exception message
      *
      * @return void
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('getTestCreateWithPasswordPolicyData')]
     public function testCreateWithPasswordPolicy(
         array $authConfig,
         string $password,
@@ -219,7 +224,7 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
     ): void {
         $config = new Config(
             [
-                'Authentication' => $authConfig
+                'Authentication' => $authConfig,
             ]
         );
         $db = new Database();
@@ -242,8 +247,8 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
         $config = new Config(
             [
                 'Authentication' => [
-                    'password_pattern' => 'a/'
-                ]
+                    'password_pattern' => 'a/',
+                ],
             ]
         );
         $db = new Database();
@@ -251,20 +256,20 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
         $arr = $this->getCreateParams();
         $arr['password'] = 'abcδ';
         $arr['password2'] = 'abcδ';
-        $this->expectWarning();
+        $this->expectExceptionMessage('Invalid regexp in password pattern: a/');
         $db->create($this->getRequest($arr));
     }
 
     /**
-     * Data provider for testCreateWithUsernamePolicy
+     * Data provider for testCreateWithUsernamePolicy.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function getTestCreateWithUsernamePolicyData(): array
+    public static function getTestCreateWithUsernamePolicyData(): \Iterator
     {
         $defaultConfig = [
-            'username_pattern' => "([\\x21\\x23-\\x2B\\x2D-\\x2F\\x3D\\x3F\\x40"
-            . "\\x5E-\\x60\\x7B-\\x7E\\p{L}\\p{Nd}]+)"
+            'username_pattern' => '([\\x21\\x23-\\x2B\\x2D-\\x2F\\x3D\\x3F\\x40'
+            . '\\x5E-\\x60\\x7B-\\x7E\\p{L}\\p{Nd}]+)',
         ];
         $numericConfig = [
             'minimum_username_length' => 4,
@@ -281,126 +286,125 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
             'maximum_username_length' => 5,
             'username_pattern' => '([\p{L}\p{N}]+)',
         ];
-        return [
-            // Default pattern:
-            [
-                $defaultConfig,
-                '"foo"',
-                \VuFind\Exception\Auth::class,
-                'username_error_invalid',
-            ],
-            [
-                $defaultConfig,
-                '😀',
-                \VuFind\Exception\Auth::class,
-                'username_error_invalid',
-            ],
-            [
-                $defaultConfig,
-                "!#$%&'*+-/=?^_`{|}~abcδä",
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-
-            // Numeric:
-            [
-                $numericConfig,
-                '123',
-                \VuFind\Exception\Auth::class,
-                'username_minimum_length',
-            ],
-            [
-                $numericConfig,
-                '123456',
-                \VuFind\Exception\Auth::class,
-                'username_maximum_length',
-            ],
-            [
-                $numericConfig,
-                'abcd',
-                \VuFind\Exception\Auth::class,
-                'username_error_invalid',
-            ],
-            [
-                $numericConfig,
-                '1234',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-            [
-                $numericConfig,
-                '12345',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-
-            // Alphanumeric:
-            [
-                $alnumConfig,
-                '1ab',
-                \VuFind\Exception\Auth::class,
-                'username_minimum_length',
-            ],
-            [
-                $alnumConfig,
-                '1abcde',
-                \VuFind\Exception\Auth::class,
-                'username_maximum_length',
-            ],
-            [
-                $alnumConfig,
-                'pass!',
-                \VuFind\Exception\Auth::class,
-                'username_error_invalid',
-            ],
-            [
-                $alnumConfig,
-                '1abc',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-            [
-                $alnumConfig,
-                '1abcd',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-
-            // Pattern:
-            [
-                $patternConfig,
-                '1abc!',
-                \VuFind\Exception\Auth::class,
-                'username_error_invalid',
-            ],
-            [
-                $patternConfig,
-                'abd/e',
-                \VuFind\Exception\Auth::class,
-                'username_error_invalid',
-            ],
-            [
-                $patternConfig,
-                '1abcÖ',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
-            [
-                $patternConfig,
-                'abcδ',
-                \Exception::class,
-                'DB table manager missing.', // == success
-            ],
+        // Default pattern:
+        yield [
+            $defaultConfig,
+            '"foo"',
+            \VuFind\Exception\Auth::class,
+            'username_error_invalid',
+        ];
+        yield [
+            $defaultConfig,
+            '😀',
+            \VuFind\Exception\Auth::class,
+            'username_error_invalid',
+        ];
+        yield [
+            $defaultConfig,
+            "!#$%&'*+-/=?^_`{|}~abcδä",
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        // Numeric:
+        yield [
+            $numericConfig,
+            '123',
+            \VuFind\Exception\Auth::class,
+            'username_minimum_length',
+        ];
+        yield [
+            $numericConfig,
+            '123456',
+            \VuFind\Exception\Auth::class,
+            'username_maximum_length',
+        ];
+        yield [
+            $numericConfig,
+            'abcd',
+            \VuFind\Exception\Auth::class,
+            'username_error_invalid',
+        ];
+        yield [
+            $numericConfig,
+            '1234',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        yield [
+            $numericConfig,
+            '12345',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        // Alphanumeric:
+        yield [
+            $alnumConfig,
+            '1ab',
+            \VuFind\Exception\Auth::class,
+            'username_minimum_length',
+        ];
+        yield [
+            $alnumConfig,
+            '1abcde',
+            \VuFind\Exception\Auth::class,
+            'username_maximum_length',
+        ];
+        yield [
+            $alnumConfig,
+            'pass!',
+            \VuFind\Exception\Auth::class,
+            'username_error_invalid',
+        ];
+        yield [
+            $alnumConfig,
+            '1abc',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        yield [
+            $alnumConfig,
+            '1abcd',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        // Pattern:
+        yield [
+            $patternConfig,
+            '1abc!',
+            \VuFind\Exception\Auth::class,
+            'username_error_invalid',
+        ];
+        yield [
+            $patternConfig,
+            'abd/e',
+            \VuFind\Exception\Auth::class,
+            'username_error_invalid',
+        ];
+        yield [
+            $patternConfig,
+            '1abcÖ',
+            \Exception::class,
+            'Service manager missing', // == success
+        ];
+        yield [
+            $patternConfig,
+            'abcδ',
+            \Exception::class,
+            'Service manager missing', // == success
         ];
     }
 
     /**
      * Test validation of create request with a username policy.
      *
-     * @dataProvider getTestCreateWithUsernamePolicyData
+     * @param array  $authConfig             Authentication configuration
+     * @param string $username               Username for test
+     * @param string $expectedExceptionClass Expected exception class
+     * @param string $expectedExceptionMsg   Expected exception message
      *
      * @return void
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('getTestCreateWithUsernamePolicyData')]
     public function testCreateWithUsernamePolicy(
         array $authConfig,
         string $username,
@@ -409,7 +413,7 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
     ): void {
         $config = new Config(
             [
-                'Authentication' => $authConfig
+                'Authentication' => $authConfig,
             ]
         );
         $db = new Database();
@@ -426,10 +430,10 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testCreateWithMissingTableManager()
+    public function testCreateWithMissingTableManager(): void
     {
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('DB table manager missing.');
+        $this->expectExceptionMessage('Service manager missing');
 
         $db = new Database();
         $db->create($this->getRequest($this->getCreateParams()));
@@ -440,20 +444,17 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testCreateDuplicateEmail()
+    public function testCreateDuplicateEmail(): void
     {
         $this->expectException(\VuFind\Exception\Auth::class);
         $this->expectExceptionMessage('That email address is already used');
 
         // Fake services:
-        $table = $this->getMockTable(['getByEmail', 'getByUsername']);
-        $table->expects($this->once())->method('getByEmail')
-            ->with($this->equalTo('me@mysite.com'))
-            ->will($this->returnValue(true));
-        $table->expects($this->any())->method('getByUsername')
-            ->with($this->equalTo('good'))
-            ->will($this->returnValue(false));
-        $db = $this->getDatabase($table);
+        $service = $this->createMock(UserServiceInterface::class);
+        $mockUser = $this->createMock(UserEntityInterface::class);
+        $service->expects($this->once())->method('getUserByUsername')->with('good')->willReturn(null);
+        $service->expects($this->once())->method('getUserByEmail')->with('me@mysite.com')->willReturn($mockUser);
+        $db = $this->getDatabase($service);
         $this->assertEquals(
             false,
             $db->create($this->getRequest($this->getCreateParams()))
@@ -465,17 +466,16 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testCreateDuplicateUsername()
+    public function testCreateDuplicateUsername(): void
     {
         $this->expectException(\VuFind\Exception\Auth::class);
         $this->expectExceptionMessage('That username is already taken');
 
         // Fake services:
-        $table = $this->getMockTable(['getByUsername']);
-        $table->expects($this->any())->method('getByUsername')
-            ->with($this->equalTo('good'))
-            ->will($this->returnValue(true));
-        $db = $this->getDatabase($table);
+        $service = $this->createMock(UserServiceInterface::class);
+        $mockUser = $this->createMock(UserEntityInterface::class);
+        $service->expects($this->once())->method('getUserByUsername')->with('good')->willReturn($mockUser);
+        $db = $this->getDatabase($service);
         $this->assertEquals(
             false,
             $db->create($this->getRequest($this->getCreateParams()))
@@ -487,21 +487,18 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return void
      */
-    public function testSuccessfulCreation()
+    public function testSuccessfulCreation(): void
     {
         // Fake services:
-        $table = $this->getMockTable(['insert', 'getByEmail', 'getByUsername']);
-        $table->expects($this->once())->method('getByEmail')
-            ->with($this->equalTo('me@mysite.com'))
-            ->will($this->returnValue(false));
-        $table->expects($this->any())->method('getByUsername')
-            ->with($this->equalTo('good'))
-            ->will($this->returnValue(false));
-        $db = $this->getDatabase($table);
-        $prototype = $table->getResultSetPrototype()->getArrayObjectPrototype();
-        $prototype->expects($this->once())->method('save');
+        $service = $this->createMock(UserServiceInterface::class);
+        $mockUser = $this->createMock(UserEntityInterface::class);
+        $service->expects($this->once())->method('createEntityForUsername')->with('good')->willReturn($mockUser);
+        $service->expects($this->once())->method('persistEntity')->with($mockUser);
+        $service->expects($this->once())->method('getUserByUsername')->with('good')->willReturn(null);
+        $service->expects($this->once())->method('getUserByEmail')->with('me@mysite.com')->willReturn(null);
+        $db = $this->getDatabase($service);
         $user = $db->create($this->getRequest($this->getCreateParams()));
-        $this->assertTrue(is_object($user));
+        $this->assertIsObject($user);
     }
 
     // INTERNAL API
@@ -511,7 +508,7 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
      *
      * @return array
      */
-    protected function getCreateParams()
+    protected function getCreateParams(): array
     {
         return [
             'firstname' => 'Foo',
@@ -524,77 +521,38 @@ class DatabaseUnitTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Get a mock row object
-     *
-     * @return \VuFind\Db\Row\User
-     */
-    protected function getMockRow()
-    {
-        return $this->getMockBuilder(\VuFind\Db\Row\User::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-    }
-
-    /**
-     * Get a mock table object
-     *
-     * @param array $methods Methods to mock
-     *
-     * @return \VuFind\Db\Table\User
-     */
-    protected function getMockTable($methods = [])
-    {
-        $methods[] = 'getResultSetPrototype';
-        $mock = $this->getMockBuilder(\VuFind\Db\Table\User::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods($methods)
-            ->getMock();
-        $mock->expects($this->any())->method('getResultSetPrototype')
-            ->will(
-                $this->returnValue(
-                    new ResultSet(
-                        ResultSet::TYPE_ARRAYOBJECT,
-                        $this->getMockRow()
-                    )
-                )
-            );
-        return $mock;
-    }
-
-    /**
      * Get a fake HTTP request.
      *
      * @param array $post POST parameters
      *
-     * @return \Laminas\Http\PhpEnvironment\Request
+     * @return MockObject&Request
      */
-    protected function getRequest($post = [])
+    protected function getRequest($post = []): MockObject&Request
     {
         $post = new Parameters($post);
-        $request = $this->getMockBuilder(\Laminas\Http\PhpEnvironment\Request::class)
+        $request = $this->getMockBuilder(Request::class)
             ->onlyMethods(['getPost'])->getMock();
-        $request->expects($this->any())->method('getPost')
-            ->will($this->returnValue($post));
+        $request->method('getPost')->willReturn($post);
         return $request;
     }
 
     /**
      * Get a handler w/ fake table manager.
      *
-     * @param object $table Mock table.
+     * @param UserServiceInterface $service Mock user database service
      *
      * @return Database
      */
-    protected function getDatabase($table)
+    protected function getDatabase(UserServiceInterface $service): Database
     {
-        $tableManager = $this->getMockBuilder(\VuFind\Db\Table\PluginManager::class)
+        $serviceManager = $this->getMockBuilder(\VuFind\Db\Service\PluginManager::class)
             ->disableOriginalConstructor()->onlyMethods(['get'])->getMock();
-        $tableManager->expects($this->once())->method('get')
-            ->with($this->equalTo('User'))
-            ->will($this->returnValue($table));
+        $serviceManager->method('get')
+            ->with(UserServiceInterface::class)
+            ->willReturn($service);
 
         $db = new Database();
-        $db->setDbTableManager($tableManager);
+        $db->setDbServiceManager($serviceManager);
         return $db;
     }
 }

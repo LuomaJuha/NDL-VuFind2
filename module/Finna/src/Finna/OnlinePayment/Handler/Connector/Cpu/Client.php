@@ -1,17 +1,67 @@
 <?php
+
+/**
+ * CPU Client.
+ *
+ * PHP version 8
+ *
+ * This is free and unencumbered software released into the public domain.
+ *
+ * Anyone is free to copy, modify, publish, use, compile, sell, or
+ * distribute this software, either in source code form or as a compiled
+ * binary, for any purpose, commercial or non-commercial, and by any
+ * means.
+ *
+ * In jurisdictions that recognize copyright laws, the author or authors
+ * of this software dedicate any and all copyright interest in the
+ * software to the public domain. We make this dedication for the benefit
+ * of the public at large and to the detriment of our heirs and
+ * successors. We intend this dedication to be an overt act of
+ * relinquishment in perpetuity of all present and future rights to this
+ * software under copyright law.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * For more information, please refer to <https://unlicense.org>
+ *
+ * @category VuFind
+ * @package  OnlinePayment
+ * @author   MB <asiakastuki@cpu.fi>
+ * @license  https://unlicense.org The Unlicense
+ * @link     https://www.cpu.fi/
+ */
+
 // @codingStandardsIgnoreStart
+
 namespace Finna\OnlinePayment\Handler\Connector\Cpu;
+
+use VuFind\Log\LoggerAwareTrait;
+use VuFindHttp\HttpServiceAwareTrait;
+
+use function intval;
+use function strlen;
 
 /**
  * Client example of CPU Verkkomaksu API.
  * Handles validating and sending data to eCommerce service.
  *
- * @since 2015-05-19 MB, Version 1.0 created
- * @version 1.0
+ * @category VuFind
+ * @package  OnlinePayment
+ * @author   MB <asiakastuki@cpu.fi>
+ * @license  https://unlicense.org The Unlicense
+ * @link     https://www.cpu.fi/
+ * @since    2015-05-19 MB, Version 1.0 created
  */
 class Client
 {
-    use \Finna\OnlinePayment\OnlinePaymentPostRequestTrait;
+    use HttpServiceAwareTrait;
+    use LoggerAwareTrait;
 
     /**
      * Url of eCommerce service where payment data will be sent.
@@ -42,8 +92,8 @@ class Client
      * Constructor initializes object with client settings.
      *
      * @param string $service_url Url pointing to eCommerce payment checkout
-     * @param string $source Client account
-     * @param string $secret_key Client password
+     * @param string $source      Client account
+     * @param string $secret_key  Client password
      */
     public function __construct($service_url, $source, $secret_key)
     {
@@ -59,7 +109,8 @@ class Client
      * Redirect customer to PaymentAddress after validating response data.
      *
      * @param Payment $payment Payment data
-     * @return mixed array containing an errormessage, JSON response from eCommerce or false
+     *
+     * @return mixed array containing an error message or JSON response from eCommerce
      */
     public function sendPayment(Payment $payment)
     {
@@ -70,7 +121,6 @@ class Client
         }
 
         if ($this->service_url && $this->source && $this->secret_key) {
-
             // Prepare data to be sent.
             $data = $payment->convertToArray();
             $data['Source'] = $this->source;
@@ -86,21 +136,35 @@ class Client
 
             $options = ['maxredirects' => 1];
             $headers = [
-               'Content-Type' => 'application/json; charset=utf-8'
+               'Content-Type' => 'application/json; charset=utf-8',
             ];
 
-            $response = $this->postRequest(
-                $this->service_url,
-                $json_data,
-                $options,
+            $client = $this->httpService->createClient($this->service_url, 'POST', 30);
+            $client->setOptions($options);
+            $headers = array_merge(
+                [
+                    'Content-Type' => 'application/json',
+                    'Content-Length' => strlen($json_data),
+                ],
                 $headers
             );
+            $client->setHeaders($headers);
+            $client->setRawBody($json_data);
+            $response = $client->send();
 
-            if (!$response) {
+            $status = $response->getStatusCode();
+            $content = $response->getBody();
+
+            if (!$response->isSuccess()) {
+                throw new \Exception(
+                    "Error posting request: invalid status code: $status"
+                    . ", url: $this->service_url, body: $json_data, headers: " . var_export($headers, true)
+                    . ", response: $content"
+                );
                 return ['error' => 'Failed to send payment'];
             }
 
-            return $response['response'];
+            return $content;
         }
 
         return ['error' => 'Error with settings'];
@@ -110,9 +174,10 @@ class Client
      * Calculates sha256 signature.
      * Only mandatory properties and properties with values are used in calculation.
      *
-     * @param Payment $payment Payment object
-     * @param string $source Source identification given by CPU
-     * @param string $secret_key Secret Key identification given by CPU
+     * @param Payment $payment    Payment object
+     * @param string  $source     Source identification given by CPU
+     * @param string  $secret_key Secret Key identification given by CPU
+     *
      * @return string sha256 hash signature
      */
     public static function calculateHash(Payment $payment, $source, $secret_key)
@@ -184,11 +249,12 @@ class Client
      * Simple sanitazion method.
      *
      * @param string $value Value to be sanitated
+     *
      * @return string Clean value
      */
     public static function sanitize($value)
     {
-        return str_replace(';', '', strip_tags(trim(filter_var($value, FILTER_SANITIZE_STRING))));
+        return str_replace(';', '', strip_tags(trim($value)));
     }
 }
 // @codingStandardsIgnoreEnd

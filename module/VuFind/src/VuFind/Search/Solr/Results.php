@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Solr aspect of the Search Multi-class (Results)
+ * Solr aspect of the Search Multi-class (Results).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Solr
@@ -25,15 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search\Solr;
 
-use VuFind\Search\Solr\AbstractErrorListener as ErrorListener;
 use VuFindSearch\Command\SearchCommand;
 use VuFindSearch\Query\AbstractQuery;
 use VuFindSearch\Query\QueryGroup;
 
+use function count;
+
 /**
- * Solr Search Parameters
+ * Solr Search Parameters.
  *
  * @category VuFind
  * @package  Search_Solr
@@ -66,6 +69,11 @@ class Results extends \VuFind\Search\Base\Results
     protected $responsePivotFacets = null;
 
     /**
+     * Counts of filtered-out facet values, indexed by field name.
+     */
+    protected $filteredFacetCounts = null;
+
+    /**
      * Search backend identifier.
      *
      * @var string
@@ -94,6 +102,13 @@ class Results extends \VuFind\Search\Base\Results
      * @var null|string
      */
     protected $cursorMark = null;
+
+    /**
+     * Highest relevance of all the results.
+     *
+     * @var null|float
+     */
+    protected $maxScore = null;
 
     /**
      * Get spelling processor.
@@ -143,6 +158,31 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
+     * Get an array of the record ID mapped to its score, or to null if it has no score.
+     *
+     * @return array
+     */
+    public function getScores()
+    {
+        $scoreMap = [];
+        foreach ($this->results as $record) {
+            $data = $record->getRawData();
+            $scoreMap[$record->getUniqueId()] = $data['score'] ?? null;
+        }
+        return $scoreMap;
+    }
+
+    /**
+     * Getting the highest relevance of all the results.
+     *
+     * @return null|float
+     */
+    public function getMaxScore()
+    {
+        return $this->maxScore;
+    }
+
+    /**
      * Support method for performAndProcessSearch -- perform a search based on the
      * parameters passed to the object.
      *
@@ -175,7 +215,8 @@ class Results extends \VuFind\Search\Base\Results
             $collection = $searchService->invoke($command)->getResult();
         } catch (\VuFindSearch\Backend\Exception\BackendException $e) {
             // If the query caused a parser error, see if we can clean it up:
-            if ($e->hasTag(ErrorListener::TAG_PARSER_ERROR)
+            if (
+                $e->hasTag(ErrorListener::TAG_PARSER_ERROR)
                 && $newQuery = $this->fixBadQuery($query)
             ) {
                 // We need to get a fresh set of $params, since the previous one was
@@ -194,10 +235,14 @@ class Results extends \VuFind\Search\Base\Results
             }
         }
 
+        $this->extraSearchBackendDetails = $command->getExtraRequestDetails();
+
         $this->responseFacets = $collection->getFacets();
+        $this->filteredFacetCounts = $collection->getFilteredFacetCounts();
         $this->responseQueryFacets = $collection->getQueryFacets();
         $this->responsePivotFacets = $collection->getPivotFacets();
         $this->resultTotal = $collection->getTotal();
+        $this->maxScore = $collection->getMaxScore();
 
         // Process spelling suggestions
         $spellcheck = $collection->getSpellcheck();
@@ -212,6 +257,9 @@ class Results extends \VuFind\Search\Base\Results
 
         // Construct record drivers for all the items in the response:
         $this->results = $collection->getRecords();
+
+        // Store any errors:
+        $this->errors = $collection->getErrors();
     }
 
     /**
@@ -292,7 +340,7 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
-     * Returns the stored list of facets for the last search
+     * Returns the stored list of facets for the last search.
      *
      * @param array $filter Array of field => on-screen description listing
      * all of the desired facet fields; set to null to get all configured values.
@@ -308,7 +356,21 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
-     * Get complete facet counts for several index fields
+     * Get counts of facet values filtered out by the HideFacetValueListener,
+     * indexed by field name.
+     *
+     * @return array
+     */
+    public function getFilteredFacetCounts(): array
+    {
+        if (null === $this->filteredFacetCounts) {
+            $this->performAndProcessSearch();
+        }
+        return $this->filteredFacetCounts;
+    }
+
+    /**
+     * Get complete facet counts for several index fields.
      *
      * @param array  $facetfields  name of the Solr fields to return facets for
      * @param bool   $removeFilter Clear existing filters from selected fields (true)
@@ -370,13 +432,15 @@ class Results extends \VuFind\Search\Base\Results
 
         // Do search
         $result = $clone->getFacetList();
+        $filteredCounts = $clone->getFilteredFacetCounts();
 
         // Reformat into a hash:
         foreach ($result as $key => $value) {
             // Detect next page and crop results if necessary
             $more = false;
-            if (isset($page) && count($value['list']) > 0
-                && count($value['list']) == $limit + 1
+            if (
+                isset($page) && count($value['list']) > 0
+                && (count($value['list']) + ($filteredCounts[$key] ?? 0)) == $limit + 1
             ) {
                 $more = true;
                 array_pop($value['list']);
@@ -389,7 +453,7 @@ class Results extends \VuFind\Search\Base\Results
     }
 
     /**
-     * Returns data on pivot facets for the last search
+     * Returns data on pivot facets for the last search.
      *
      * @return ArrayObject        Flare-formatted object
      */
@@ -402,7 +466,7 @@ class Results extends \VuFind\Search\Base\Results
 
         // Start building the flare object:
         $flare = new \stdClass();
-        $flare->name = "flare";
+        $flare->name = 'flare';
         $flare->total = $this->resultTotal;
         $flare->children = $this->responsePivotFacets;
         return $flare;

@@ -1,6 +1,6 @@
 {
   "name": "vufind",
-  "version": "8.1.2",
+  "version": "11.0.2",
   "description": "Dev tools to handle css preprocessing, js magic, and compression",
   "repository": {
     "type": "git",
@@ -9,18 +9,35 @@
   "bugs": {
     "url": "https://vufind.org/jira"
   },
+  "scripts": {
+    "finna:build:scss": "grunt finna:scss",
+    "finna:lessToSass": "grunt finna:lessToSass",
+    "finna:check:scss": "npm run install:scss-dependencies && grunt finna:check:scss",
+
+    "build": "npm run build:css",
+    "watch": "npm run watch:css",
+
+    "build:css": "npm run build:scss",
+    "watch:css": "npm run watch:scss",
+
+    "install:scss-dependencies": "cd themes/bootstrap5 && npm run installBuildDeps",
+    "build:scss": "npm run install:scss-dependencies && grunt scss",
+    "check:scss": "npm run install:scss-dependencies && grunt check:scss",
+    "watch:scss": "npm run install:scss-dependencies && grunt watch:scss"
+  },
   "dependencies": {
     "grunt": "^1.0.4",
-    "grunt-contrib-less": "^2.0.0",
-    "grunt-less-to-sass": "duvillierA/grunt-less-to-sass#0.0.11",
-    "grunt-sass": "^3.1.0",
+    "grunt-dart-sass": "^2.0.1",
     "jit-grunt": "^0.10.0",
-    "node-sass": "^7.0.1"
+    "sass": "1.72.0"
   },
   "devDependencies": {
-    "eslint": "^8.15.0",
-    "grunt-contrib-watch": "^1.1.0",
-    "jshint": "^2.13.4",
-    "vanilla-cookieconsent": "3.0.0-rc.7"
+    "@eslint/js": "^10.0.0",
+    "all-iso-language-codes": "^1.0.13",
+    "eslint": "^10.0.0",
+    "eslint-plugin-jsdoc": "^62.0.0",
+    "eslint-plugin-no-jquery": "^3.0.0",
+    "globals": "^16.0.0",
+    "grunt-contrib-watch": "^1.1.0"
   }
 }

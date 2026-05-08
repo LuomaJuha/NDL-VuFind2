@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AJAX handler for fetching holdings details
+ * AJAX handler for fetching holdings details.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2019-2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,18 +26,22 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\View\Renderer\RendererInterface;
 use VuFind\Auth\ILSAuthenticator;
+use VuFind\Db\Entity\UserEntityInterface;
 use VuFind\ILS\Connection;
 use VuFind\ILS\Logic\Holds as HoldLogic;
 use VuFind\Record\Loader;
 use VuFind\Session\Settings as SessionSettings;
 
+use function in_array;
+
 /**
- * AJAX handler for fetching holdings details
+ * AJAX handler for fetching holdings details.
  *
  * @category VuFind
  * @package  AJAX
@@ -47,51 +52,26 @@ use VuFind\Session\Settings as SessionSettings;
 class GetHoldingsDetails extends \VuFind\AjaxHandler\AbstractIlsAndUserAction
 {
     /**
-     * View renderer
+     * Constructor.
      *
-     * @var RendererInterface
-     */
-    protected $renderer;
-
-    /**
-     * Record loader
-     *
-     * @var Loader
-     */
-    protected $recordLoader;
-
-    /**
-     * Hold Logic
-     *
-     * @var HoldLogic
-     */
-    protected $holdLogic;
-
-    /**
-     * Constructor
-     *
-     * @param SessionSettings   $ss               Session settings
-     * @param Connection        $ils              ILS connection
-     * @param ILSAuthenticator  $ilsAuthenticator ILS authenticator
-     * @param User|bool         $user             Logged in user (or false)
-     * @param RendererInterface $renderer         View renderer
-     * @param Loader            $loader           Record loader
-     * @param HoldLogic         $holdLogic        Hold Logic
+     * @param SessionSettings      $ss               Session settings
+     * @param Connection           $ils              ILS connection
+     * @param ILSAuthenticator     $ilsAuthenticator ILS authenticator
+     * @param ?UserEntityInterface $user             Logged in user (or null)
+     * @param RendererInterface    $renderer         View renderer
+     * @param Loader               $recordLoader     Record loader
+     * @param HoldLogic            $holdLogic        Hold Logic
      */
     public function __construct(
         SessionSettings $ss,
         Connection $ils,
         ILSAuthenticator $ilsAuthenticator,
-        $user,
-        RendererInterface $renderer,
-        Loader $loader,
-        HoldLogic $holdLogic
+        ?UserEntityInterface $user,
+        protected RendererInterface $renderer,
+        protected Loader $recordLoader,
+        protected HoldLogic $holdLogic
     ) {
         parent::__construct($ss, $ils, $ilsAuthenticator, $user);
-
-        $this->renderer = $renderer;
-        $this->recordLoader = $loader;
-        $this->holdLogic = $holdLogic;
     }
 
     /**
@@ -127,12 +107,14 @@ class GetHoldingsDetails extends \VuFind\AjaxHandler\AbstractIlsAndUserAction
             if (in_array($fieldName, ['notes', 'holdings_notes'])) {
                 if (empty($holding[$fieldName])) {
                     // begin aliasing
-                    if ($fieldName == 'notes'
+                    if (
+                        $fieldName == 'notes'
                         && !empty($holding['holdings_notes'])
                     ) {
                         // using notes as alias for holdings_notes
                         $holding[$fieldName] = $holding['holdings_notes'];
-                    } elseif ($fieldName == 'holdings_notes'
+                    } elseif (
+                        $fieldName == 'holdings_notes'
                         && !empty($holding['notes'])
                     ) {
                         // using holdings_notes as alias for notes
@@ -153,7 +135,7 @@ class GetHoldingsDetails extends \VuFind\AjaxHandler\AbstractIlsAndUserAction
         $holdingItems = reset($result['holdings']);
         $moreLinkPage = $result['page'] * $result['itemLimit'] < $result['total']
             ? $result['page'] + 1 : null;
-        $items = $this->renderer->partial(
+        $items = $holdingItems ? $this->renderer->partial(
             'RecordTab/holdings-items.phtml',
             [
                 'driver'
@@ -161,9 +143,9 @@ class GetHoldingsDetails extends \VuFind\AjaxHandler\AbstractIlsAndUserAction
                 'holding' => $holdingItems,
                 'mode' => 'expanded',
                 'moreLinkPage' => $moreLinkPage,
-                'moreLinkKey' => $detailsGroupKey
+                'moreLinkKey' => $detailsGroupKey,
             ]
-        );
+        ) : '';
 
         return $this->formatResponse(compact('details', 'items'));
     }

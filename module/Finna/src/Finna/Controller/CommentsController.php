@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Comments Controller
+ * Comments Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2016.
+ * Copyright (C) The National Library of Finland 2015-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,9 +27,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
-use Laminas\Session\Container as SessionContainer;
+use Finna\Db\Service\CommentsServiceInterface;
+
+use function assert;
 
 /**
  * Comments Controller.
@@ -40,10 +44,23 @@ use Laminas\Session\Container as SessionContainer;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
-class CommentsController extends \VuFind\Controller\AbstractBase
+class CommentsController extends \VuFind\Controller\CommentsController
 {
+    use Feature\UserContentTrait;
+
     /**
-     * Report inappropriate comment
+     * Array of sort options for userListAction.
+     *
+     * @var array
+     */
+    protected array $sortList = [
+        'created desc' => 'hold_sort_create_desc',
+        'created asc' => 'hold_sort_create_asc',
+        'title' => 'sort_title',
+    ];
+
+    /**
+     * Report inappropriate comment.
      *
      * @return mixed
      */
@@ -77,19 +94,9 @@ class CommentsController extends \VuFind\Controller\AbstractBase
     protected function markCommentInappropriate($id, $reason, $message)
     {
         $user = $this->getUser();
-
-        $table = $this->getTable('Comments');
-        $table->markInappropriate($user ? $user->id : null, $id, $reason, $message);
-
-        if (!$user) {
-            $session = new SessionContainer(
-                'inappropriateComments',
-                $this->serviceLocator->get(\Laminas\Session\SessionManager::class)
-            );
-            if (!isset($session->comments)) {
-                $session->comments = [];
-            }
-            $session->comments[] = $id;
-        }
+        $sessionId = $this->serviceLocator->get(\Laminas\Session\SessionManager::class)->getId();
+        $service = $this->getDbService(\VuFind\Db\Service\CommentsServiceInterface::class);
+        assert($service instanceof CommentsServiceInterface);
+        $service->markCommentInappropriate($user, (int)$id, $reason, $message, $sessionId);
     }
 }

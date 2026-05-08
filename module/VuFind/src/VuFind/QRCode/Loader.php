@@ -1,8 +1,9 @@
 <?php
+
 /**
- * QR Code Generator
+ * QR Code Generator.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2007.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  QRCode_Generator
@@ -27,18 +28,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/configuration:external_content Wiki
  */
+
 namespace VuFind\QRCode;
 
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelHigh;
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelInterface;
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelLow;
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelMedium;
-use Endroid\QrCode\ErrorCorrectionLevel\ErrorCorrectionLevelQuartile;
+use Endroid\QrCode\ErrorCorrectionLevel;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 
+use function intval;
+use function strlen;
+
 /**
- * QR Code Generator
+ * QR Code Generator.
  *
  * @category VuFind
  * @package  QRCode_Generator
@@ -51,16 +52,16 @@ use Endroid\QrCode\Writer\PngWriter;
 class Loader extends \VuFind\ImageLoader
 {
     /**
-     * The default params used to generate the QRCode
+     * The default params used to generate the QRCode.
      *
      * @var string
      */
     protected $defaultParams = ['level' => 'L', 'size' => '3', 'margin' => '4'];
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config $config VuFind configuration
+     * @param \VuFind\Config\Config  $config VuFind configuration
      * @param \VuFindTheme\ThemeInfo $theme  VuFind theme tools
      */
     public function __construct($config, \VuFindTheme\ThemeInfo $theme)
@@ -82,7 +83,7 @@ class Loader extends \VuFind\ImageLoader
     }
 
     /**
-     * Set up a QR code image
+     * Set up a QR code image.
      *
      * @param string $text      The QR code text
      * @param array  $rawParams QR code parameters (level/size/margin)
@@ -110,9 +111,9 @@ class Loader extends \VuFind\ImageLoader
             // smartest way to do this, but it seems good enough for VuFind's
             // limited needs.
             $sizeIncrement = ceil(ceil(sqrt(strlen($text))) / 10);
-            if ($level instanceof ErrorCorrectionLevelHigh) {
+            if ($level == ErrorCorrectionLevel::High) {
                 $sizeIncrement *= 38;
-            } elseif ($level instanceof ErrorCorrectionLevelQuartile) {
+            } elseif ($level == ErrorCorrectionLevel::Quartile) {
                 $sizeIncrement *= 34;
             } else {
                 $sizeIncrement *= 30;
@@ -133,34 +134,34 @@ class Loader extends \VuFind\ImageLoader
      *
      * @param string $level Error correction level parameter
      *
-     * @return ErrorCorrectionLevelInterface
+     * @return ErrorCorrectionLevel
      */
-    protected function mapErrorLevel($level): ErrorCorrectionLevelInterface
+    protected function mapErrorLevel($level): ErrorCorrectionLevel
     {
         switch (strtoupper(substr($level, 0, 1))) {
-        case '3':
-        case 'H':
-            return new ErrorCorrectionLevelHigh();
-        case '2':
-        case 'Q':
-            return new ErrorCorrectionLevelQuartile();
-        case '1':
-        case 'M':
-            return new ErrorCorrectionLevelMedium();
-        case '0':
-        case 'L':
-        default:
-            return new ErrorCorrectionLevelLow();
+            case '3':
+            case 'H':
+                return ErrorCorrectionLevel::High;
+            case '2':
+            case 'Q':
+                return ErrorCorrectionLevel::Quartile;
+            case '1':
+            case 'M':
+                return ErrorCorrectionLevel::Medium;
+            case '0':
+            case 'L':
+            default:
+                return ErrorCorrectionLevel::Low;
         }
     }
 
     /**
-     * Generate a QR code image
+     * Generate a QR code image.
      *
-     * @param string                        $text   The QR code text
-     * @param int                           $size   QR code width/height (in pixels)
-     * @param int                           $margin QR code margin (in pixels)
-     * @param ErrorCorrectionLevelInterface $level  Error correction level object
+     * @param string               $text   The QR code text
+     * @param int                  $size   QR code width/height (in pixels)
+     * @param int                  $margin QR code margin (in pixels)
+     * @param ErrorCorrectionLevel $level  Error correction level object
      *
      * @return bool True if image displayed, false on failure.
      */
@@ -172,13 +173,13 @@ class Loader extends \VuFind\ImageLoader
 
         // Build the code:
         try {
-            $code = new QrCode($text);
-            $code->setMargin($margin);
-            $code->setErrorCorrectionLevel($level);
-            $code->setSize($size);
-            $code->setEncoding(new \Endroid\QrCode\Encoding\Encoding('UTF-8'));
-            $code->setRoundBlockSizeMode(
-                new \Endroid\QrCode\RoundBlockSizeMode\RoundBlockSizeModeNone()
+            $code = new QrCode(
+                data: $text,
+                margin: $margin,
+                errorCorrectionLevel: $level,
+                size: $size,
+                encoding: new \Endroid\QrCode\Encoding\Encoding('UTF-8'),
+                roundBlockSizeMode: \Endroid\QrCode\RoundBlockSizeMode::None
             );
 
             // Save the values.

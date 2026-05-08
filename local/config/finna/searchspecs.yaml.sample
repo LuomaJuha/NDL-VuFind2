@@ -342,6 +342,7 @@ AllFields:
     - description^10
     - isbn
     - issn
+    - other_issn_isn_mv
     - ismn_isn_mv
     - collection_txt_mv
     - classification_txt_mv
@@ -536,6 +537,7 @@ WorkKeys:
 description:
   DismaxFields:
     - description
+    - contents
 
 Identifier:
   DismaxFields:
@@ -554,5 +556,11 @@ Identifier:
       - [and, 100]
       - [or, ~]
     identifier:
+      - [and, 100]
+      - [or, ~]
+
+FileIdentifier:
+  QueryFields:
+    file_identifier_str_mv:
       - [and, 100]
       - [or, ~]

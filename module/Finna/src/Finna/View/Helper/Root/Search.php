@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Helper class for displaying search-related HTML chunks.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,16 +17,19 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
+
+use function count;
 
 /**
  * Helper class for displaying search-related HTML chunks.
@@ -34,12 +38,12 @@ namespace Finna\View\Helper\Root;
  * @package  View_Helpers
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-class Search extends \VuFind\View\Helper\Bootstrap3\Search
+class Search extends \VuFind\View\Helper\Bootstrap5\Search
 {
     /**
-     * Get number of active filters
+     * Get number of active filters.
      *
      * @param array $checkboxFilters Checkbox filters
      * @param array $filterList      Other filters
@@ -113,6 +117,7 @@ class Search extends \VuFind\View\Helper\Bootstrap3\Search
     {
         return '<a href="' . $url . '" title="' . $view->transEsc('spell_expand_alt')
             . '"><span class="sr-only">' . $view->transEsc('spell_expand_alt')
-            . '</span><i class="fa fa-plus-small"></i></a>';
+            . '</span>' . $view->icon('spell-expand', 'spell-expand-icon')
+            . '</a>';
     }
 }

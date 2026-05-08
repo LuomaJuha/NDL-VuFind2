@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Record loader
+ * Record loader.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2016-2019.
+ * Copyright (C) The National Library of Finland 2016-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Record
@@ -27,15 +28,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Record;
 
 use Finna\RecordDriver\Feature\ContainerFormatInterface;
 use VuFind\Exception\RecordMissing as RecordMissingException;
-use VuFindSearch\Command\SearchCommand;
 use VuFindSearch\ParamBag;
 
 /**
- * Record loader
+ * Record loader.
  *
  * @category VuFind
  * @package  Record
@@ -48,11 +49,11 @@ use VuFindSearch\ParamBag;
 class Loader extends \VuFind\Record\Loader
 {
     /**
-     * Preferred language for display strings from RecordDriver
+     * Preferred language for display strings from RecordDriver.
      *
-     * @var string
+     * @var ?string
      */
-    protected $preferredLanguage;
+    protected $preferredLanguage = null;
 
     /**
      * Record redirection rules (see config.ini::missing_record_redirect).
@@ -88,11 +89,11 @@ class Loader extends \VuFind\Record\Loader
     /**
      * Given an ID and record source, load the requested record object.
      *
-     * @param string   $id              Record ID
-     * @param string   $source          Record source
-     * @param bool     $tolerateMissing Should we load a "Missing" placeholder
+     * @param string    $id              Record ID
+     * @param string    $source          Record source
+     * @param bool      $tolerateMissing Should we load a "Missing" placeholder
      * instead of throwing an exception if the record cannot be found?
-     * @param ParamBag $params          Search backend parameters
+     * @param ?ParamBag $params          Search backend parameters
      *
      * @throws \Exception
      * @return \VuFind\RecordDriver\AbstractBase
@@ -101,7 +102,7 @@ class Loader extends \VuFind\Record\Loader
         $id,
         $source = DEFAULT_SEARCH_BACKEND,
         $tolerateMissing = false,
-        ParamBag $params = null
+        ?ParamBag $params = null
     ) {
         if ($source == 'MetaLib') {
             if ($tolerateMissing) {
@@ -115,40 +116,44 @@ class Loader extends \VuFind\Record\Loader
             );
         }
         $result = null;
-        $missingException = false;
-        try {
+        $missingException = null;
+
+        // Check for an encapsulated record ID
+        $parts = explode(
+            ContainerFormatInterface::ENCAPSULATED_RECORD_ID_SEPARATOR,
+            $id,
+            2
+        );
+        if ($id !== $parts[0]) {
+            // Encapsulated record ID separator was found.
+            // Attempt to load parent record using the first part of the ID.
+            $parentRecord = $this->load($parts[0]);
+            // If the parent record implements ContainerRecordInterface
+            // get encapsulated record.
+            if ($parentRecord instanceof ContainerFormatInterface) {
+                $result = $parentRecord->getEncapsulatedRecord($id);
+            }
+            if (null === $result) {
+                throw new RecordMissingException(
+                    'Encapsulated record ' . $source . ':' . $id . ' does not exist.'
+                );
+            }
+        } else {
             $result = parent::load($id, $source, $tolerateMissing, $params);
-        } catch (RecordMissingException $e) {
-            $missingException = $e;
         }
-        if ($source == 'Solr'
-            && ($missingException || $result instanceof \VuFind\RecordDriver\Missing)
+
+        // Check for redirect if we only got a cached record:
+        if (
+            $this->fallbackLoader
+            && $this->fallbackLoader->has($source)
+            && null !== $id
+            && '' !== $id
+            && $result?->getExtraDetail('cached_record')
         ) {
             // Check for a redirected record without overwriting $result
-            if ($redirectedRecord = $this->handleMissingSolrRecord($id)) {
-                $missingException = false;
-                $result = $redirectedRecord;
-            }
-        }
-        if ($missingException) {
-            // Check for an encapsulated record ID
-            $parts = explode(
-                ContainerFormatInterface::ENCAPSULATED_RECORD_ID_SEPARATOR,
-                $id,
-                2
-            );
-            if ($id !== $parts[0]) {
-                // Encapsulated record ID separator was found.
-                // Attempt to load parent record using the first part of the ID.
-                $parentRecord = parent::load($parts[0]);
-                // If the parent record implements ContainerRecordInterface
-                // get encapsulated record using the second part of the ID
-                if ($parentRecord instanceof ContainerFormatInterface) {
-                    $result = $parentRecord->getEncapsulatedRecord($parts[1]);
-                    if (null !== $result) {
-                        $missingException = false;
-                    }
-                }
+            if ($redirectedRecord = $this->fallbackLoader->get($source)->load((array)$id)) {
+                $missingException = null;
+                $result = reset($redirectedRecord);
             }
         }
         if ($missingException) {
@@ -168,15 +173,50 @@ class Loader extends \VuFind\Record\Loader
     }
 
     /**
+     * Given an array of associative arrays with id and source keys (or pipe-
+     * separated source|id strings), load all of the requested records in the
+     * requested order.
+     *
+     * Finna: Ignores 'sources' setting in search configuration.
+     *
+     * @param array      $ids                       Array of associative arrays with
+     * id/source keys or strings in source|id format. In associative array formats,
+     * there is also an optional "extra_fields" key which can be used to pass in data
+     * formatted as if it belongs to the Solr schema; this is used to create
+     * a mock driver object if the real data source is unavailable.
+     * @param bool       $tolerateBackendExceptions Whether to tolerate backend
+     * exceptions that may be caused by e.g. connection issues or changes in
+     * subscriptions
+     * @param ParamBag[] $params                    Associative array of search
+     * backend parameters keyed with source key
+     *
+     * @throws \Exception
+     * @return array     Array of record drivers
+     */
+    public function loadBatchIgnoringSourceFilter(
+        $ids,
+        $tolerateBackendExceptions = false,
+        $params = []
+    ) {
+        foreach (array_unique(array_column($ids, 'source')) as $source) {
+            if (!isset($params[$source])) {
+                $params[$source] = new ParamBag();
+            }
+            $params[$source]->set('finna.ignore_source_filter', 1);
+        }
+        return $this->loadBatch($ids, $tolerateBackendExceptions, $params);
+    }
+
+    /**
      * Given an array of IDs and a record source, load a batch of records for
      * that source.
      *
-     * @param array    $ids                       Record IDs
-     * @param string   $source                    Record source
-     * @param bool     $tolerateBackendExceptions Whether to tolerate backend
+     * @param array     $ids                       Record IDs
+     * @param string    $source                    Record source
+     * @param bool      $tolerateBackendExceptions Whether to tolerate backend
      * exceptions that may be caused by e.g. connection issues or changes in
-     * subcscriptions
-     * @param ParamBag $params                    Search backend parameters
+     * subscriptions
+     * @param ?ParamBag $params                    Search backend parameters
      *
      * @throws \Exception
      * @return array
@@ -185,7 +225,7 @@ class Loader extends \VuFind\Record\Loader
         $ids,
         $source = DEFAULT_SEARCH_BACKEND,
         $tolerateBackendExceptions = false,
-        ParamBag $params = null
+        ?ParamBag $params = null
     ) {
         if ('MetaLib' === $source) {
             $result = [];
@@ -198,138 +238,11 @@ class Loader extends \VuFind\Record\Loader
             return $result;
         }
 
-        $records = parent::loadBatchForSource(
+        return parent::loadBatchForSource(
             $ids,
             $source,
-            $tolerateBackendExceptions
-        );
-
-        // Check the results for missing MetaLib IRD records and try to load them
-        // with their old MetaLib IDs
-        foreach ($records as &$record) {
-            if ($record instanceof \VuFind\RecordDriver\Missing
-                && $record->getSourceIdentifier() == 'Solr'
-            ) {
-                $id = $record->getUniqueID();
-                if ($newRecord = $this->handleMissingSolrRecord($id)) {
-                    $record = $newRecord;
-                }
-            }
-        }
-
-        return $records;
-    }
-
-    /**
-     * Handle missing Solr record by trying to find the record using alternative ID.
-     *
-     * @param string $id Record ID
-     *
-     * @return \VuFind\RecordDriver\AbstractBase|null Record or null if not found
-     */
-    protected function handleMissingSolrRecord($id)
-    {
-        if (preg_match('/\.(FIN\d+)/', $id, $matches)) {
-            // Probably an old MetaLib record ID. Try to find the record using
-            // its old MetaLib ID
-            if ($mlRecord = $this->loadMetaLibRecord($matches[1])) {
-                return $mlRecord;
-            }
-        } elseif (preg_match('/^musketti\..+?:(.+)/', $id, $matches)) {
-            // Old musketti record. Try to find the new record using the
-            // inventory number.
-            $newRecord
-                = $this->loadRecordWithIdentifier($matches[1], 'museovirasto');
-            if ($newRecord) {
-                return $newRecord;
-            }
-        } elseif ($this->recordRedirectionRules) {
-            foreach ($this->recordRedirectionRules as $rule) {
-                $data = array_map('trim', explode('###', $rule, 4));
-                if (count($data) >= 3) {
-                    [$pattern, $replacement, $newDatasource] = $data;
-                    $field = $data[3] ?? 'ctrlnum';
-                    $otherId = preg_replace($pattern, $replacement, $id, -1, $count);
-                    if ($count && $otherId) {
-                        // Try to find the new record by searching for the redirected
-                        // ID in in ctrlnum field (possibly with prefix).
-                        $newRecord = $this->loadRecordWithIdentifier(
-                            $otherId,
-                            $newDatasource,
-                            $field
-                        );
-                        if ($newRecord) {
-                            $newRecord->setExtraDetail('redirectedFromId', $id);
-                            return $newRecord;
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Try to load a record using its old MetaLib ID
-     *
-     * @param string $id Record ID (e.g. FIN12345)
-     *
-     * @return \VuFind\RecordDriver\AbstractBase|bool Record or false if not found
-     */
-    protected function loadMetalibRecord($id)
-    {
-        $safeId = addcslashes($id, '"');
-        $query = new \VuFindSearch\Query\Query(
-            'original_id_str_mv:"' . $safeId . '"'
-        );
-        $params = new \VuFindSearch\ParamBag(
-            ['hl' => 'false', 'spellcheck' => 'false']
-        );
-        $command = new SearchCommand(
-            'Solr',
-            $query,
-            0,
-            1,
+            $tolerateBackendExceptions,
             $params
         );
-        $results = $this->searchService->invoke($command)->getResult()
-            ->getRecords();
-        return !empty($results) ? $results[0] : false;
-    }
-
-    /**
-     * Try to load a record using its identifier field
-     *
-     * @param string $identifier Identifier (e.g. SUK77:2)
-     * @param string $dataSource Optional data source filter
-     * @param string $field      Index field to search from.
-     *
-     * @return \VuFind\RecordDriver\AbstractBase|bool Record or false if not found
-     */
-    protected function loadRecordWithIdentifier(
-        $identifier,
-        $dataSource = null,
-        $field = 'identifier'
-    ) {
-        $safeIdentifier = addcslashes($identifier, '"');
-        $queryStr = $field . ':"' . $safeIdentifier . '"';
-        if (null !== $dataSource) {
-            $queryStr .= ' AND datasource_str_mv:"' . addcslashes($dataSource, '"')
-                . '"';
-        }
-        $query = new \VuFindSearch\Query\Query($queryStr);
-        $params = new \VuFindSearch\ParamBag(
-            ['hl' => 'false', 'spellcheck' => 'false']
-        );
-        $command = new SearchCommand(
-            'Solr',
-            $query,
-            0,
-            1,
-            $params
-        );
-        $results = $this->searchService->invoke($command)->getResult()
-            ->getRecords();
-        return !empty($results) ? $results[0] : false;
     }
 }

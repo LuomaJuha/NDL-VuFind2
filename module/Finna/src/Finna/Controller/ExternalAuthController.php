@@ -1,8 +1,9 @@
 <?php
+
 /**
- * External Authentication/Authorization Controller
+ * External Authentication/Authorization Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace Finna\Controller;
 
 use Laminas\ServiceManager\ServiceLocatorInterface;
+use VuFind\Db\Entity\UserEntityInterface;
 
 /**
- * External Authentication/Authorization Controller
+ * External Authentication/Authorization Controller.
  *
  * Provides authorization support for external systems, e.g. EZproxy
  *
@@ -43,7 +46,7 @@ use Laminas\ServiceManager\ServiceLocatorInterface;
 class ExternalAuthController extends \VuFind\Controller\ExternalAuthController
 {
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm Service locator
      */
@@ -55,17 +58,17 @@ class ExternalAuthController extends \VuFind\Controller\ExternalAuthController
     }
 
     /**
-     * Get the user object if logged in, false otherwise.
+     * Get the user object if logged in, null otherwise.
      *
-     * @return object|bool
+     * @return ?UserEntityInterface
      */
-    protected function getUser()
+    protected function getUser(): ?UserEntityInterface
     {
         $user = parent::getUser();
         if ($user) {
-            $parts = explode(':', $user->username, 2);
+            $parts = explode(':', $user->getUsername(), 2);
             if (isset($parts[1])) {
-                $user->username = $parts[1];
+                $user->setUsername($parts[1]);
             }
         }
         return $user;

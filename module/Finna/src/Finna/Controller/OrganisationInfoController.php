@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Organisation info page controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2023.
  *
@@ -26,6 +27,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Controller;
 
 /**
@@ -43,17 +45,18 @@ class OrganisationInfoController extends \VuFind\Controller\AbstractBase
     use Feature\DownloadTrait;
 
     /**
-     * Default action if none provided
+     * Default action if none provided.
      *
      * @return Laminas\View\Model\ViewModel
      */
     public function homeAction()
     {
         $config = $this->serviceLocator
-            ->get(\VuFind\Config\PluginManager::class)->get('OrganisationInfo');
+            ->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('OrganisationInfo');
 
         $id = $this->params()->fromQuery('id');
         $buildings = $this->params()->fromQuery('buildings');
+        $sectors = (array)$this->params()->fromQuery('sector', []);
 
         if (!$id) {
             if (!isset($config->General->defaultOrganisation)) {
@@ -82,45 +85,18 @@ class OrganisationInfoController extends \VuFind\Controller\AbstractBase
 
         $consortiumInfo = $config->OrganisationPage->consortiumInfo ?? false;
 
-        $title = $config->OrganisationPage->title ?? 'organisation_info_page_title';
-
-        $title = str_replace(
-            '%%organisation%%',
-            $organisation,
-            $this->translate($title)
+        $title = $this->translate(
+            $config->OrganisationPage->title ?? 'organisation_info_page_title',
+            ['%%organisation%%' => $organisation]
         );
 
-        $facetConfig = $this->serviceLocator
-            ->get(\VuFind\Config\PluginManager::class)->get('facets');
-
-        $buildingOperator = '';
-        if (isset($facetConfig->Results_Settings->orFacets)) {
-            $orFacets = array_map(
-                'trim',
-                explode(',', $facetConfig->Results_Settings->orFacets)
-            );
-            if (!empty($orFacets[0])
-                && ($orFacets[0] == '*' || in_array('building', $orFacets))
-            ) {
-                $buildingOperator = '~';
-            }
-        }
-
-        $view = $this->createViewModel();
-
-        $view->title = $title;
-        $view->id = $id;
-        if ($buildings) {
-            $view->buildings = implode(',', $buildings);
-        }
-        $view->buildingFacetOperator = $buildingOperator;
-        $view->consortiumInfo = $consortiumInfo;
-
-        return $view;
+        return $this->createViewModel(
+            compact('title', 'id', 'buildings', 'consortiumInfo', 'sectors')
+        );
     }
 
     /**
-     * Proxy load image
+     * Proxy load image.
      *
      * @return Laminas\View\Model\ViewModel
      */
@@ -135,7 +111,7 @@ class OrganisationInfoController extends \VuFind\Controller\AbstractBase
         $valid = false;
         $imageHost = mb_strtolower(parse_url($imageUrl, PHP_URL_HOST), 'UTF-8');
         $config = $this->serviceLocator
-            ->get(\VuFind\Config\PluginManager::class)->get('OrganisationInfo');
+            ->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigArray('OrganisationInfo');
         foreach ($config['Images']['allowed_hosts'] ?? [] as $host) {
             if ($imageHost === $host) {
                 $valid = true;
@@ -146,7 +122,8 @@ class OrganisationInfoController extends \VuFind\Controller\AbstractBase
             return $this->notFoundAction();
         }
 
-        if (!($imageResult = $this->downloadData($imageUrl))
+        if (
+            !($imageResult = $this->downloadData($imageUrl))
             || !$this->isImageContentType($imageResult['contentType'])
         ) {
             return $this->notFoundAction();

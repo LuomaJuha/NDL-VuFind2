@@ -1,0 +1,147 @@
+.result.compact-list-view,
+.result.condensed-list-view {
+    padding-top: 0.4em;
+    padding-bottom: 0.4em;
+    padding-left: 2em;
+    margin-bottom: 0.2em;
+    transition: background .1s linear;
+    .icon {
+        margin-right: 0.2rem;
+    }
+}
+
+.result.condensed-list-view {
+    background: $gray-ultralight;
+    .condensed-expand,
+    .condensed-collapse {
+        margin-left: -1.2em;
+        font-size: 1.2em;
+        line-height: 1em;
+        color: $gray-light;
+    }
+    .condensed-expand {
+        display: inline-block;
+    }
+    .condensed-collapse {
+        display: none;
+    }
+    &.open {
+        background: $body-bg;
+        .condensed-collapse {
+            display: inline-block;
+        }
+        .condensed-expand {
+            display: none;
+        }
+    }
+    .record-checkbox {
+        position: relative;
+        top: 40px;
+        left: -21px;
+        display: inline-block;
+    }
+    .condensed-collapse-toggle {
+        display: flex;
+        flex-flow: wrap;
+        &:hover {
+            cursor: pointer;
+        }
+        a:hover {
+            background: transparent;
+        }
+        .condensed-body,
+        .condensed-links,
+        .condensed-col-title,
+        .condensed-col-link {
+            width: 50%;
+        }
+        .condensed-col-hierarchy {
+            width: 25%;
+            .hierarchyTreeLink {
+                margin-top: 0px;
+            }
+        }
+        h2.title {
+            display: inline;
+            font-size: 1.25em;
+        }
+        .resultItemFormat {
+            display: inline;
+            margin-left: 0px;
+        }
+        .resultOtherLinks {
+            @include date-and-year();
+        }
+        .available-online-links {
+            margin-top: 0px;
+            strong {
+                display: none;
+            }
+        }
+
+    }
+    .condensed-collapse-data {
+        display: none;
+        padding: 0.8em 0em;
+        margin-top: 0px;
+        .resultClassification {
+            margin-bottom: 0.8em;
+        }
+        .holding-details {
+            margin-top: 0px;
+        }
+        .summary {
+            line-height: 1.4em;
+        }
+        .table-condensed tbody > tr > th {
+            width: 150px;
+        }
+        .media-left {
+            width: 40%;
+            min-width: 120px;
+        }
+    }
+}
+@include media-breakpoint-down(sm) {
+    .result.condensed-list-view {
+        .condensed-collapse-toggle {
+            .condensed-body,
+            .condensed-links,
+            .condensed-col-title,
+            .condensed-col-hierarchy {
+                width: 100%;
+            }
+        }
+    }
+}
+@include media-breakpoint-up(sm) {
+    .result.condensed-list-view {
+        .condensed-collapse-data {
+            .media-body {
+                width: 10000px;
+            }
+            .result-database {
+                display: flex;
+                .database-subject {
+                    min-width: 200px;
+                    padding-left: 15px;
+                }
+            }
+        }
+    }
+}
+@include media-breakpoint-up(md) {
+    .result.condensed-list-view {
+        .condensed-collapse-toggle {
+            .condensed-col-link {
+                width: 25%;
+            }
+        }
+        .condensed-collapse-data {
+            .media-left {
+                width: 25%;
+                min-width: 100px;
+            }
+        }
+    }  
+}

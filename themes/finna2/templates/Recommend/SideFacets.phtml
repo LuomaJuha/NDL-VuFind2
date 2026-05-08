@@ -1,23 +1,31 @@
 <!-- START of: finna - Recommend/SideFacets.phtml -->
 <?php
-  $this->headScript()->appendFile('facets.js');
+  $this->assetManager()->appendScriptLink('facets.js');
 
   // Save results/options to $this so they are available to sub-templates:
   $this->results = $results = $this->recommend->getResults();
   $this->options = $options = $results->getOptions();
 
-  $language = $this->layout()->userLang;
-  $datePickerLang = 'en';
-  $datepickerLanguages = ['en-gb' => 'en-GB', 'fi' => 'fi', 'sv' => 'sv'];
-  if (isset($datepickerLanguages[$language])) {
-    $datePickerLang = $datepickerLanguages[$language];
-  }
-
   $resultsTotal = $results->getResultTotal();
 ?>
 <?php if ($resultsTotal > 0): ?>
-  <h2><?=$this->transEsc($this->slot('side-facet-caption')->get('Narrow Search')) ?><?php if (null === $this->slot('side-facet-caption')->get() && !$this->translationEmpty('tooltip_facet_html')): ?><span class="tooltip-facet pull-right" data-toggle="tooltip" data-placement="auto" data-html="true" data-original-title="<?=$this->transEsc('tooltip_facet_html')?>"><i class="fa fa-info-big" aria-hidden="true"></i></span><?php endif; ?><span role="button" class="visible-xs sidebar-close-btn" aria-label="<?=$this->transEsc('close')?>"><i class="fa fa-lg fa-times icon-close" aria-hidden="true"></i></span></h2>
-  <span class="sr-only"><?=$this->transEscAttr('page_reload_on_select_hint') ?></span>
+  <div class="mobile-sidebar-container">
+    <div class="mobile-navigation-header-container">
+      <h1><?=$this->transEsc($this->slot('side-facet-caption')->get('Narrow Search')) ?></h1>
+      <?php if (null === $this->slot('side-facet-caption')->get() && !$this->translationEmpty('tooltip_facet_html')): ?>
+        <?=$this->component(
+          'finna-toggletip',
+          [
+            'icon' => 'help',
+            'aria-label' => $this->translate('Help'),
+            'contentHtml' => $this->translate('tooltip_facet_html'),
+          ]
+        );
+        ?>
+      <?php endif; ?>
+      <button class="visible-xs sidebar-close-btn" aria-label="<?=$this->transEsc('close')?>"><?=$this->icon('sidefacets-close', 'sidefacets-close-icon') ?></button>
+      <span class="visually-hidden"><?=$this->transEsc('page_reload_on_select_hint') ?></span>
+    </div>
 <?php endif; ?>
 <?php $checkboxFilters = $results->getParams()->getCheckboxFacets(); ?>
 <?php $checkboxesShown = false; ?>
@@ -30,39 +38,28 @@
     }
   ?>
   <?php if ($checkboxesShown): ?>
-    <fieldset>
-      <legend class="sr-only"><?=$this->transEsc('checkbox_filter')?></legend>
-      <div class="checkboxFilter">
+    <div class="checkbox-filters">
+      <fieldset>
+        <legend class="visually-hidden"><?=$this->transEsc('checkbox_filter')?></legend>
         <?=$this->context($this)->renderInContext('Recommend/SideFacets/checkbox-filters.phtml', ['checkboxFilters' => $checkboxFilters, 'results' => $results]); ?>
-      </div>
-    </fieldset>
+      </fieldset>
+    </div>
   <?php endif; ?>
 <?php endif; ?>
-<?php $extraFilters = $this->extraSideFacetFilters ?? []; ?>
-<?php $collapsedFacets = $this->recommend->getCollapsedFacets(); ?>
-<?php $hierarchicalFacetSortOptions = $this->recommend->getHierarchicalFacetSortOptions(); ?>
-<?php $hierarchicalFacets = $this->recommend->getHierarchicalFacets(); ?>
-<?php $filterList = array_merge($results->getParams()->getFilterList(true), $extraFilters); ?>
-<?php $module = $this->layout()->templateDir; ?>
 <?php
+  $extraFilters = $this->extraSideFacetFilters ?? [];
+  $collapsedFacets = $this->recommend->getCollapsedFacets();
+  $filterList = array_merge($results->getParams()->getFilterList(true), $extraFilters);
   $plotFrom = null;
   $daterangeFacetField = null;
-  if (null === $module || in_array($module, ['search', 'primo', 'r2search'])) {
-    $options = $results->getOptions();
-    if (is_callable([$options, 'getDateRangeSearchField'])) {
-      $daterangeFacetField = $options->getDateRangeSearchField();
-    }
-    if (is_callable([$params, 'getDateRangeFilter'])) {
-      $dateRangeFilter = $params->getDateRangeFilter();
+  if (is_callable([$options, 'getDateRangeSearchField'])) {
+    $daterangeFacetField = $options->getDateRangeSearchField();
+  }
+  if ($this->fromStreetSearch) {
+    if (($key = array_search('geographic_facet', $collapsedFacets)) !== false) {
+      unset($collapsedFacets[$key]);
     }
   }
-?>
-<?php
-if ($this->fromStreetSearch) {
-  if (($key = array_search('geographic_facet', $collapsedFacets)) !== false) {
-    unset($collapsedFacets[$key]);
-  }
-}
 ?>
 <?=$this->sideFacetExtraControls ?? '' ?>
 <?php $sideFacetSet = $this->recommend->getFacetSet(); ?>
@@ -76,8 +73,12 @@ if ($this->fromStreetSearch) {
       $dataTarget = 'side-collapse-' . $escTitle;
     ?>
     <div class="list-group facets<?= $daterangeFacet ? ' daterange-facet' : '' ?> facet-group" id="side-panel-<?=$escTitle?>">
-      <button class="list-group-item title<?= $isCollapsed ? ' collapsed': '' ?>" data-toggle="collapse" data-target="#<?=$dataTarget?>" aria-controls="<?=$dataTarget?>" aria-expanded="<?= !$isCollapsed ? 'true' : 'false';?>"><?=$this->transEsc($cluster['label'])?></button>
-      <div id="<?=$dataTarget?>" class="collapse<?= !$isCollapsed ? ' in' : '' ?>" data-facet="<?=$escTitle?>" aria-expanded="<?= !$isCollapsed ? 'true' : 'false';?>">
+      <button class="list-group-item title<?= $isCollapsed ? ' collapsed' : '' ?>" data-bs-toggle="collapse" data-bs-target="#<?=$dataTarget?>" aria-controls="<?=$dataTarget?>" aria-expanded="<?= !$isCollapsed ? 'true' : 'false';?>">
+        <span class="facet-title"><?=$this->transEsc($cluster['label'])?></span>
+        <?=$this->icon('collapse', 'facet-title-icon') ?>
+      </button>
+      <div id="facet-title-<?=$dataTarget?>" class="visually-hidden" aria-hidden="true"><?=$this->transEsc($cluster['label'])?></div>
+      <div id="<?=$dataTarget?>" aria-labelledby="facet-title-<?=$dataTarget?>" role="group" class="collapse<?= !$isCollapsed ? ' show' : '' ?>" data-facet="<?=$escTitle?>" aria-expanded="<?= !$isCollapsed ? 'true' : 'false';?>">
         <?=
           $this->context($this)->renderInContext(
               'Recommend/SideFacets/facet.phtml',
@@ -85,12 +86,15 @@ if ($this->fromStreetSearch) {
                   'facet' => $title,
                   'cluster' => $cluster,
                   'collapsedFacets' => $collapsedFacets,
-                  'datePickerLang' => $datePickerLang
+                  'plotImmediately' => false,
               ]
           )?>
       </div>
     </div>
   <?php endforeach; ?>
 <?php endif; ?>
-<?=$this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, "registerSideFacetTruncation();", 'SET');?>
+<?php if ($resultsTotal > 0): ?>
+  </div>
+<?php endif; ?>
+<?=$this->assetManager()->outputInlineScriptString('registerSideFacetTruncation();');?>
 <!-- END of: finna - Recommend/SideFacets.phtml -->

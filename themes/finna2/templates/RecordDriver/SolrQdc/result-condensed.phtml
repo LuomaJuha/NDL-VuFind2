@@ -1,5 +1,6 @@
 <!-- START of: finna - RecordDriver/SolrQdc/result-condensed.phtml -->
 <?php
+  $recordLinker = $this->recordLinker($this->results);
   $img = $this->recordImage($this->record($this->driver));
   $thumbnail = false;
   $thumbnailAlignment = $this->record($this->driver)->getThumbnailAlignment('result');
@@ -9,13 +10,13 @@
     <?php $thumbnail = ob_get_contents(); ?>
   <?php ob_end_clean(); ?>
 <?php endif;?>
-<div class="record-container<?=$this->driver->supportsAjaxStatus()?' ajaxItem ':''?> list-view" id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>">
+<div class="record-container list-view <?=$this->record($this->driver)->getContainerJsClasses()?>" id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>">
   <div class="condensed-collapse-toggle">
     <div class="condensed-body">
-      <i class="fa fa-arrow-right"></i>
+      <?=$this->icon('condensed-expand', 'condensed-expand') ?><?=$this->icon('condensed-collapse', 'condensed-collapse') ?>
       <h2 class="title">
-        <a class="title" href="<?=$this->escapeHtmlAttr($this->recordLinker()->getUrl($this->driver))?>">
-          <?=$this->record($this->driver)->getTitleHtml()?><span class="sr-only"> <?=$this->transEsc('To the record')?></span>
+        <a class="title" href="<?=$this->escapeHtmlAttr($recordLinker->getUrl($this->driver))?>" title="<?=$this->escapeHtmlAttr($this->driver->getTitle())?>">
+          <?=$this->record($this->driver)->getTitleHtml()?><span class="visually-hidden"> <?=$this->transEsc('To the record')?></span>
         </a>
       </h2>
       <?php if ($otherTitles = $this->driver->tryMethod('getAlternativeTitles')): ?>
@@ -44,14 +45,16 @@
               <?php endif; ?>
             <?php endforeach; ?>
           <?php endif; ?>
-          <?php if($this->driver->isCollection()): ?>
+          <?php if ($this->driver->isCollection()): ?>
             <?=implode('<br>', $this->driver->getSummary()); ?>
           <?php else: ?>
-            <?php $summAuthor = $this->driver->getPrimaryAuthor(); if (!empty($summAuthor)): ?>
+            <?php $summAuthor = $this->driver->getPrimaryAuthor();
+            if (!empty($summAuthor)): ?>
               <?php $authorForSearch = $this->driver->tryMethod('getPrimaryAuthorForSearch'); ?>
               <a href="<?=$this->record($this->driver)->getLink('author', $authorForSearch ? $authorForSearch : $summAuthor)?>"><?=$this->escapeHtml($summAuthor) ?></a>
             <?php else: ?>
-              <?php $authors = $this->driver->tryMethod('getNonPresenterAuthors'); if (!empty($authors)): ?>
+              <?php $authors = $this->driver->tryMethod('getNonPresenterAuthors');
+              if (!empty($authors)): ?>
               <div class="truncate-field" data-rows="2">
                 <?php foreach ($authors as $i => $author): ?>
                   <?=$i > 0 ? ' ; ' : '' ?>
@@ -62,7 +65,8 @@
               </div>
               <?php endif; ?>
             <?php endif; ?>
-            <?php $journalTitle = $this->driver->getContainerTitle(); $summDate = $this->driver->getPublicationDates(); ?>
+            <?php $journalTitle = $this->driver->getContainerTitle();
+            $summDate = $this->driver->getPublicationDateRange(); ?>
             <?php if (!empty($journalTitle)): ?>
               <?=!empty($summAuthor) ? '' : ' '?>
               <?php
@@ -71,7 +75,7 @@
                 $parentLink = false;
                 if ($parentId) {
                   try {
-                    $parentLink = $this->escapeHtmlAttr($this->recordLinker()->getUrl("$parentSource|{$parentId[0]}"));
+                    $parentLink = $this->escapeHtmlAttr($recordLinker->getUrl("$parentSource|{$parentId[0]}"));
                   } catch (Exception $e) {
                     // Probably parent record doesn't exist, fall back to linking by title
                   }
@@ -81,14 +85,15 @@
                 }
               ?>
               <?=/* TODO: handle highlighting more elegantly here */ $this->transEsc('Published in') . ' <a href="' . $parentLink . '">' . $this->highlight($journalTitle) . '</a>';?>
-              <?php $ref = $this->driver->getContainerReference(); if (!empty($ref)): ?>
+              <?php $ref = $this->driver->getContainerReference();
+              if (!empty($ref)): ?>
                 <?=$this->escapeHtml($ref); ?>
               <?php else: ?>
-                <?=!empty($summDate) ? ' (' . $this->escapeHtml($summDate[0]) . ')' : ''?>
+                <?=!empty($summDate) ? ' (' . implode('&ndash;', array_map($this->escapeHtml, $summDate)) . ')' : ''?>
               <?php endif; ?>
             <?php elseif (!empty($summDate)): ?>
               <?=!empty($summAuthor) ? '' : ' '?>
-              <span class="publish-year"><?=$this->escapeHtml($summDate[0])?></span>
+              <span class="publish-year"><?=implode('&ndash;', array_map($this->escapeHtml, $summDate));?></span>
             <?php endif; ?>
         </div>
       </div>
@@ -96,11 +101,11 @@
       <?=$this->record($this->driver)->getOnlineUrls('results')?>
       <?=$this->record($this->driver)->getPreviews()?>
       <?php /*** TODO how to show if this database usage needs authorizing
-              <? if  ($database == 'true') && ($authorize == 'true') :?>
+      <?php if  ($database == 'true') && ($authorize == 'true') :?>
         <span class="authorize">
-          <i class="fa fa-lock"></i>
+          <?=$this->icon('authorize') ?>
         </span>
-      <? endif; ?>
+      <?php endif; ?>
       ***/ ?>
     </div>
     <div class="condensed-notes">
@@ -111,14 +116,15 @@
   <div class="media condensed-collapse-data">
     <?php if ($thumbnail && $thumbnailAlignment == 'left'): ?>
       <div class="media-left resultThumb">
-        <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueID())?>" class="hiddenId" />
-        <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenSource" />
+        <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueID())?>" class="hiddenId">
+        <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenSource">
           <?=$thumbnail ?>
       </div>
     <?php endif; ?>
     <div class="media-body">
       <div class="result-body">
-        <?php $classifications = $this->driver->tryMethod('getClassifications'); if (!empty($classifications)): ?>
+        <?php $classifications = $this->driver->tryMethod('getClassifications');
+        if (!empty($classifications)): ?>
           <div class="resultClassification">
             <?=$this->transEsc('Classification') ?>:
             <?php
@@ -143,10 +149,11 @@
           </div>
         <?php endif; ?>
 
-        <?php $summInCollection = $this->driver->getContainingCollections(); if (!empty($summInCollection)): ?>
+        <?php $summInCollection = $this->driver->getContainingCollections();
+        if (!empty($summInCollection)): ?>
           <?php foreach ($summInCollection as $collId => $collText): ?>
             <div>
-              <b><?=$this->transEsc("in_collection_label")?></b>
+              <b><?=$this->transEsc('in_collection_label')?></b>
               <a class="collectionLinkText" href="<?=$this->url('collection', ['id' => $collId])?>?recordID=<?=urlencode($this->driver->getUniqueID())?>">
                 <?=$this->escapeHtml($collText)?>
               </a>
@@ -165,7 +172,8 @@
             </p>
           </div>
         <?php else: ?>
-           <?php $summary = $this->driver->getSummary(); $summary = isset($summary[0]) ? $this->escapeHtml($summary[0]) : false; ?>
+           <?php $summary = $this->driver->getSummary();
+           $summary = isset($summary[0]) ? $this->escapeHtml($summary[0]) : false; ?>
            <?php if ($summary): ?>
            <div class="truncate-field wide">
               <p class="summary"><?=$summary ?></p>
@@ -176,55 +184,43 @@
         <?php if ($this->userlist()->getMode() !== 'disabled'): ?>
         </div>
         <div class="hidden-print add-to-favorite-col">
-            <?php /* Display qrcode if appropriate: */ ?>
-            <?php if ($QRCode = $this->record($this->driver)->getQRCode("results")): ?>
-                <?php
-                // Add JS Variables for QrCode
-                $this->jsTranslations()->addStrings(['qrcode_hide' => 'qrcode_hide', 'qrcode_show' => 'qrcode_show']);
-                ?>
-              <div class="hidden-xs">
-                <a href="<?=$this->escapeHtmlAttr($QRCode);?>" class="finnaQrcodeLink" title="<?=$this->transEsc('qrcode_show')?>" rel="nofollow">
-                  <i class="fa fa-qr-code" aria-hidden="true"><span class="sr-only"><?=$this->transEsc('QR Code')?></span></i>
-                </a>
-                <div class="qrcode hidden">
-                  <script type="text/template" class="qrCodeImgTag">
-                    <img alt="" src="<?=$this->escapeHtmlAttr($QRCode);?>"/>
-                  </script>
-                </div><br/>
-              </div>
-            <?php endif; ?>
+          <?php
+            // Display qrcode if appropriate:
+            echo $this->record($this->driver)->renderTemplate('result-qrcode.phtml', ['driver' => $this->driver]);
+          ?>
 
             <?php if ($this->userlist()->getMode() !== 'disabled'): ?>
                 <?php /* Add to favorites */ ?>
-              <a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getActionUrl($this->driver, 'Save'))?>" class="save-record" data-lightbox data-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>" title="<?=$this->transEsc('Add to favorites')?>" rel="nofollow"><i class="fa fa-heart"></i> <span class="hidden-sm hidden-md hidden-lg"><?=$this->transEsc('Add to favorites')?></span> <span class="sr-only hidden-xs"><?=$this->transEsc('Add to favorites')?></span></a>
+              <a href="<?=$this->escapeHtmlAttr($recordLinker->getActionUrl($this->driver, 'Save'))?>" class="save-record" role="button" data-lightbox data-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>" title="<?=$this->transEsc('Add to favorites')?>" rel="nofollow"><?=$this->icon('favorite') ?> <span class="hidden-sm hidden-md hidden-lg"><?=$this->transEsc('Add to favorites')?></span> <span class="visually-hidden hidden-xs"><?=$this->transEsc('Add to favorites')?></span></a>
             <?php endif; ?>
             <?php /* Hierarchy tree link */ ?>
-            <?php $trees = $this->driver->tryMethod('getHierarchyTrees'); if (!empty($trees)): ?>
+            <?php $trees = $this->driver->tryMethod('getHierarchyTrees');
+            if (!empty($trees)): ?>
                 <?php foreach ($trees as $hierarchyID => $hierarchyTitle): ?>
                 <div class="hierarchyTreeLink">
-                  <input type="hidden" value="<?=$this->escapeHtmlAttr($hierarchyID)?>" class="hiddenHierarchyId" />
-                  <i class="fa fa-sitemap"></i>
-                  <a class="hierarchyTreeLinkText" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, 'HierarchyTree', ['hierarchy' => $hierarchyID]))?>#tabnav" title="<?=$this->transEsc('hierarchy_tree')?>" data-lightbox-href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, 'AjaxTab', ['hierarchy' => $hierarchyID]))?>" data-lightbox-post="tab=hierarchytree">
+                  <input type="hidden" value="<?=$this->escapeHtmlAttr($hierarchyID)?>" class="hiddenHierarchyId">
+                  <?=$this->icon('hierarchy-tree') ?>
+                  <a class="hierarchyTreeLinkText" role="button" data-lightbox href="<?=$this->escapeHtmlAttr($recordLinker->getTabUrl($this->driver, 'HierarchyTree', ['hierarchy' => $hierarchyID]))?>#tabnav" title="<?=$this->transEsc('hierarchy_tree')?>" data-lightbox-href="<?=$this->escapeHtmlAttr($recordLinker->getTabUrl($this->driver, 'AjaxTab', ['hierarchy' => $hierarchyID]))?>" data-lightbox-post="tab=hierarchytree">
                       <?=$this->transEsc('hierarchy_view_context')?><?php if (count($trees) > 1): ?>: <?=$this->escapeHtml($hierarchyTitle)?><?php endif; ?>
                   </a>
                 </div>
                 <?php endforeach; ?>
             <?php endif; ?>
 
-            <?=$this->driver->supportsCoinsOpenUrl()?'<span class="Z3988" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenUrl()) . '"></span>':''?>
+            <?=$this->driver->supportsCoinsOpenUrl() ? '<span class="Z3988" aria-hidden="true" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenUrl()) . '"></span>' : ''?>
         </div>
 
         <?php /* Saved lists */ ?>
         <div class="savedLists">
-          <strong><?=$this->transEsc("Saved in")?>:</strong>
+          <strong><?=$this->transEsc('Saved in')?>:</strong>
         </div>
         <?php endif; ?>
       </div>
     </div>
     <?php if ($thumbnail && $thumbnailAlignment === 'right'): ?>
     <div class="media-right resultThumb">
-      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueID())?>" class="hiddenId" />
-      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenSource" />
+      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueID())?>" class="hiddenId">
+      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenSource">
         <?=$thumbnail ?>
     </div>
     <?php endif; ?>

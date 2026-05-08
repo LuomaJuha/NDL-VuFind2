@@ -1,0 +1,180 @@
+/* ------ Ranges ------ */
+.facet-range-form {
+  width: 100%;
+}
+
+.slider-container {
+    margin: 1rem 0rem;
+    .noUi-base,
+    .noUi-handle {
+        cursor: pointer;
+    }
+    .noUi-base .noUi-handle:hover {
+        background: darken($btn-primary-bg, 5%);
+    }
+}
+
+.main.template-dir-search.template-name-home,
+.sidebar {
+    .list-group .list-group-item.daterange {
+        padding: 0.2em 0.7em;
+        background-color: $gray-ultralight;
+        .daterange-vis,
+        > form {
+            padding-top: 0.3em;
+        }
+        .year-range {
+            float: left;
+            margin-bottom: 0.7em;
+            .year-separator,
+            .spacer {
+                color: $gray;
+            }
+            input[type=number] {
+                width: 48px;
+            }
+        }
+        .submit {
+            padding: 0.5em 0.6em;
+            margin-top: 0px;
+            margin-left: 1.1em;
+            font-size: 1em;
+            background-color: $btn-primary-bg;
+            .icon {
+                margin-right: 0.3em;
+            }
+        }
+    }
+}
+
+.main.template-dir-search.template-name-home,
+.sidebar {
+    .daterange-facet .daterange-vis {
+        .content {
+            position: relative;
+            height: 114px;
+            clear: both;
+            border-radius: 5px 5px 5px 5px;
+            .date-vis {
+                width: 100%;
+                height: 110px;
+                cursor: crosshair;
+                background: $body-bg;
+            }
+            .icon--spin {
+                position: relative;
+                top: -60px;
+                left: 45%;
+                display: none;
+            }
+            &.loading .icon--spin {
+                display: inline-block;
+            }
+        }
+        .navigation {
+            display: inline-block;
+            width: 100%;
+            padding-top: 0.5em;
+            padding-left: 1%;
+            margin-top: -4px;
+            color: $link-color;
+            background: $body-bg;
+            .zoom-out,
+            .zoom-in,
+            .prev,
+            .next {
+                float: left;
+                font-size: 1.1em;
+            }
+            .zoom-in {
+                margin-right: 0.2em;
+                margin-left: 0.3em;
+            }
+            .zoom-out {
+                margin-right: 0.3em;
+            }
+            .expand-modal {
+                float: right;
+                margin-top: 0.4em;
+                margin-right: 0.8em;
+                font-size: 0.8em;
+            }
+            .icon {
+                font-size: 1.5em;
+                cursor: pointer;
+            }
+        }
+        .range-type {
+            margin: 0.4em 0em;
+            clear: both;
+            label {
+                display: inline;
+            }
+        }
+    }
+    .list-group-item:not(.title).daterange.expand {
+        transition: box .3s linear;
+    }
+    &.sidebar-on-left {
+        .list-group-item:not(.title).daterange.expand {
+            margin-left: 0px;
+        }
+    }
+}
+@include media-breakpoint-only(sm) {
+    .main.template-dir-search.template-name-home,
+    .sidebar {
+        .list-group-item:not(.title).daterange.expand {
+            width: 720px;
+            margin-left: -562px;
+        }
+        .daterange-facet {
+            .daterange-vis button {
+                margin-left: 0px;
+            }
+        }
+    }
+}
+@include media-breakpoint-down(sm) {
+    .main.template-dir-search.template-name-home,
+    .sidebar {
+        .daterange-facet .daterange-vis .navigation {
+            .expand-modal {
+                display: none;
+            }
+        }
+    }
+}
+@include media-breakpoint-up(sm) {
+    .main.template-dir-search.template-name-home,
+    .sidebar {
+        .list-group .list-group-item.daterange.expand {
+            z-index: $zindex-popover;
+            padding: 10px;
+            box-shadow: -4px 0px 13px -5px #000;
+        }
+        &.sidebar-on-left {
+            .list-group .list-group-item.daterange.expand {
+                box-shadow: 4px 0px 13px -5px #000;
+            }
+        }
+    }
+}
+@include media-breakpoint-only(md) {
+    .main.template-dir-search.template-name-home,
+    .sidebar {
+        .list-group .list-group-item.daterange.expand {
+            width: 940px;
+            margin-left: -728px;
+        }
+    }
+}
+@include media-breakpoint-up(lg) {
+    .main.template-dir-search.template-name-home,
+    .sidebar {
+        .list-group .list-group-item.daterange.expand {
+            width: 1140px;
+            margin-left: -878px;
+        }
+    }
+}

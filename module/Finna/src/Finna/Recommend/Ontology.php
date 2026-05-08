@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Ontology Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -25,16 +26,22 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\Recommend;
 
 use Finna\Connection\Finto;
-use VuFind\Config\PluginManager;
+use VuFind\Config\ConfigManagerInterface;
 use VuFind\Cookie\CookieManager;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\I18n\Translator\TranslatorAwareTrait;
 use VuFind\Recommend\RecommendInterface;
 use VuFind\Search\SearchRunner;
 use VuFind\View\Helper\Root\Url;
+
+use function count;
+use function in_array;
+use function is_object;
+use function sprintf;
 
 /**
  * Ontology Recommendations Module.
@@ -57,41 +64,6 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
      * @var string
      */
     public const COOKIE_NAME = 'ontologyRecommend';
-
-    /**
-     * Finto connection class.
-     *
-     * @var Finto
-     */
-    protected $finto;
-
-    /**
-     * Cookie manager.
-     *
-     * @var CookieManager
-     */
-    protected $cookieManager;
-
-    /**
-     * Url helper.
-     *
-     * @var Url
-     */
-    protected $urlHelper;
-
-    /**
-     * Configuration loader
-     *
-     * @var PluginManager
-     */
-    protected $configLoader;
-
-    /**
-     * Search runner
-     *
-     * @var SearchRunner
-     */
-    protected $searchRunner;
 
     /**
      * Maximum number of search terms for recommendation processing. Setting to
@@ -220,24 +192,19 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
     /**
      * Ontology constructor.
      *
-     * @param Finto         $finto         Finto connection class
-     * @param CookieManager $cookieManager Cookie manager
-     * @param Url           $urlHelper     Url helper
-     * @param PluginManager $configLoader  Configuration loader
-     * @param SearchRunner  $searchRunner  Search runner
+     * @param Finto                  $finto         Finto connection class
+     * @param CookieManager          $cookieManager Cookie manager
+     * @param Url                    $urlHelper     Url helper
+     * @param ConfigManagerInterface $configManager Configuration loader
+     * @param SearchRunner           $searchRunner  Search runner
      */
     public function __construct(
-        Finto $finto,
-        CookieManager $cookieManager,
-        Url $urlHelper,
-        PluginManager $configLoader,
-        SearchRunner $searchRunner
+        protected Finto $finto,
+        protected CookieManager $cookieManager,
+        protected Url $urlHelper,
+        protected ConfigManagerInterface $configManager,
+        protected SearchRunner $searchRunner
     ) {
-        $this->finto = $finto;
-        $this->cookieManager = $cookieManager;
-        $this->urlHelper = $urlHelper;
-        $this->configLoader = $configLoader;
-        $this->searchRunner = $searchRunner;
     }
 
     /**
@@ -260,7 +227,7 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
             ? 'OntologyModuleRecommendations' : $settings[0];
         $iniName = $settings[1] ?? 'searches';
 
-        $config = $this->configLoader->get($iniName)->get($sectionName);
+        $config = $this->configManager->getConfigObject($iniName)->get($sectionName);
 
         $this->maxSearchTerms = $config->get('maxSearchTerms');
         $this->maxApiCalls = $config->get('maxApiCalls');
@@ -297,7 +264,7 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
     }
 
     /**
-     * Called after the Search Results object has performed its main search.  This
+     * Called after the Search Results object has performed its main search. This
      * may be used to extract necessary information from the Search Results object
      * or to perform completely unrelated processing.
      *
@@ -355,7 +322,7 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
 
         // Get language, do nothing if it is not supported.
         $language = $this->getTranslatorLocale();
-        $language = (0 === strpos($language, 'en-')) ? 'en' : $language;
+        $language = (str_starts_with($language, 'en-')) ? 'en' : $language;
         if (!$this->finto->isSupportedLanguage($language)) {
             return null;
         }
@@ -368,7 +335,8 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
 
         // Do nothing if the amount of processed search terms is zero or more than
         // the maximum.
-        if (0 === count($this->lookforTerms)
+        if (
+            0 === count($this->lookforTerms)
             || (null !== $this->maxSearchTerms
             && count($this->lookforTerms) > $this->maxSearchTerms)
         ) {
@@ -380,7 +348,8 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
         // maximum value is set in configuration and it has been reached.
         $cookieValue = $this->cookieManager->get(self::COOKIE_NAME);
         $timesShownTotal = is_numeric($cookieValue) ? $cookieValue : 0;
-        if (is_numeric($this->maxTimesShownPerSession)
+        if (
+            is_numeric($this->maxTimesShownPerSession)
             && $timesShownTotal > $this->maxTimesShownPerSession
         ) {
             return null;
@@ -407,7 +376,7 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
 
             // Make the Finto API call(s).
             $fintoTerm = $term . '*';
-            while (false !== strpos($fintoTerm, '**')) {
+            while (str_contains($fintoTerm, '**')) {
                 $fintoTerm = str_replace('**', '*', $fintoTerm);
             }
             $fintoResults = $this->finto->extendedSearch(
@@ -419,7 +388,8 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
             $this->apiCallTotal += 1;
 
             // Continue to next term if no results or "other" results.
-            if (!$fintoResults
+            if (
+                !$fintoResults
                 || Finto::TYPE_OTHER === $fintoResults[Finto::RESULT_TYPE]
             ) {
                 continue;
@@ -477,7 +447,8 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
             $term = trim($term);
 
             // Skip if not actually a search term.
-            if (empty($term)
+            if (
+                empty($term)
                 || preg_match('/^https?:/', $term)
                 || preg_match('/^topic_id_str_mv:/', $term)
                 || in_array($term, ['AND', 'OR', 'NOT'])
@@ -493,9 +464,10 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
 
         // Special case for two-word searches, which will be processed as one
         // search term.
-        if (2 === count($processed)
-            && false === strpos($processed[0], ' ')
-            && false === strpos($processed[1], ' ')
+        if (
+            2 === count($processed)
+            && !str_contains($processed[0], ' ')
+            && !str_contains($processed[1], ' ')
         ) {
             $processed = [implode(' ', $processed)];
             $this->combinedTerms = true;
@@ -547,7 +519,7 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
         ?string $termUri = null
     ): void {
         // Do not add the result if the URI already exists in the original search.
-        if (false !== strpos($this->lookfor, $fintoResult['uri'])) {
+        if (str_contains($this->lookfor, $fintoResult['uri'])) {
             return;
         }
 
@@ -593,7 +565,7 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
         $this->recommendations[$resultType][$term][] = [
             'label' => $fintoResult['prefLabel'],
             'href' => $href,
-            'params' => $params
+            'params' => $params,
         ];
     }
 
@@ -616,10 +588,10 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
         ?string $origUri = null
     ): string {
         // Add quotes to multi-word terms if appropriate.
-        if (false !== strpos($repTerm, ' ')) {
+        if (str_contains($repTerm, ' ')) {
             $repTerm = '"' . addcslashes($repTerm, '"') . '"';
         }
-        if (!$this->combinedTerms && (false !== strpos($origTerm, ' '))) {
+        if (!$this->combinedTerms && (str_contains($origTerm, ' '))) {
             $origTerm = "\"$origTerm\"";
         }
 
@@ -685,12 +657,11 @@ class Ontology implements RecommendInterface, TranslatorAwareInterface
                 foreach ($searches as $i => $search) {
                     $results = $this->searchRunner->run($search['params']);
                     $resultTotal = $results->getResultTotal();
-                    if (0 === $resultTotal) {
+                    if (0 >= $resultTotal) {
                         // No results for this search so remove the link.
                         unset($this->recommendations[$type][$term][$i]['href']);
                     }
-                    $this->recommendations[$type][$term][$i]['resultTotal']
-                        = $resultTotal;
+                    $this->recommendations[$type][$term][$i]['resultTotal'] = $resultTotal;
                     $grandTotal += $resultTotal;
                     $resultChecksDone += 1;
                 }

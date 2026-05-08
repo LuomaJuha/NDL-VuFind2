@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Model for MARC records in Solr.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2014-2020.
+ * Copyright (C) The National Library of Finland 2014-2026.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,18 +17,30 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
+ * @author   Ronja Koistinen <ronja.koistinen@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
+
+use FinnaXml\XmlDoc;
+
+use function array_slice;
+use function count;
+use function in_array;
+use function intval;
+use function is_array;
+use function is_string;
+use function strlen;
 
 /**
  * Model for MARC records in Solr.
@@ -38,18 +51,25 @@ namespace Finna\RecordDriver;
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
-class SolrMarc extends \VuFind\RecordDriver\SolrMarc
-    implements \Laminas\Log\LoggerAwareInterface
+class SolrMarc extends \VuFind\RecordDriver\SolrMarc implements \Psr\Log\LoggerAwareInterface
 {
     use Feature\SolrFinnaTrait;
     use Feature\FinnaMarcReaderTrait;
     use Feature\FinnaUrlCheckTrait;
+    use Feature\FinnaIiifTrait;
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * Fields that may contain subject headings, and their descriptions
+     * MARC XML namespace.
+     *
+     * @var string
+     */
+    protected string $marcNs = 'http://www.loc.gov/MARC21/slim';
+
+    /**
+     * Fields that may contain subject headings, and their descriptions.
      *
      * @var array
      */
@@ -62,17 +82,45 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         '650' => 'topic',
         '651' => 'geographic',
         '653' => '',
-        '656' => 'occupation'
+        '656' => 'occupation',
+        '690' => 'topic',
     ];
 
     /**
-     * Constructor
+     * Accepted book binding strings mapped to translation key strings.
      *
-     * @param \Laminas\Config\Config $mainConfig     VuFind main configuration (omit
+     * @var array
+     */
+    protected $bindingMappings = [
+        'nidottu'         => 'stitched',
+        'nid'             => 'stitched',
+        'häftad'          => 'stitched',
+        'hft'             => 'stitched',
+        'sidottu'         => 'bound',
+        'sid'             => 'bound',
+        'inbunden'        => 'bound',
+        'inb'             => 'bound',
+        'pehmeäkantinen'  => 'paperback',
+        'kovakantinen'    => 'hardcover',
+    ];
+
+    /**
+     * Mappings for component part relations.
+     *
+     * @var array
+     */
+    protected $relationMappings = [
+        'Sisältyy kokoelmaan' => 'Included in collections',
+    ];
+
+    /**
+     * Constructor.
+     *
+     * @param \VuFind\Config\Config $mainConfig     VuFind main configuration (omit
      * for built-in defaults)
-     * @param \Laminas\Config\Config $recordConfig   Record-specific configuration
+     * @param \VuFind\Config\Config $recordConfig   Record-specific configuration
      * file (omit to use $mainConfig as $recordConfig)
-     * @param \Laminas\Config\Config $searchSettings Search-specific configuration
+     * @param \VuFind\Config\Config $searchSettings Search-specific configuration
      * file
      */
     public function __construct(
@@ -129,6 +177,37 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
+     * Get all IIIF manifests.
+     *
+     * Finds all 'u' subfields in field 856 with 'q' matching a IIIF
+     * Presentation API content type.
+     *
+     * @return array
+     */
+    public function getIiifManifests(): array
+    {
+        // FINNA-4295: Temporarily disable all collection manifests until such
+        // time that we have resolved some UX issues
+        if (in_array('1/Other/Collection/', $this->getFormats())) {
+            return [];
+        }
+
+        $reader = $this->getMarcReader();
+        $field856 = $reader->getFields('856', ['q', 'u']);
+        $manifests = [];
+        foreach ($field856 as $field) {
+            $u = $reader->getSubfield($field, 'u');
+            if (
+                $u
+                && $this->isIiifPresentationManifest($reader->getSubfield($field, 'q'))
+            ) {
+                $manifests[] = ['url' => $u];
+            }
+        }
+        return $manifests;
+    }
+
+    /**
      * Get all record links related to the current record. Each link is returned as
      * array.
      * Format:
@@ -139,7 +218,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
      *               'link'  => link_URI
      *        ),
      *        ...
-     * )
+     * ).
      *
      * @return null|array
      */
@@ -148,40 +227,84 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         if (isset($this->cache[__FUNCTION__])) {
             return $this->cache[__FUNCTION__];
         }
-        $result = parent::getAllRecordLinks();
+        // Load configurations:
+        $fieldsNames = isset($this->mainConfig->Record->marc_links)
+            ? explode(',', $this->mainConfig->Record->marc_links) : [];
+        $useVisibilityIndicator
+            = $this->mainConfig->Record->marc_links_use_visibility_indicator ?? true;
 
-        // Handle 730 separately so that ind2 can be checked.
-        foreach ($this->getMarcReader()->getFields('730') as $field) {
-            if ($field['i2'] !== ' ') {
-                continue;
-            }
+        // Temporarily add 730 as a link field by default, may be removed later
+        if (!in_array('730', $fieldsNames)) {
+            $fieldsNames[] = '730';
+        }
 
-            // Get data for field
-            $tmp = $this->getFieldData($field);
-            if (is_array($tmp)) {
-                if ('' === $tmp['value']) {
-                    // getfieldData doesn't handle subfield a (it's not the same for
-                    // other fields), so do it now if we didn't get a title:
-                    $tmp['value'] = $this->getSubfield($field, 'a');
-                    if ('title' === $tmp['link']['type']) {
-                        $tmp['link']['value'] = $tmp['value'];
+        $result = [];
+        foreach ($fieldsNames as $value) {
+            $value = trim($value);
+            $fields = $this->getMarcReader()->getFields($value);
+            foreach ($fields as $field) {
+                if ($value == '730') {
+                    // Handle 730 separately so that ind2 can be checked.
+                    if ($field['i2'] !== ' ') {
+                        continue;
+                    }
+                } else {
+                    // Check to see if we should display at all
+                    if ($useVisibilityIndicator) {
+                        $visibilityIndicator = $field['i1'];
+                        if ($visibilityIndicator == '1') {
+                            continue;
+                        }
                     }
                 }
-                if (null === $result) {
-                    $result = [];
+
+                // Get data for field
+                $tmp = $this->getFieldData($field);
+                if (!$tmp) {
+                    continue;
+                }
+
+                $tmp['isCollection'] = false;
+                if ($value == '730') {
+                    // getfieldData doesn't handle subfield a (it's not the same for
+                    // other fields), so do it now if we didn't get a title:
+                    if ('' === $tmp['value']) {
+                        $tmp['value'] = $this->getSubfield($field, 'a');
+                        if ('title' === $tmp['link']['type']) {
+                            $tmp['link']['value'] = $tmp['value'];
+                        }
+                        // get also subfield g for related misc info
+                        $tmp['misc'] = $this->getSubfield($field, 'g');
+                    }
+                } elseif ($value == '775' || $value == '776') {
+                    // We need to display most of the subfields in this case
+                    $line = [];
+                    foreach ($this->getAllSubfields($field) as $subfield) {
+                        if (!in_array($subfield['code'], ['i', 'l', 'w', '4', '6', '7', '8'])) {
+                            $line[] = $subfield['data'];
+                        }
+                    }
+                    $tmp['value'] = implode(' ', $line);
+                } elseif ($value == '773') {
+                    $relation =
+                        $this->relationMappings[$this->stripTrailingPunctuation($this->getSubfield($field, 'i'), ':')]
+                        ?? null;
+                    if ($relation) {
+                        // Use relation as the field heading:
+                        $tmp['title'] = $relation;
+                        $tmp['isCollection'] = true;
+                    }
                 }
                 $result[] = $tmp;
             }
         }
 
-        if ($result !== null) {
-            foreach ($result as &$link) {
-                if (isset($link['value'])) {
-                    $link['value'] = $this->stripTrailingPunctuation($link['value']);
-                }
+        foreach ($result as &$link) {
+            if (isset($link['value'])) {
+                $link['value'] = $this->stripTrailingPunctuation($link['value']);
             }
-            unset($link);
         }
+        unset($link);
 
         $this->cache[__FUNCTION__] = $result;
         return $result;
@@ -222,27 +345,33 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $type = $this->getSubfield($url, 'q');
             $image = 'image/jpeg' === $type || strcasecmp('image', $type) === 0;
             $pdf = 'application/pdf' === $type || preg_match('/\.pdf$/i', $address);
-
+            // Check second indicator for exact presentation of the resource.
+            // Ignore for images etc. since they can use value '2' e.g. to represent just the cover.
+            if ($pdf && !in_array($url['i2'], [' ', '0'])) {
+                continue;
+            }
             if (!$image && !$pdf) {
                 // Overdrive records only have a subfield 3, check for that
                 $part = $this->getSubfield($url, '3');
                 // Only take large image. Thumbnail is too small.
                 $image = strcasecmp($part, 'Image') === 0;
+                if (!$image) {
+                    // Some Quria records do not have subfield q, check subfield z
+                    $image = 'Kansikuva' === $this->getSubfield($url, 'z');
+                }
             }
 
-            if (($image || $pdf) && $this->urlAllowed($address)
-                && ($pdf || $this->isUrlLoadable($address, $this->getUniqueID()))
-            ) {
+            if ($pdf || ($image && $this->isUrlLoadable($address, $this->getUniqueID()))) {
                 $urls[$image ? 'images' : 'pdfs'][] = [
                     'urls' => [
                         'small' => $address,
                         'medium' => $address,
-                        'large' => $address
+                        'large' => $address,
                     ],
                     'description' => '',
                     'rights' => [],
                     'downloadable' => false,
-                    'pdf' => $pdf
+                    'pdf' => $pdf,
                 ];
             }
         }
@@ -284,29 +413,34 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $fields = $this->getMarcReader()->getFields($fieldCode);
             foreach ($fields as $field) {
                 switch ($fieldCode) {
-                case '050':
-                    $classification = 'dlc';
-                    break;
-                case '060':
-                    $classification = 'nlm';
-                    break;
-                case '080':
-                    $classification = 'udk';
-                    $version = $this->getSubfield($field, '2');
-                    if (in_array($version, ['1974/fin/fennica', '1974/fin/finuc-s'])
-                    ) {
-                        $classification .= 'f';
-                    } elseif ($version && preg_match('/(\d{4})/', $version, $matches)
-                        && (int)$matches[1] >= 2009
-                    ) {
-                        $classification .= '2';
-                    } else {
-                        $classification .= 'x';
-                    }
-                    break;
-                default:
-                    $classification = $this->getSubfield($field, '2');
-                    break;
+                    case '050':
+                        $classification = 'dlc';
+                        break;
+                    case '060':
+                        $classification = 'nlm';
+                        break;
+                    case '080':
+                        $classification = 'udk';
+                        $version = $this->getSubfield($field, '2');
+                        $isFennicaOrFinuc = in_array(
+                            $version,
+                            ['1974/fin/fennica', '1974/fin/finuc-s']
+                        );
+                        if ($isFennicaOrFinuc) {
+                            $classification .= 'f';
+                        } elseif (
+                            $version
+                            && preg_match('/(\d{4})/', $version, $matches)
+                            && (int)$matches[1] >= 2009
+                        ) {
+                            $classification .= '2';
+                        } else {
+                            $classification .= 'x';
+                        }
+                        break;
+                    default:
+                        $classification = $this->getSubfield($field, '2');
+                        break;
                 }
                 // continue doesn't work inside the switch statement
                 if (empty($classification)) {
@@ -407,7 +541,8 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             if (!$subfield) {
                 continue;
             }
-            if (preg_match('/,\s*\w\.?\s*([\d,\-]+)/', $subfield, $matches)
+            if (
+                preg_match('/,\s*\w\.?\s*([\d,\-]+)/', $subfield, $matches)
                 || preg_match('/^\w\.?\s*([\d,\-]+)/', $subfield, $matches)
             ) {
                 $pages = explode('-', $matches[1]);
@@ -461,10 +596,23 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             }
         }
 
-        if ($isbn = $this->getCleanISBN()) {
-            return 'http://s1.doria.fi/getText.php?query=' . $isbn;
-        }
         return false;
+    }
+
+    /**
+     * Get an array of Dewey classifications for the record.
+     *
+     * @return array
+     */
+    public function getDeweyClassifications()
+    {
+        $results = [];
+        foreach ($this->getMarcReader()->getFields('082') as $field) {
+            if ($result = $this->getSubfield($field, 'a')) {
+                $results[] = $result;
+            }
+        }
+        return $results;
     }
 
     /**
@@ -475,15 +623,15 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
      */
     public function getDissertationNote()
     {
-        $notes = $this->getFirstFieldValue('502', ['a', 'b', 'c']);
+        $notes = $this->stripTrailingPunctuation($this->getFirstFieldValue('502', ['a', 'b', 'c', 'd']));
         if (!$notes) {
             // 509 used in Voyager
             // TODO: Is this used anymore anywhere?
-            $notes = $this->getFirstFieldValue('509', ['a', 'b', 'c']);
+            $notes = $this->stripTrailingPunctuation($this->getFirstFieldValue('509', ['a', 'b', 'c', 'd']));
         }
         if (!$notes) {
             // 920 used in Alma
-            $notes = $this->getFirstFieldValue('920', ['a', 'b', 'c']);
+            $notes = $this->stripTrailingPunctuation($this->getFirstFieldValue('920', ['a', 'b', 'c', 'd']));
         }
         return $notes;
     }
@@ -491,7 +639,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     /**
      * Get original version notes.
      * Each result contains:
-     * - notes => Notes found
+     * - notes => Notes found.
      *
      * @return array
      */
@@ -500,11 +648,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         $results = [];
         foreach ($this->getMarcReader()->getFields('534') as $field) {
             $result = [];
-            if ($subfields = $this->getSubfieldArray(
-                $field,
-                ['p', 'c']
-            )
-            ) {
+            if ($subfields = $this->getSubfieldArray($field, ['p', 'c', 'n', 'l'])) {
                 $result['notes'] = implode(' ', $subfields);
             }
             if ($result) {
@@ -515,15 +659,20 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get an array of embedded component parts
+     * Get an array of embedded component parts.
+     *
+     * @param bool $onlyCollections Only get component parts that are collections
      *
      * @return array Component parts
      */
-    public function getEmbeddedComponentParts()
+    public function getEmbeddedComponentParts($onlyCollections = false)
     {
         $componentParts = [];
         $partOrderCounter = 0;
         foreach ($this->getMarcReader()->getFields('979') as $field) {
+            if ($onlyCollections && $field['i2'] !== '1') {
+                continue;
+            }
             $partOrderCounter++;
             $partAuthors = [];
             $uniformTitle = '';
@@ -536,27 +685,27 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     continue;
                 }
                 switch ($subfield['code']) {
-                case 'a':
-                    $partId = $data;
-                    break;
-                case 'b':
-                    $partTitle = $data;
-                    break;
-                case 'c':
-                    $partAuthors[] = $data;
-                    break;
-                case 'd':
-                    $partAuthors[] = $data;
-                    break;
-                case 'e':
-                    $uniformTitle = $data;
-                    break;
-                case 'f':
-                    $duration = $data;
-                    if ($duration == '000000') {
-                        $duration = '';
-                    }
-                    break;
+                    case 'a':
+                        $partId = $data;
+                        break;
+                    case 'b':
+                        $partTitle = $data;
+                        break;
+                    case 'c':
+                        $partAuthors[] = $data;
+                        break;
+                    case 'd':
+                        $partAuthors[] = $data;
+                        break;
+                    case 'e':
+                        $uniformTitle = $data;
+                        break;
+                    case 'f':
+                        $duration = $data;
+                        if ($duration == '000000') {
+                            $duration = '';
+                        }
+                        break;
                 }
             }
             $partPresenters = [];
@@ -598,6 +747,10 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                 'otherAuthors' => $partOtherAuthors,
             ];
         }
+        // Return here if only collections were requested as the indicator 2 differs from 979
+        if ($onlyCollections) {
+            return $componentParts;
+        }
 
         // Try fields 700 and 730 if 979 is empty
         if (!$componentParts) {
@@ -622,9 +775,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                 $partOtherAuthors = [];
                 foreach ($partAuthors as $author) {
                     if (isset($this->recordConfig['Record']['presenter_roles'])) {
-                        foreach ($this->recordConfig['Record']['presenter_roles']
-                            as $role
-                        ) {
+                        foreach ($this->recordConfig['Record']['presenter_roles'] as $role) {
                             $author = trim($author);
                             if (substr($author, -strlen($role) - 2) == ", $role") {
                                 $partPresenters[] = $author;
@@ -633,9 +784,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                         }
                     }
                     if (isset($this->recordConfig['Record']['arranger_roles'])) {
-                        foreach ($this->recordConfig['Record']['arranger_roles']
-                            as $role
-                        ) {
+                        foreach ($this->recordConfig['Record']['arranger_roles'] as $role) {
                             if (substr($author, -strlen($role) - 2) == ", $role") {
                                 $partArrangers[] = $author;
                                 continue 2;
@@ -728,7 +877,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             's' => 'numPerformers',
             't' => 'numEnsembles',
             'v' => 'note',
-            '3' => 'materials'
+            '3' => 'materials',
         ];
         $marc = $this->getMarcReader();
         foreach ($marc->getFields('382') as $field) {
@@ -736,7 +885,8 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $items = [];
             foreach ($allSubfields as $subfield) {
                 $code = $subfield['code'];
-                if (($type = $typeMap[$code] ?? false)
+                if (
+                    ($type = $typeMap[$code] ?? false)
                     && ($contents = trim($subfield['data']))
                 ) {
                     $items[] = compact('type', 'contents');
@@ -769,14 +919,58 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Return full record as filtered XML for public APIs.
+     * Return full record as a filtered XmlDoc for public APIs.
      *
      * This is not particularly beautiful, but the aim is to do the work with the
      * least effort.
      *
-     * @return string
+     * @return XmlDoc
      */
-    public function getFilteredXML()
+    public function getFilteredXMLElement(): XmlDoc
+    {
+        $marcReader = $this->getMarcReader();
+        $componentPartIds = $marcReader->getFieldsSubfields('979', ['a']);
+        $doc = new XmlDoc();
+        $doc->parse($marcReader->toFormat('MARCXML'));
+        $doc->addNamespacePrefix($this->marcNs, 'marc');
+        $doc->filter(
+            function (&$node) use ($doc): bool {
+                // Delete 520 (summary etc. may contain material under copyright):
+                return $doc->attr($node, 'tag') === '520';
+            }
+        );
+        // Replace first 979 and delete the rest:
+        $added = false;
+        $doc->modify(
+            function (&$node) use ($doc, $componentPartIds, &$added): bool {
+                if ($doc->attr($node, 'tag') === '979') {
+                    if ($added) {
+                        return false;
+                    }
+                    $doc->removeChildren($node);
+                    foreach ($componentPartIds as $id) {
+                        $doc->addChild($node, "{{$this->marcNs}}subfield", $id, ['code' => 'a']);
+                    }
+                    $doc->setAttr($node, 'ind1', ' ');
+                    $added = true;
+                }
+                return true;
+            }
+        );
+
+        return $doc;
+    }
+
+    /**
+     * Return full record as a filtered SimpleXMLElement for public APIs.
+     *
+     * This is not particularly beautiful, but the aim is to do the work with the
+     * least effort.
+     * Legacy method, use getFilteredXMLElement instead.
+     *
+     * @return \SimpleXMLElement
+     */
+    public function getFilteredXMLElementLegacy(): \SimpleXMLElement
     {
         $collection = new \DOMDocument();
         $collection->preserveWhiteSpace = false;
@@ -824,13 +1018,23 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $record->appendChild($field);
         }
 
-        return $collection->saveXML();
+        return simplexml_import_dom($collection);
+    }
+
+    /**
+     * Return full record as filtered XML for public APIs.
+     *
+     * @return string
+     */
+    public function getFilteredXML()
+    {
+        return $this->getFilteredXMLElement()->toXML();
     }
 
     /**
      * Return whether holds are allowed.
      *
-     * @return boolean
+     * @return bool
      */
     public function getHoldsAllowed()
     {
@@ -842,7 +1046,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get an array of host records
+     * Get an array of host records.
      *
      * Return an array of arrays with the following keys:
      *   id
@@ -858,7 +1062,8 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         $sourceId = $this->getSourceIdentifier();
         $fields = $this->getMarcReader()->getFields('773');
 
-        if (!empty($this->fields['hierarchy_parent_id'])
+        if (
+            !empty($this->fields['hierarchy_parent_id'])
             && count($this->fields['hierarchy_parent_id']) > count($fields)
         ) {
             // Can't use 773 fields since they don't represent the actual links
@@ -869,44 +1074,70 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                 $result[] = [
                     'id' => $parentId,
                     'sourceId' => $sourceId,
+                    'linkingId' => '',
                     'title' => $title,
                     'reference' => '',
-                    'publishingInfo' => ''
+                    'publishingInfo' => '',
                 ];
             }
             return $result;
         }
 
+        $recordSource = $this->getDataSource();
+        $linkPrefixes = $this->getRecordLinkingPrefixes($recordSource);
+
+        $useLegacyLinkingId = $this->datasourceSettings[$recordSource]['legacy_settings']['linking_id'] ?? false;
         foreach ($fields as $field) {
             $id = '';
+            $linkingId = '';
             $title = '';
             $reference = '';
             $publishingInfo = '';
             $author = '';
+            $relation = '';
             foreach ($this->getAllSubfields($field) as $subfield) {
                 $data = $subfield['data'];
                 switch ($subfield['code']) {
-                case 'w':
-                    $id = $data;
-                    // Remove any source in parenthesis to create a working link
-                    $id = preg_replace('/\\(.+\\)/', '', $id);
-                    break;
-                case 't':
-                    $title = $this->stripTrailingPunctuation($data, '.-');
-                    break;
-                case 'g':
-                    $reference = $data;
-                    break;
-                case 'd':
-                    $publishingInfo = $this->stripTrailingPunctuation($data, '.-');
-                    break;
-                case 'a':
-                    $author = $this->stripTrailingPunctuation($data, '.-');
-                    break;
+                    case 'w':
+                        // Datasource has been forced to use legacy linking method
+                        if ($useLegacyLinkingId) {
+                            $id = $this->getIdFromLinkingField($data);
+                            break;
+                        }
+                        foreach ($linkPrefixes as $prefix) {
+                            if ($this->getIdFromLinkingField($data, $prefix)) {
+                                $linkingId = $data;
+                                break 2;
+                            }
+                        }
+                        $found = $this->getIdFromLinkingField($data);
+                        if (!$found) {
+                            break;
+                        }
+                        // If id does not match any of the previous, then assume its bib id.
+                        $id = $found;
+                        break;
+                    case 't':
+                        $title = $this->stripTrailingPunctuation($data, '.-');
+                        break;
+                    case 'i':
+                        $relation = $this->relationMappings[$this->stripTrailingPunctuation($data, ':')] ?? '';
+                        break;
+                    case 'g':
+                        $reference = $data;
+                        break;
+                    case 'd':
+                        $publishingInfo
+                            = $this->stripTrailingPunctuation($data, '.-');
+                        break;
+                    case 'a':
+                        $author = $this->stripTrailingPunctuation($data, '.-');
+                        break;
                 }
             }
 
-            if (count($fields) === 1
+            if (
+                count($fields) === 1
                 && !empty($this->fields['hierarchy_parent_id'])
             ) {
                 // If we only have one field, use the hierarchy data for id
@@ -918,11 +1149,13 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
 
             $result[] = [
                 'id' => $id,
+                'linkingId' => $linkingId,
                 'sourceId' => $sourceId,
                 'title' => $title,
                 'reference' => $reference,
                 'publishingInfo' => $publishingInfo,
                 'mainHeading' => $author,
+                'relation' => $relation,
             ];
         }
         return $result;
@@ -971,7 +1204,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         }
 
         $fields = [
-            '022' => ['a']
+            '022' => ['a'],
             /* We don't want to display all ISSNs without further
              * explanation on their relationship with this record.
             '440' => ['x'],
@@ -999,7 +1232,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get manufacturer
+     * Get manufacturer.
      *
      * @return string
      */
@@ -1018,14 +1251,65 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get all authors apart from presenters
+     * Get producers.
+     *
+     * @return array
+     */
+    public function getProducers()
+    {
+        $result = [];
+        foreach ($this->getMarcReader()->getFields('264') as $field) {
+            if ($field['i2'] == 0) {
+                if ($name = $this->stripTrailingPunctuation($this->getSubfieldArray($field, ['a', 'b', 'c']))) {
+                    $result[] = [
+                        'name' => $name[0],
+                    ];
+                }
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Get all authors and primary presenters.
+     *
+     * @return array
+     */
+    public function getPrimaryAuthors(): array
+    {
+        return array_column($this->getPrimaryAuthorsExtended(), 'name');
+    }
+
+    /**
+     * Return extended author information.
+     *
+     * @return array
+     */
+    public function getPrimaryAuthorsExtended(): array
+    {
+        return $this->getAuthorFields(true);
+    }
+
+    /**
+     * Get all authors apart from presenters.
      *
      * @return array
      */
     public function getNonPresenterAuthors()
     {
-        $result = [];
+        return $this->getAuthorFields();
+    }
 
+    /**
+     * Gets all author fields.
+     *
+     * @param bool $getPrimaryPresenters Whether the function returns primary presenters alongside authors (optional)
+     *
+     * @return array
+     */
+    private function getAuthorFields(bool $getPrimaryPresenters = false): array
+    {
+        $result = [];
         foreach (['100', '110', '700', '710'] as $fieldCode) {
             $fields = $this->getMarcReader()->getFields($fieldCode);
             if (is_array($fields)) {
@@ -1035,6 +1319,8 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     if ($fieldCode == '700' && $this->getSubfield($field, 't')) {
                         continue;
                     }
+                    $checkPresenterRole =
+                        ($getPrimaryPresenters && in_array($fieldCode, ['100', '110'])) ? false : true;
 
                     $roles = $this->getSubfields($field, '4');
                     if (empty($roles)) {
@@ -1043,14 +1329,24 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     $roles = array_map([$this, 'stripTrailingPunctuation'], $roles);
                     $role = implode(', ', $roles);
                     $role = mb_strtolower($role, 'UTF-8');
-                    if ($role
-                        && isset($this->mainConfig->Record->presenter_roles)
-                        && in_array(
-                            trim($role, ' .'),
-                            $this->mainConfig->Record->presenter_roles->toArray()
-                        )
-                    ) {
-                        continue;
+                    if ($role) {
+                        // Check hidden roles
+                        $hiddenRoles = (array)($this->mainConfig?->Record?->hidden_author_roles?->toArray() ?? []);
+                        if ($hiddenRoles && in_array(trim($role, ' .'), $hiddenRoles)) {
+                            continue;
+                        }
+
+                        // Check presenter roles
+                        if (
+                            $checkPresenterRole
+                            && isset($this->mainConfig->Record->presenter_roles)
+                            && in_array(
+                                trim($role, ' .'),
+                                $this->mainConfig->Record->presenter_roles->toArray()
+                            )
+                        ) {
+                            continue;
+                        }
                     }
                     $subfields = $this->getSubfieldArray($field, ['a', 'b', 'c']);
                     if (empty($subfields)) {
@@ -1073,7 +1369,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                         'role' => $role,
                         'id' => $id ?: null,
                         'type' => in_array($fieldCode, ['100', '700'])
-                            ? 'Personal Name' : 'Corporate Name'
+                            ? 'Personal Name' : 'Corporate Name',
                     ];
                 }
             }
@@ -1112,11 +1408,13 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get presenters
+     * Get presenters.
+     *
+     * @param bool $getSecondaryPresentersOnly Whether returns only secondary presenters
      *
      * @return array
      */
-    public function getPresenters()
+    public function getPresenters($getSecondaryPresentersOnly = false): array
     {
         $result = ['presenters' => [], 'details' => []];
 
@@ -1124,6 +1422,9 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $fields = $this->getMarcReader()->getFields($fieldCode);
             if (is_array($fields)) {
                 foreach ($fields as $field) {
+                    if ($getSecondaryPresentersOnly && in_array($fieldCode, ['100', '110'])) {
+                        continue;
+                    }
                     // Leave out 700 fields containing subfield 't' (these go to the
                     // contents list)
                     if ($fieldCode == '700' && $this->getSubfield($field, 't')) {
@@ -1136,7 +1437,8 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     }
                     $role = mb_strtolower($role, 'UTF-8');
                     $role = $this->stripTrailingPunctuation($role);
-                    if (!$role
+                    if (
+                        !$role
                         || !isset($this->mainConfig->Record->presenter_roles)
                         || !in_array(
                             trim($role, ' .'),
@@ -1145,18 +1447,19 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     ) {
                         continue;
                     }
-                    $id = $this->getSubfield($field, '0');
                     $subfields = $this->getSubfieldArray($field, ['a', 'b', 'c']);
-                    $dates = $this->getSubfieldArray($field, ['d']);
-                    if (!empty($subfields)) {
-                        $result['presenters'][] = [
-                            'name' => $this->stripTrailingPunctuation($subfields[0]),
-                            'date' => $dates
-                                ? $this->stripTrailingPunctuation($dates[0]) : '',
-                            'role' => $role,
-                            'id' => $id ?: null
-                        ];
+                    if (empty($subfields)) {
+                        continue;
                     }
+                    $dates = $this->getSubfieldArray($field, ['d']);
+                    $id = $this->getSubfield($field, '0');
+                    $result['presenters'][] = [
+                        'name' => $this->stripTrailingPunctuation($subfields[0]),
+                        'date' => $dates
+                            ? $this->stripTrailingPunctuation($dates[0]) : '',
+                        'role' => $role,
+                        'id' => $id ?: null,
+                    ];
                 }
             }
         }
@@ -1164,6 +1467,16 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $this->getFieldArray('511', ['a'])
         );
         return $result;
+    }
+
+    /**
+     * Get secondary presenters.
+     *
+     * @return array
+     */
+    public function getSecondaryPresenters(): array
+    {
+        return $this->getPresenters(true);
     }
 
     /**
@@ -1202,7 +1515,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get the publication end date of the record
+     * Get the publication end date of the record.
      *
      * @return number|false
      */
@@ -1242,7 +1555,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get an array of all series names containing the record.  Array entries may
+     * Get an array of all series names containing the record. Array entries may
      * be either the name string, or an associative array with 'name' and 'number'
      * keys.
      *
@@ -1256,14 +1569,16 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         $primaryFields = [
             '440' => ['a', 'n', 'p'],
             '800' => ['a', 'b', 'c', 'd', 'f', 'n', 'p', 'q', 't', 'l', 'v'],
-            '830' => ['a', 'v']
+            '830' => ['a', 'v'],
         ];
         $matches = $this->getSeriesFromMARC($primaryFields);
 
+        // Now check also 490:
+        $secondaryFields = ['490' => ['a', 'v']];
         if (empty($matches)) {
-            // Now check 490 and display it only if 440/800/830 were empty:
-            $secondaryFields = ['490' => ['a', 'v']];
             $matches = $this->getSeriesFromMARC($secondaryFields);
+        } else {
+            $matches = array_merge($matches, $this->getSeriesFromMARC($secondaryFields));
         }
 
         // Still no results found?  Resort to the Solr-based method just in case!
@@ -1275,7 +1590,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Return SFX Object ID
+     * Return SFX Object ID.
      *
      * @return string
      */
@@ -1292,7 +1607,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Return Alma MMS ID
+     * Return Alma MMS ID.
      *
      * @return string
      */
@@ -1303,11 +1618,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         foreach ($record->getFields('090') as $field090) {
             $objectId = $this->getSubfield($field090, 'a');
             if ($objectId) {
-                if (strncmp($objectId, '(Alma)', 6) === 0) {
-                    $objectId = substr($objectId, 6);
-                } else {
-                    $objectId = '';
-                }
+                $objectId = strncmp($objectId, '(Alma)', 6) === 0 ? substr($objectId, 6) : '';
             }
             if ($id === $objectId) {
                 return $objectId;
@@ -1414,11 +1725,9 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     /**
      * Get an array of summary strings for the record.
      *
-     * @param string $language Language to return, if available
-     *
      * @return array
      */
-    public function getSummary($language = '')
+    public function getSummary()
     {
         $languageMappings = ['fin' => 'fi', 'swe' => 'sv', 'eng' => 'en-gb'];
         $languages = [];
@@ -1429,9 +1738,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                 continue;
             }
             $item = $this->getSubfield($field, 'a');
-            if (!$item
-                || !in_array($item, ['kieli', 'språk', 'language'])
-            ) {
+            if (!$item || !in_array($item, ['kieli', 'språk', 'language'])) {
                 continue;
             }
             $link = $this->getSubfield($field, '8');
@@ -1453,8 +1760,10 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $lng = $link && isset($languages[$link]) ? $languages[$link] : '-';
             $summaries[$lng][] = $summary;
         }
-        if ($language && isset($summaries[$language])) {
-            return $summaries[$language];
+        foreach ($this->getprioritizedlanguages() as $language) {
+            if ($summary = $summaries[$language] ?? null) {
+                return $summary;
+            }
         }
         $result = [];
         foreach ($summaries as $languageSummaries) {
@@ -1470,6 +1779,8 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
      * - terms     Terms as text
      * - source    Source of authority for the restriction
      * - url       URL to terms
+     * - rightsSource Source of the access licence (e.g. 'cc' for Creative Commons)
+     * - rights    Licence code.
      *
      * @return string
      */
@@ -1480,9 +1791,11 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $material = $this->getSubfield($field, '3');
             $terms = $this->getSubfield($field, 'a');
             $source = $this->getSubfield($field, 'c');
+            $rightsSource = $this->getSubfield($field, '2');
+            $rights = $this->getSubfield($field, 'f');
             $url = $this->getSubfield($field, 'u');
-            if ($terms || $source || $url) {
-                $result[] = compact('material', 'terms', 'source', 'url');
+            if ($terms || $source || $url || ($rightsSource && $rights)) {
+                $result[] = compact('material', 'terms', 'source', 'url', 'rightsSource', 'rights');
             }
         }
         return $result;
@@ -1511,7 +1824,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             foreach ($this->getMarcReader()->getFields($fieldCode) as $field) {
                 $results = [
                     ...$results,
-                    ...$this->getSubfieldArray($field, range('a', 'z'))
+                    ...$this->getSubfieldArray($field, range('a', 'z')),
                 ];
             }
         }
@@ -1534,12 +1847,15 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
      */
     public function getURLs()
     {
+        if (isset($this->cache[__FUNCTION__])) {
+            return $this->cache[__FUNCTION__];
+        }
         $retVal = [];
 
         // Which fields/subfields should we check for URLs?
         $fieldsToCheck = [
             '856' => ['y', 'z', '3'], // Standard URL
-            '555' => ['a']            // Cumulative index/finding aids
+            '555' => ['a'],            // Cumulative index/finding aids
         ];
 
         foreach ($fieldsToCheck as $field => $subfields) {
@@ -1550,17 +1866,20 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     $address = $this->getSubfield($url, 'u');
                     // Require at least one dot surrounded by valid characters or a
                     // familiar scheme
-                    if ($address
+                    if (
+                        $address
                         && (preg_match('/[A-Za-z0-9]\.[A-Za-z0-9]/', $address)
                         || preg_match('/^(http|ftp)s?:\/\//', $address))
                     ) {
-
                         // Is there a description?  If not, just use the URL itself.
                         foreach ($subfields as $subfield) {
                             $desc = $this->getSubfield($url, $subfield);
                             if ($desc) {
                                 break;
                             }
+                        }
+                        if (($note = $this->getSubfield($url, 'z')) === $desc) {
+                            $note = '';
                         }
                         $part = '';
                         if ($desc) {
@@ -1576,23 +1895,27 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                         }
 
                         $data = [
-                            'url' => $address, 'desc' => $desc, 'part' => $part
+                            'url' => $address, 'desc' => $desc, 'part' => $part, 'note' => $note,
                         ];
-                        if (!$this->urlBlocked($address, $desc)
+                        if (
+                            !$this->urlBlocked($address, $desc)
                             && !in_array($data, $retVal)
                         ) {
-                            $retVal[] = $data;
+                            if (!$this->maxAmountOfURLs()) {
+                                $retVal[] = $data;
+                            }
+                            $this->urlsCount++;
                         }
                     }
                 }
             }
         }
-        $retVal = $this->resolveUrlTypes($retVal);
-        return $retVal;
+        $this->cache[__FUNCTION__] = $this->resolveUrlTypes($retVal);
+        return $this->cache[__FUNCTION__];
     }
 
     /**
-     * Does this record have embedded component parts
+     * Does this record have embedded component parts.
      *
      * @return bool Whether this record has embedded component parts
      */
@@ -1609,7 +1932,9 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         }
         // Or maybe in 730 fields?
         foreach ($this->getMarcReader()->getFields('730') as $field) {
-            if ($field['i2'] == 2 && ('' !== $this->getSubfield($field, 'a')
+            if (
+                $field['i2'] == 2
+                && ('' !== $this->getSubfield($field, 'a')
                 || '' !== $this->getSubfield($field, 't'))
             ) {
                 return true;
@@ -1630,7 +1955,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get all subject headings associated with this record.  Each heading is
+     * Get all subject headings associated with this record. Each heading is
      * returned as an array of chunks, increasing from least specific to most
      * specific.
      *
@@ -1680,7 +2005,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Returns the array element for the 'getAllRecordLinks' method
+     * Returns the array element for the 'getAllRecordLinks' method.
      *
      * @param File_MARC_Data_Field $field Field to examine
      *
@@ -1711,53 +2036,71 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             ?? 'id,oclc,dlc,isbn,issn,title';
         $linkTypes = explode(',', $linkTypeSetting);
         $linkFields = $this->getSubfields($field, 'w');
+        $recordSource = $this->getDataSource();
+        $linkPrefixes = $this->getRecordLinkingPrefixes($recordSource);
 
+        $useLegacyLinkingId = $this->datasourceSettings[$recordSource]['legacy_settings']['linking_id'] ?? false;
         // Run through the link types specified in the config.
         // For each type, check field for reference
         // If reference found, exit loop and go straight to end
         // If no reference found, check the next link type instead
         foreach ($linkTypes as $linkType) {
             switch (trim($linkType)) {
-            case 'oclc':
-                foreach ($linkFields as $current) {
-                    if ($oclc = $this->getIdFromLinkingField($current, 'OCoLC')) {
-                        $link = ['type' => 'oclc', 'value' => $oclc];
+                case 'oclc':
+                    foreach ($linkFields as $current) {
+                        $oclc = $this->getIdFromLinkingField($current, 'OCoLC');
+                        if ($oclc) {
+                            $link = ['type' => 'oclc', 'value' => $oclc];
+                        }
                     }
-                }
-                break;
-            case 'dlc':
-                foreach ($linkFields as $current) {
-                    if ($dlc = $this->getIdFromLinkingField($current, 'DLC', true)) {
-                        $link = ['type' => 'dlc', 'value' => $dlc];
+                    break;
+                case 'dlc':
+                    foreach ($linkFields as $current) {
+                        $dlc = $this->getIdFromLinkingField($current, 'DLC', true);
+                        if ($dlc) {
+                            $link = ['type' => 'dlc', 'value' => $dlc];
+                        }
                     }
-                }
-                break;
-            case 'id':
-                foreach ($linkFields as $current) {
-                    if ($bibLink = $this->getIdFromLinkingField($current)) {
-                        $link = ['type' => 'bib', 'value' => $bibLink];
+                    break;
+                case 'id':
+                    foreach ($linkFields as $current) {
+                        if ($bibLink = $this->getIdFromLinkingField($current)) {
+                            $link = ['type' => 'bib', 'value' => $bibLink];
+                        }
                     }
-                }
-                break;
-            case 'isbn':
-                if ($isbn = $this->getSubfield($field, 'z')) {
-                    $link = [
-                        'type' => 'isn', 'value' => trim($isbn),
-                        'exclude' => $this->getUniqueId()
-                    ];
-                }
-                break;
-            case 'issn':
-                if ($issn = $this->getSubfield($field, 'x')) {
-                    $link = [
-                        'type' => 'isn', 'value' => trim($issn),
-                        'exclude' => $this->getUniqueId()
-                    ];
-                }
-                break;
-            case 'title':
-                $link = ['type' => 'title', 'value' => $title];
-                break;
+                    break;
+                case 'isbn':
+                    if ($isbn = $this->getSubfield($field, 'z')) {
+                        $link = [
+                            'type' => 'isn', 'value' => trim($isbn),
+                            'exclude' => $this->getUniqueId(),
+                        ];
+                    }
+                    break;
+                case 'issn':
+                    if ($issn = $this->getSubfield($field, 'x')) {
+                        $link = [
+                            'type' => 'isn', 'value' => trim($issn),
+                            'exclude' => $this->getUniqueId(),
+                        ];
+                    }
+                    break;
+                case 'title':
+                    $link = ['type' => 'title', 'value' => $title];
+                    break;
+                case 'linkingId':
+                    if ($useLegacyLinkingId) {
+                        break;
+                    }
+                    foreach ($linkPrefixes as $prefix) {
+                        foreach ($linkFields as $current) {
+                            if ($this->getIdFromLinkingField($current, $prefix)) {
+                                $link = ['type' => 'linkingId', 'value' => $current];
+                                break 2;
+                            }
+                        }
+                    }
+                    break;
             }
             // Exit loop if we have a link
             if (isset($link)) {
@@ -1769,12 +2112,12 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         return !isset($link) ? false : [
             'title' => $note,
             'value' => $title,
-            'link'  => $link
+            'link'  => $link,
         ];
     }
 
     /**
-     * Get linked MARC field contents
+     * Get linked MARC field contents.
      *
      * @param string|array $field     Field tag or actual field
      * @param array        $subfields Subfields
@@ -1796,9 +2139,17 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         }
         $linkage = $marc->parseLinkageField($link);
         foreach ($marc->getFields($linkage['field']) as $linkedField) {
+            if (!is_array($linkedField)) {
+                $this->logError(
+                    'Invalid linked field: ' . var_export($linkedField, true) . ', record id '
+                    . ($this->fields['id'] ?? '??')
+                );
+                continue;
+            }
             $sub6 = $marc->getSubfield($linkedField, '6');
             $targetLinkage = $marc->parseLinkageField($sub6);
-            if ($targetLinkage['field'] == $field['tag']
+            if (
+                $targetLinkage['field'] == $field['tag']
                 && $targetLinkage['occurrence'] === $linkage['occurrence']
             ) {
                 $data = $this->getSubfieldArray($linkedField, $subfields);
@@ -1806,6 +2157,16 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             }
         }
         return '';
+    }
+
+    /**
+     * Get component parts that are collections.
+     *
+     * @return array
+     */
+    public function getChildCollections(): array
+    {
+        return $this->getEmbeddedComponentParts(true);
     }
 
     /**
@@ -1836,7 +2197,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                     if ($name) {
                         $currentArray = [
                             'name' =>
-                                $this->stripTrailingPunctuation(array_shift($name))
+                                $this->stripTrailingPunctuation(array_shift($name)),
                         ];
                         $currentArray['additional'] = implode(' ', $name);
 
@@ -1874,36 +2235,6 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Check whether it is allowed to use an image or description URL.
-     *
-     * @param string $url URL to check
-     *
-     * @return boolean True if the url can be used
-     */
-    protected function urlAllowed($url)
-    {
-        // BTJ
-        if (preg_match('/^(http|https):.*\.btj\.com\//', $url)) {
-            if (!isset($this->mainConfig->Record->btj_links)
-                || !$this->mainConfig->Record->btj_links
-            ) {
-                return false;
-            }
-        }
-
-        // Kirjavälitys
-        if (strstr($url, 'http://data.kirjavalitys.fi/')) {
-            if (!isset($this->mainConfig->Record->kirjavalitys_links)
-                || !$this->mainConfig->Record->kirjavalitys_links
-            ) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
      * Get an array of all acquisition information.
      *
      * @return array
@@ -1936,6 +2267,16 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
+     * Get an array of capture information.
+     *
+     * @return array
+     */
+    public function getCaptureInformation()
+    {
+        return $this->stripTrailingPunctuation($this->getFieldArray('518', ['3', 'o', 'd', 'p']));
+    }
+
+    /**
      * Get composition information from field 382.
      *
      * @return array
@@ -1951,11 +2292,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
                 if (in_array($currentSubfield['code'], $matches)) {
                     $data = trim($currentSubfield['data']);
                     if ('' !== $data) {
-                        if ($currentSubfield['code'] === 'n') {
-                            $subfields[] = "($data)";
-                        } else {
-                            $subfields[] = $data;
-                        }
+                        $subfields[] = $currentSubfield['code'] === 'n' ? "($data)" : $data;
                     }
                 }
             }
@@ -1995,7 +2332,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             $results[] = [
                 'description' => $marcReader->getSubfield($field, 'a'),
                 'term' => $marcReader->getSubfield($field, 'b'),
-                'url' => $marcReader->getSubfield($field, '0')
+                'url' => $marcReader->getSubfield($field, '0'),
             ];
         }
         return $results;
@@ -2080,6 +2417,18 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
+     * Get local notes from field 594, subfield a.
+     *
+     * @return array
+     */
+    public function getLocalNotes()
+    {
+        return $this->stripTrailingPunctuation(
+            $this->getFieldArray('594', ['a'])
+        );
+    }
+
+    /**
      * Get associated place of the record from field 370.
      *
      * @return string
@@ -2096,7 +2445,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get audience characteristics from field 385
+     * Get audience characteristics from field 385.
      *
      * @return array
      */
@@ -2112,7 +2461,7 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     }
 
     /**
-     * Get creator/contributor characteristics from field 386
+     * Get creator/contributor characteristics from field 386.
      *
      * @return array
      */
@@ -2168,26 +2517,26 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         foreach ($this->getMarcReader()->getFields('024') as $field) {
             $subfields = [];
             switch ($field['i1']) {
-            case '0':
-                $subfields[] = 'ISRC';
-                break;
-            case '1':
-                $subfields[] = 'UPC';
-                break;
-            case '2':
-                $subfields[] = 'ISMN';
-                break;
-            case '3':
-                $subfields[] = 'EAN';
-                break;
-            case '4':
-                $subfields[] = 'SICI';
-                break;
-            case '7':
-                if ($sub2 = $this->getSubfield($field, '2')) {
-                    $subfields[] = $this->stripTrailingPunctuation($sub2);
-                }
-                break;
+                case '0':
+                    $subfields[] = 'ISRC';
+                    break;
+                case '1':
+                    $subfields[] = 'UPC';
+                    break;
+                case '2':
+                    $subfields[] = 'ISMN';
+                    break;
+                case '3':
+                    $subfields[] = 'EAN';
+                    break;
+                case '4':
+                    $subfields[] = 'SICI';
+                    break;
+                case '7':
+                    if ($sub2 = $this->getSubfield($field, '2')) {
+                        $subfields[] = $this->stripTrailingPunctuation($sub2);
+                    }
+                    break;
             }
             $subfields = array_merge(
                 $subfields,
@@ -2210,6 +2559,18 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
     {
         return $this->stripTrailingPunctuation(
             $this->getFieldArray('027', ['a'])
+        );
+    }
+
+    /**
+     * Get standard report numbers from field 526, subfields i and a.
+     *
+     * @return array
+     */
+    public function getStudyProgramNotes()
+    {
+        return $this->stripTrailingPunctuation(
+            $this->getFieldArray('526', ['i', 'a'])
         );
     }
 
@@ -2244,35 +2605,35 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
         $results = [];
         foreach ($this->getMarcReader()->getFields('045') as $field) {
             switch ($field['i1']) {
-            case 0:
-            case 1:
-                $subfields = [];
-                foreach ($this->getSubfields($field, 'b') as $time) {
-                    $subfields[] = $this->stripTrailingPunctuation($time);
-                }
-                foreach ($this->getSubfields($field, 'c') as $time) {
-                    $subfields[] = $this->stripTrailingPunctuation($time);
-                }
-                if ($subfields) {
-                    $results[] = implode(', ', $subfields);
-                }
-                break;
-            case 2:
-                $range = [];
-                foreach ($this->getSubfields($field, 'b') as $time) {
-                    $range[] = $this->stripTrailingPunctuation($time);
-                }
-                foreach ($this->getSubfields($field, 'c') as $time) {
-                    $range[] = $this->stripTrailingPunctuation($time);
-                }
-                if ($range) {
-                    $results[] = implode(' – ', $range);
-                }
-                break;
-            default:
-                if ($a = $this->getSubfield($field, 'a')) {
-                    $results[] = $a;
-                }
+                case 0:
+                case 1:
+                    $subfields = [];
+                    foreach ($this->getSubfields($field, 'b') as $time) {
+                        $subfields[] = $this->stripTrailingPunctuation($time);
+                    }
+                    foreach ($this->getSubfields($field, 'c') as $time) {
+                        $subfields[] = $this->stripTrailingPunctuation($time);
+                    }
+                    if ($subfields) {
+                        $results[] = implode(', ', $subfields);
+                    }
+                    break;
+                case 2:
+                    $range = [];
+                    foreach ($this->getSubfields($field, 'b') as $time) {
+                        $range[] = $this->stripTrailingPunctuation($time);
+                    }
+                    foreach ($this->getSubfields($field, 'c') as $time) {
+                        $range[] = $this->stripTrailingPunctuation($time);
+                    }
+                    if ($range) {
+                        $results[] = implode(' – ', $range);
+                    }
+                    break;
+                default:
+                    if ($a = $this->getSubfield($field, 'a')) {
+                        $results[] = $a;
+                    }
             }
         }
         return $results;
@@ -2298,30 +2659,33 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
      */
     public function getLanguageNotes()
     {
-        return $this->stripTrailingPunctuation(
-            $this->getFieldArray('546', ['a', 'b'])
-        );
+        $results = [];
+        foreach ($this->getMarcReader()->getFields('546') as $field) {
+            $result = [];
+            if ($subfield = $this->getSubfield($field, '3')) {
+                $result['part'] = $this->stripTrailingPunctuation($subfield);
+            }
+            if ($a = $this->getSubfield($field, 'a')) {
+                $result['details'][] = $this->stripTrailingPunctuation($a);
+            }
+            if ($b = $this->getSubfield($field, 'b')) {
+                $result['details'][] = $this->stripTrailingPunctuation($b);
+            }
+            $results[] = $result;
+        }
+        return $results;
     }
 
     /**
-     * Get uncontrolled title from field 740, subfield a.
+     * Get uncontrolled title from field 740, subfields a, n and p.
      *
      * @return array
      */
     public function getUncontrolledTitle()
     {
-        $results = [];
-        foreach ($this->getMarcReader()->getFields('740') as $field) {
-            if ($subfield = $this->getSubfield($field, 'a')) {
-                $subfield = $this->stripTrailingPunctuation($subfield);
-                if (($ind1 = $field['i1']) && ctype_digit($ind1)) {
-                    $results[] = substr($subfield, $ind1);
-                } else {
-                    $results[] = $this->stripTrailingPunctuation($subfield);
-                }
-            }
-        }
-        return $results;
+        return $this->stripTrailingPunctuation(
+            $this->getFieldArray('740', ['a', 'n', 'p'])
+        );
     }
 
     /**
@@ -2345,5 +2709,176 @@ class SolrMarc extends \VuFind\RecordDriver\SolrMarc
             }
         }
         return $results;
+    }
+
+    /**
+     * Get System details from field 538.
+     *
+     * @return array
+     */
+    public function getSystemDetails(): array
+    {
+        $results = [];
+        foreach ($this->getMarcReader()->getFields('538') as $field) {
+            $result = [];
+            if ($subfield = $this->getSubfield($field, '3')) {
+                $result['part'] = $this->stripTrailingPunctuation($subfield);
+            }
+            $result['details']
+                = $this->stripTrailingPunctuation($this->getSubfield($field, 'a'));
+            $results[] = $result;
+        }
+        return $results;
+    }
+
+    /**
+     * Get accessibility information from field 341, subfields a and b.
+     * Additional information from field 532, subfield a.
+     *
+     * @return array
+     */
+    public function getAccessibilityFeatures(): array
+    {
+        $results = [];
+        $results = $this->getFieldArray('341', ['b', 'c', 'd', 'e'], false, '');
+        foreach ($this->getMarcReader()->getFields('532') as $field) {
+            if (
+                in_array($field['i1'], ['0', '1'])
+                && ($subfield = $this->getSubfield($field, 'a'))
+            ) {
+                $results[] = $this->stripTrailingPunctuation($subfield);
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Get accessibility hazards from field 532, subfield a.
+     *
+     * @return array
+     */
+    public function getAccessibilityHazards(): array
+    {
+        $results = [];
+        foreach ($this->getMarcReader()->getFields('532') as $field) {
+            if (
+                ($field['i1'] === '2')
+                && ($subfield = $this->getSubfield($field, 'a'))
+            ) {
+                $results[] = $this->stripTrailingPunctuation($subfield);
+            }
+        }
+        return $results;
+    }
+
+    /**
+     * Get security classification from field 355, subfield a.
+     *
+     * @return array
+     */
+    public function getSecurityClassification()
+    {
+        return $this->stripTrailingPunctuation($this->getFieldArray('355', ['a']));
+    }
+
+    /**
+     * Get country from field 257, subfield a.
+     *
+     * @return array
+     */
+    public function getCountry()
+    {
+        return $this->stripTrailingPunctuation($this->getFieldArray('257', ['a']));
+    }
+
+    /**
+     * Get abstract language from field 041, subfield b.
+     *
+     * @return array
+     */
+    public function getAbstractLanguage()
+    {
+        return $this->stripTrailingPunctuation($this->getFieldArray('041', ['b']));
+    }
+
+    /**
+     * Get original languages from fields 041, subfield h and 979, subfields h and i.
+     *
+     * @return array
+     */
+    public function getOriginalLanguages()
+    {
+        $result = [];
+        foreach ($this->getMarcReader()->getFields('041') as $field) {
+            if ($field['i1'] != 0) {
+                $result[] = $this->stripTrailingPunctuation($this->getSubfield($field, 'h')) ?? '';
+            }
+        }
+        foreach ($this->stripTrailingPunctuation($this->getFieldArray('979', ['h', 'i'], false)) as $lang) {
+            $result[] = $lang;
+        }
+        return array_unique(array_filter($result));
+    }
+
+    /**
+     * Get book binding from fields 020 subfield q, 340 subfield l or 500 subfield a.
+     *
+     * @return string
+     */
+    public function getBinding(): string
+    {
+        $formatType = null;
+        $formats = $this->getFormats();
+        foreach ($formats as $format) {
+            $parts = explode('/', $format);
+            if ($parts[0] === '1' && isset($parts[2])) {
+                $formatType = $parts[2];
+                break;
+            }
+        }
+        if ($formatType == 'Book') {
+            $fields = [
+                '020' => ['q'],
+                '340' => ['l'],
+                '500' => ['a'],
+            ];
+            $values = [];
+            foreach ($fields as $field => $subfields) {
+                $values = array_merge(
+                    $values,
+                    $this->getFieldArray($field, $subfields),
+                );
+            }
+            $bindings = array_filter(array_map(
+                function ($s) {
+                    $s = mb_strtolower(mb_ereg_replace('[^A-ZÅÄÖa-zåäö]', '', $s));
+                    return $this->bindingMappings[$s] ?? null;
+                },
+                $values
+            ));
+            if (count(array_unique($bindings)) === 1) {
+                return reset($bindings);
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Get record linking settings.
+     *
+     * @param string $recordSource Record source
+     *
+     * @return array
+     */
+    protected function getRecordLinkingPrefixes(string $recordSource): array
+    {
+        if ($linkPrefixes = $this->datasourceSettings[$recordSource]['link_prefixes'] ?? []) {
+            $linkPrefixes = explode(',', $linkPrefixes);
+        }
+        if ($this->datasourceSettings[$recordSource]['prefixIn003'] ?? null) {
+            $field003 = $this->getMarcReader()->getField('003');
+            $linkPrefixes[] = trim($field003);
+        }
+        return array_filter(array_unique($linkPrefixes));
     }
 }

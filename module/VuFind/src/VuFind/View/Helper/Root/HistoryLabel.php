@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Search history label" view helper
+ * "Search history label" view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
 /**
- * "Search history label" view helper
+ * "Search history label" view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -39,21 +41,21 @@ namespace VuFind\View\Helper\Root;
 class HistoryLabel extends \Laminas\View\Helper\AbstractHelper
 {
     /**
-     * Label configuration
+     * Label configuration.
      *
      * @var array
      */
     protected $config;
 
     /**
-     * Translation helper
+     * Translation helper.
      *
      * @var TransEsc
      */
     protected $translator;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array    $config     Label configuration
      * @param TransEsc $translator Translation helper

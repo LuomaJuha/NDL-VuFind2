@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Record versions test class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTest\Mink;
 
 /**
@@ -35,7 +37,6 @@ namespace VuFindTest\Mink;
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
- * @retry    4
  */
 class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
 {
@@ -52,9 +53,9 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
         $page = $this->performSearch('id:0001732009-0', null, $path);
 
         // Confirm that "other versions" link exists:
-        $this->assertEquals(
+        $this->assertSame(
             'Show other versions (3)',
-            $this->findCss($page, 'div.record-versions a')->getText()
+            $this->findCssAndGetText($page, 'div.record-versions a')
         );
 
         // Click on the "other versions" link:
@@ -62,9 +63,9 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
 
         // Confirm that we've landed on an other versions tab:
         $this->waitForPageLoad($page);
-        $this->assertEquals(
+        $this->assertSame(
             'Other Versions (3)',
-            $this->findCss($page, 'li.record-tab.active')->getText()
+            $this->findCssAndGetText($page, $this->activeRecordTabSelector)
         );
 
         // Click the "see all versions" link:
@@ -72,12 +73,12 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
 
         // Confirm that all four versions are now visible in the versions display:
         $this->waitForPageLoad($page);
-        $this->assertEquals(
-            'Versions - The collected letters of Thomas and Jane Welsh Carlyle :',
-            $this->findCss($page, 'ul.breadcrumb li.active')->getText()
+        $this->assertSame(
+            'The collected letters of Thomas and Jane Welsh Carlyle : Versions',
+            $this->findCssAndGetText($page, 'ul.breadcrumb')
         );
         $results = $page->findAll('css', '.result');
-        $this->assertEquals(4, count($results));
+        $this->assertCount(4, $results);
     }
 
     /**
@@ -101,6 +102,35 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
     }
 
     /**
+     * Test that results scripts are properly initialized for the versions tab.
+     *
+     * @return void
+     */
+    public function testVersionsTabInit()
+    {
+        // Enable QRCodes:
+        $extraConfigs = [
+            'config' => [
+                'QRCode' => [
+                    'showInResults' => true,
+                ],
+            ],
+        ];
+        $this->changeConfigs($extraConfigs);
+        $session = $this->getMinkSession();
+        // Go to the tab by clicking it so that any global init in common.js doesn't
+        // mask issues:
+        $session->visit($this->getVuFindUrl() . '/Record/0001732009-0');
+        $page = $session->getPage();
+        $this->waitForPageLoad($page);
+        $this->clickCss($page, '#record-tab-versions a');
+        $this->waitForPageLoad($page);
+        // Click the QR code link and verify that the image gets added dynamically:
+        $this->clickCss($page, '.result-links .qrcodeLink');
+        $this->findCss($page, '.result-links .qrcode img');
+    }
+
+    /**
      * Confirm that links operate differently when the record versions tab is
      * disabled but other version settings are enabled.
      *
@@ -112,18 +142,18 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
         $extraConfigs = [
             'RecordTabs' => [
                 'VuFind\RecordDriver\SolrMarc' => [
-                    'tabs[Versions]' => false
-                ]
-            ]
+                    'tabs[Versions]' => false,
+                ],
+            ],
         ];
         $this->changeConfigs($extraConfigs);
         // Search for an item known to have other versions in test data:
         $page = $this->performSearch('id:0001732009-0', null, '/Search');
 
         // Confirm that "all versions" link exists:
-        $this->assertEquals(
+        $this->assertSame(
             'Show all versions (4)',
-            $this->findCss($page, 'div.record-versions a')->getText()
+            $this->findCssAndGetText($page, 'div.record-versions a')
         );
 
         // Click on the "all versions" link:
@@ -132,12 +162,12 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
         // Confirm that we have jumped directly to the "show all versions" screen
         // and that all four versions are now visible in the versions display:
         $this->waitForPageLoad($page);
-        $this->assertEquals(
-            'Versions - The collected letters of Thomas and Jane Welsh Carlyle :',
-            $this->findCss($page, 'ul.breadcrumb li.active')->getText()
+        $this->assertSame(
+            'The collected letters of Thomas and Jane Welsh Carlyle : Versions',
+            $this->findCssAndGetText($page, 'ul.breadcrumb')
         );
         $results = $page->findAll('css', '.result');
-        $this->assertEquals(4, count($results));
+        $this->assertCount(4, $results);
     }
 
     /**
@@ -152,9 +182,9 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
         $extraConfigs = [
             'searches' => [
                 'General' => [
-                    'display_versions' => false
-                ]
-            ]
+                    'display_versions' => false,
+                ],
+            ],
         ];
         $this->changeConfigs($extraConfigs);
 
@@ -162,9 +192,9 @@ class RecordVersionsTest extends \VuFindTest\Integration\MinkTestCase
         $page = $this->performSearch('id:0001732009-0');
 
         // Click on the "other versions" link:
-        $this->assertEquals(
+        $this->assertCount(
             0,
-            count($page->findAll('css', 'div.record-versions a'))
+            $page->findAll('css', 'div.record-versions a')
         );
     }
 }

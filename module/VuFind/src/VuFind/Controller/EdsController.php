@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Eds Controller
+ * Eds Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,13 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use VuFind\Solr\Utils as SolrUtils;
 
+use function array_key_exists;
+use function in_array;
+
 /**
- * EDS Controller
+ * EDS Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -42,7 +47,7 @@ use VuFind\Solr\Utils as SolrUtils;
 class EdsController extends AbstractSearch
 {
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm Service locator
      */
@@ -53,20 +58,7 @@ class EdsController extends AbstractSearch
     }
 
     /**
-     * Is the result scroller active?
-     *
-     * @return bool
-     */
-    protected function resultScrollerActive()
-    {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class)
-            ->get('EDS');
-        return isset($config->Record->next_prev_navigation)
-            && $config->Record->next_prev_navigation;
-    }
-
-    /**
-     * Handle an advanced search
+     * Handle an advanced search.
      *
      * @return mixed
      */
@@ -86,7 +78,7 @@ class EdsController extends AbstractSearch
     }
 
     /**
-     * Search action -- call standard results action
+     * Search action -- call standard results action.
      *
      * @return mixed
      */
@@ -96,7 +88,7 @@ class EdsController extends AbstractSearch
     }
 
     /**
-     * Return a Search Results object containing advanced facet information.  This
+     * Return a Search Results object containing advanced facet information. This
      * data may come from the cache.
      *
      * @return array
@@ -135,17 +127,22 @@ class EdsController extends AbstractSearch
 
                     // If we haven't already found a selected facet and the current
                     // facet has been applied to the search, we should store it as
-                    // the selected facet for the current control.
+                    // the selected facet for the current control. Cover AND and OR
+                    // filter cases to be on the safe side; either might be used,
+                    // but we don't currently expect both at once on the same field.
                     if ($searchObject) {
                         $limitFilt = 'LIMIT|' . $fullFilter;
+                        $orLimitFilt = '~' . $limitFilt;
                         if ($searchObject->getParams()->hasFilter($limitFilt)) {
-                            $facetList[$facet]['LimiterValues'][$key]['selected']
-                                = true;
+                            $facetList[$facet]['LimiterValues'][$key]['selected'] = true;
                             // Remove the filter from the search object -- we don't
                             // want it to show up in the "applied filters" sidebar
                             // since it will already be accounted for by being
                             // selected in the filter select list!
                             $searchObject->getParams()->removeFilter($limitFilt);
+                        } elseif ($searchObject->getParams()->hasFilter($orLimitFilt)) {
+                            $facetList[$facet]['LimiterValues'][$key]['selected'] = true;
+                            $searchObject->getParams()->removeFilter($orLimitFilt);
                         }
                     } else {
                         if ('y' == $facetList[$facet]['DefaultOn']) {
@@ -194,7 +191,7 @@ class EdsController extends AbstractSearch
     }
 
     /**
-     * Process the publicationd date range limiter widget
+     * Process the publication date range limiter widget.
      *
      * @param object $searchObject Saved search object (false if none)
      *
@@ -233,9 +230,10 @@ class EdsController extends AbstractSearch
         $params = $results->getParams();
         $options = $params->getOptions();
         $searchModes = $options->getModeOptions();
+        $useDefault = true;
         // Process the facets, assuming they came back
-        foreach ($searchModes as $key => $mode) {
-            if ($searchObject) {
+        if ($searchObject) {
+            foreach ($searchModes as $key => $mode) {
                 $modeFilter = 'SEARCHMODE:' . $mode['Value'];
                 if ($searchObject->getParams()->hasFilter($modeFilter)) {
                     $searchModes[$key]['selected'] = true;
@@ -244,11 +242,14 @@ class EdsController extends AbstractSearch
                     // will already be accounted for by being selected in the
                     // filter select list!
                     $searchObject->getParams()->removeFilter($modeFilter);
+                    $useDefault = false;
                 }
-            } else {
-                if ($key == $options->getDefaultMode()) {
-                    $searchModes[$key]['selected'] = true;
-                }
+            }
+        }
+        if ($useDefault) {
+            $key = $options->getDefaultMode();
+            if (array_key_exists($key, $searchModes)) {
+                $searchModes[$key]['selected'] = true;
             }
         }
 

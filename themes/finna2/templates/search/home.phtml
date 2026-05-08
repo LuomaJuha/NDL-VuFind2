@@ -14,7 +14,7 @@
   $basicSearch = $options->getSearchAction();
   $advSearch = $options->getAdvancedSearchAction();
 
-  $this->layout()->breadcrumbs = false;
+  $this->breadcrumbs()->disable();
   $this->layout()->introduction = true;
   $this->layout()->ignoreHiddenFilterMemory = true;
 ?>
@@ -23,7 +23,7 @@
 <div class="container-fluid">
   <div class="container">
     <div>
-      <?=($this->ils()->getOfflineMode() == "ils-offline") ? $this->render('Helpers/ils-offline.phtml', ['offlineModeMsg' => 'ils_offline_home_message']) : ''?>
+      <?=($this->ils()->getOfflineMode() == 'ils-offline') ? $this->render('Helpers/ils-offline.phtml', ['offlineModeMsg' => 'ils_offline_home_message']) : ''?>
     </div>
   </div>
 </div>

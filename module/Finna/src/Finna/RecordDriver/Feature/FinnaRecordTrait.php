@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Additional functionality for Finna and Primo records.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library 2015-2019.
+ * Copyright (C) The National Library 2015-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,19 +17,29 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver\Feature;
 
-use Finna\Db\Row\User;
+use Finna\Db\Entity\UserEntityInterface;
+use Finna\Db\Service\CommentsServiceInterface;
+use Finna\RecordDriver\RenderContext;
+
+use function count;
+use function in_array;
+use function is_array;
+use function is_bool;
+use function is_callable;
 
 /**
  * Additional functionality for Finna and Primo records.
@@ -37,38 +48,166 @@ use Finna\Db\Row\User;
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
 trait FinnaRecordTrait
 {
     /**
-     * Preferred language for display strings
+     * Preferred language for display strings.
      *
      * @var string
      */
     protected $preferredLanguage = null;
 
     /**
-     * Search settings
+     * Search settings.
      *
      * @var array
      */
     protected $datasourceSettings = null;
 
     /**
+     * Default specs class used for the records.
+     *
+     * @var string
+     */
+    protected $defaultRecordSpecsClass = 'DefaultRecord';
+
+    /**
+     * Maximum limit of images to get in search results per record.
+     *
+     * @var int
+     */
+    protected int $maxImagesInSearch = 20;
+
+    /**
+     * Maximum limit of URLs to render in search context.
+     *
+     * @var int
+     */
+    protected int $maxURLsInSearch = 200;
+
+    /**
+     * Maximum limit of URLs to get in record context.
+     *
+     * @var int
+     */
+    protected int $maxURLsInRecord = 200;
+
+    /**
+     * Maximum limit of images to get in record context.
+     *
+     * @var int
+     */
+    protected int $maxImagesInRecord = 1000;
+
+    /**
+     * Current record render context.
+     *
+     * @var RenderContext
+     */
+    protected RenderContext $renderContext = RenderContext::RECORD;
+
+    /**
+     * Current amount of images.
+     *
+     * @var int
+     */
+    protected int $imagesCount = 0;
+
+    /**
+     * Current amount of URLs.
+     *
+     * @var int
+     */
+    protected int $urlsCount = 0;
+
+    /**
+     * Set current record render context.
+     *
+     * @param string $context Record render context
+     *
+     * @return void
+     */
+    public function setRenderContext(string $context): void
+    {
+        $this->renderContext = RenderContext::from($context);
+    }
+
+    /**
+     * Has the record exceeded maximum amount of images for its current context?
+     *
+     * @return bool
+     */
+    public function maxAmountOfImages(): bool
+    {
+        return ($this->renderContext === RenderContext::SEARCH && $this->imagesCount >= $this->maxImagesInSearch)
+            || ($this->renderContext === RenderContext::RECORD && $this->imagesCount >= $this->maxImagesInRecord);
+    }
+
+    /**
+     * Has the record exceeded maximum amount of URLs for its current context.
+     *
+     * @return bool
+     */
+    public function maxAmountOfURLs(): bool
+    {
+        return ($this->renderContext === RenderContext::SEARCH && $this->urlsCount >= $this->maxURLsInSearch)
+            || ($this->renderContext === RenderContext::RECORD && $this->urlsCount >= $this->maxURLsInRecord);
+    }
+
+    /**
+     * Get amount of images allowed to be rendered in current context.
+     *
+     * @return int Current images render limit or -1 for all.
+     */
+    public function getImagesRenderLimit(): int
+    {
+        if ($this->renderContext === RenderContext::SEARCH) {
+            return $this->maxImagesInSearch;
+        }
+        return $this->maxImagesInRecord;
+    }
+
+    /**
+     * Get amount of URLs allowed to be rendered in current context.
+     *
+     * @return int Current URLs render limit
+     */
+    public function getURLsReturnLimit(): int
+    {
+        if ($this->renderContext === RenderContext::SEARCH) {
+            return $this->maxURLsInSearch;
+        }
+        return $this->maxURLsInRecord;
+    }
+
+    /**
+     * Get the total image count for the record. Value is populated after calling the getAllImages function.
+     *
+     * @return int
+     */
+    public function getTotalAmountOfImages(): int
+    {
+        return $this->imagesCount;
+    }
+
+    /**
      * Get inappropriate comments for this record reported by the given user.
      *
-     * @param object $userId Reporter ID
+     * @param ?UserEntityInterface $user Reporter, or null to use current session
      *
      * @return array
      */
-    public function getInappropriateComments($userId)
+    public function getInappropriateComments(?UserEntityInterface $user)
     {
-        $table = $this->getDbTable('CommentsInappropriate');
-        return $table->getForRecord(
-            $userId,
-            $this->getUniqueID()
+        $commentsService = $this->getDbService(CommentsServiceInterface::class);
+        return $commentsService->getInappropriateForRecord(
+            $user,
+            $this->getUniqueID(),
+            $this->getSourceIdentifier()
         );
     }
 
@@ -191,7 +330,7 @@ trait FinnaRecordTrait
     }
 
     /**
-     * Get an author for OpenURL
+     * Get an author for OpenURL.
      *
      * @return string
      */
@@ -216,29 +355,6 @@ trait FinnaRecordTrait
     }
 
     /**
-     * Get saved time associated with this record in a user list.
-     *
-     * @param int $list_id List id
-     * @param int $user_id List owner id
-     *
-     * @return timestamp
-     */
-    public function getListSavedDate($list_id, $user_id)
-    {
-        $db = $this->getDbTable('UserResource');
-        $data = $db->getSavedData(
-            $this->getUniqueId(),
-            $this->getSourceIdentifier(),
-            $list_id,
-            $user_id
-        );
-        foreach ($data as $current) {
-            return $current->saved;
-        }
-        return null;
-    }
-
-    /**
      * Set preferred language for display strings.
      *
      * @param string $language Language
@@ -248,18 +364,6 @@ trait FinnaRecordTrait
     public function setPreferredLanguage($language)
     {
         $this->preferredLanguage = $language;
-    }
-
-    /**
-     * Get user id from db
-     *
-     * @param int $user_id user user_id
-     *
-     * @return User|boolean
-     */
-    public function getUserById($user_id)
-    {
-        return $this->getDbTable('User')->getById($user_id);
     }
 
     /**
@@ -287,7 +391,13 @@ trait FinnaRecordTrait
                 return false;
             }
         }
-        if (!empty($image['pdf'])
+        // PDF key can be either boolean or an array containing booleans
+        $pdf = $image['pdf'] ?? false;
+        if (!is_bool($pdf)) {
+            $pdf = is_array($pdf) && in_array(true, $image['pdf']);
+        }
+        if (
+            $pdf
             && !empty($this->mainConfig->Content->pdfCoverImageDownload)
         ) {
             return !empty(
@@ -337,7 +447,11 @@ trait FinnaRecordTrait
             return $id;
         }
         if (preg_match('/^https?:/', $id)) {
-            // Never prefix http(s) url's
+            // Normalize ISNI URIs to match ISNI identifiers in authority sources
+            if (preg_match('/^(https:\/\/isni\.org\/isni\/)(.*)/', $id, $matches)) {
+                return '(isni)' . $matches[2];
+            }
+            // Never prefix other http(s) url's
             return $id;
         }
 
@@ -355,10 +469,29 @@ trait FinnaRecordTrait
             ?? $this->datasourceSettings[$recordSource]['authority_id_regex']['*']
             ?? null;
 
-        if ($idRegex && !preg_match($idRegex, $id)) {
-            return null;
+        if ($idRegex && preg_match($idRegex, $id)) {
+            if (str_starts_with($id, "$authSrc.")) {
+                return $id;
+            }
+            return "$authSrc.$id";
         }
-        return "$authSrc.$id";
+
+        $plainIdRegex
+            = $this->datasourceSettings[$recordSource]['authority_plain_id_regex'][$type]
+            ?? $this->datasourceSettings[$recordSource]['authority_plain_id_regex']['*']
+            ?? null;
+        if ($plainIdRegex && preg_match($plainIdRegex, $id)) {
+            return $id;
+        }
+
+        if (!$idRegex && !$plainIdRegex) {
+            if (str_starts_with($id, "$authSrc.")) {
+                return $id;
+            }
+            return "$authSrc.$id";
+        }
+
+        return null;
     }
 
     /**
@@ -394,7 +527,7 @@ trait FinnaRecordTrait
     /**
      * Whether to show record labels for this record.
      *
-     * @return boolean
+     * @return bool
      */
     public function getRecordLabelsEnabled()
     {
@@ -406,5 +539,40 @@ trait FinnaRecordTrait
         return $labelsConfig[$backend]
             ?? $labelsConfig['*']
             ?? false;
+    }
+
+    /**
+     * Get class name for RecordDataFormatter spec.
+     *
+     * @return ?string
+     */
+    public function getRecordDataFormatterSpecClass(): ?string
+    {
+        $defaultSpecsClass = 'Finna\\RecordDataFormatter\\Specs\\' . $this->defaultRecordSpecsClass;
+        $dataSource = $this->tryMethod('getDataSource');
+        if (!$dataSource) {
+            return $defaultSpecsClass;
+        }
+        $datasourceSpecsClass = $this->datasourceSettings[$dataSource]['record']['record_field_specs']
+            ?? '';
+        if ($datasourceSpecsClass === 'CollectionRecord' && $this->tryMethod('getChildCollections')) {
+            return 'Finna\\RecordDataFormatter\\Specs\\' . $datasourceSpecsClass;
+        }
+        return $defaultSpecsClass;
+    }
+
+    /**
+     * Return filtered Xml as string for legacy use.
+     * Used for api responses.
+     *
+     * @return string
+     */
+    public function getFilteredXMLLegacy()
+    {
+        $filteredXml = $this->tryMethod('getFilteredXMLElementLegacy');
+        if ($filteredXml) {
+            return $filteredXml->asXML();
+        }
+        return '';
     }
 }

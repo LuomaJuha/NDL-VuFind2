@@ -1,8 +1,9 @@
 <?php
+
 /**
- * GetFeed AJAX handler
+ * GetFeed AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2023.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -27,23 +28,24 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Finna\Feed\Feed as FeedService;
-use Laminas\Config\Config;
 use Laminas\Escaper\Escaper;
 use Laminas\Feed\Writer\Feed;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\Mvc\Controller\Plugin\Url;
 use Laminas\View\Renderer\RendererInterface;
 use VuFind\Cache\Manager as CacheManager;
+use VuFind\Config\Config;
 use VuFind\Exception\BadRequest;
 use VuFind\ILS\Connection;
 use VuFind\Record\Loader;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * GetFeed AJAX handler
+ * GetFeed AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -58,56 +60,56 @@ class GetFeed extends \VuFind\AjaxHandler\AbstractBase
     use FeedTrait;
 
     /**
-     * RSS configuration
+     * RSS configuration.
      *
      * @var Config
      */
     protected $config;
 
     /**
-     * Feed service
+     * Feed service.
      *
      * @var FeedService
      */
     protected $feedService;
 
     /**
-     * ILS connection
+     * ILS connection.
      *
      * @var Connection
      */
     protected $ils;
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var Loader
      */
     protected $recordLoader;
 
     /**
-     * View renderer
+     * View renderer.
      *
      * @var RendererInterface
      */
     protected $renderer;
 
     /**
-     * URL helper
+     * URL helper.
      *
      * @var Url
      */
     protected $url;
 
     /**
-     * Cache manager
+     * Cache manager.
      *
      * @var CacheManager
      */
     protected $cacheManager;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param SessionSettings   $ss           Session settings
      * @param Config            $config       RSS configuration
@@ -195,7 +197,7 @@ class GetFeed extends \VuFind\AjaxHandler\AbstractBase
     }
 
     /**
-     * Function to handle titlelist feeds
+     * Function to handle titlelist feeds.
      *
      * @param object $config Config of the titlelist
      *
@@ -226,7 +228,8 @@ class GetFeed extends \VuFind\AjaxHandler\AbstractBase
         $val = (string)($ilsConfig['cacheSettings'][$query] ?? '');
         $maxAge = $val && ctype_digit($val) ? (int)$val : 60;
 
-        if (is_readable($cacheFile)
+        if (
+            is_readable($cacheFile)
             && time() - filemtime($cacheFile) < $maxAge * 60
         ) {
             // Load local cache if available
@@ -240,7 +243,7 @@ class GetFeed extends \VuFind\AjaxHandler\AbstractBase
             foreach ($data['records'] ?? [] as $record) {
                 $requests[] = [
                     'id' => $record['id'],
-                    'source' => $source
+                    'source' => $source,
                 ];
             }
             $sourceRecords = $this->recordLoader->loadBatch($requests, true);
@@ -258,7 +261,7 @@ class GetFeed extends \VuFind\AjaxHandler\AbstractBase
             $feed->setId(' ');
             $feed->setDescription(' ');
             foreach ($sourceRecords as $key => $rec) {
-                $isRecord = !$rec instanceof \VuFind\RecordDriver\Missing;
+                $isRecord = !($rec instanceof \VuFind\RecordDriver\Missing);
                 $entry = $feed->createEntry();
                 $entry->setTitle($rec->getTitle());
                 $entry->setDateModified(time());
@@ -301,7 +304,7 @@ class GetFeed extends \VuFind\AjaxHandler\AbstractBase
                     [
                         'uri' => $serverUrl($imageUrl),
                         'type' => 'image/jpeg',
-                        'length' => 0
+                        'length' => 0,
                     ]
                 );
                 $feed->addEntry($entry);

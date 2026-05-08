@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Feed factory.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  * Copyright (C) The National Library of Finland 2019.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
@@ -27,6 +28,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Feed;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -48,7 +50,7 @@ use Psr\Container\ContainerInterface;
 class FeedFactory implements FactoryInterface
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -64,22 +66,25 @@ class FeedFactory implements FactoryInterface
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
         if (!empty($options)) {
             throw new \Exception('Unexpected options passed to factory.');
         }
-        $config = $container->get(\VuFind\Config\PluginManager::class);
+        $configManager = $container->get(\VuFind\Config\ConfigManagerInterface::class);
         $renderer = $container->get('ViewRenderer');
-        return new $requestedName(
-            $config->get('config'),
-            $config->get('rss'),
-            $config->get('rss-organisation-page'),
+        $feed = new $requestedName(
+            $configManager->getConfigObject('config'),
+            $configManager->getConfigObject('rss'),
+            $configManager->getConfigObject('rss-organisation-page'),
             $container->get(\VuFind\Cache\Manager::class),
             $container->get('ControllerPluginManager')->get('url'),
+            $renderer->plugin('serverUrl'),
             $renderer->plugin('imageLink'),
             $renderer->plugin('cleanHtml'),
             $container->get(\Finna\OrganisationInfo\OrganisationInfo::class)
         );
+        $feed->registerExtensions($container);
+        return $feed;
     }
 }

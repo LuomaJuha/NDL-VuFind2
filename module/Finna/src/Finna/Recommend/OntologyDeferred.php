@@ -1,8 +1,9 @@
 <?php
+
 /**
  * OntologyDeferred Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -25,9 +26,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\Recommend;
 
 use VuFind\Recommend\RecommendInterface;
+
+use function is_object;
 
 /**
  * OntologyDeferred Recommendations Module.
@@ -105,7 +109,7 @@ class OntologyDeferred implements RecommendInterface
     }
 
     /**
-     * Called after the Search Results object has performed its main search.  This
+     * Called after the Search Results object has performed its main search. This
      * may be used to extract necessary information from the Search Results object
      * or to perform completely unrelated processing.
      *
@@ -131,7 +135,7 @@ class OntologyDeferred implements RecommendInterface
             'mod' => 'Ontology',
             'lookfor' => $this->lookfor,
             'searchId' => $this->results->getSearchId(),
-            'resultTotal' => $this->results->getResultTotal()
+            'resultTotal' => $this->results->getResultTotal(),
         ];
 
         // Add other possible request parameters.

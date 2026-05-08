@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Factory for the "import comments" task.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2023.
+ * Copyright (C) The National Library of Finland 2015-2024.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,16 +17,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Util;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -33,6 +35,12 @@ use Laminas\ServiceManager\Exception\ServiceNotFoundException;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use Psr\Container\ContainerExceptionInterface as ContainerException;
 use Psr\Container\ContainerInterface;
+use VuFind\Db\Service\CommentsServiceInterface;
+use VuFind\Db\Service\RatingsServiceInterface;
+use VuFind\Db\Service\UserServiceInterface;
+use VuFind\Record\Loader as RecordLoader;
+use VuFind\Record\ResourcePopulator;
+use VuFind\Search\SearchRunner;
 
 /**
  * Factory for the "import comments" task.
@@ -42,12 +50,12 @@ use Psr\Container\ContainerInterface;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class ImportCommentsFactory implements FactoryInterface
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -63,14 +71,22 @@ class ImportCommentsFactory implements FactoryInterface
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
-        $tableManager = $container->get(\VuFind\Db\Table\PluginManager::class);
+        // We need to initialize the theme so that the view renderer works:
+        $configManager = $container->get(\VuFind\Config\ConfigManagerInterface::class);
+        $mainConfig = $configManager->getConfigObject('config');
+        $theme = new \VuFindTheme\Initializer($mainConfig->Site, $container);
+        $theme->init();
+
+        $dbServiceManager = $container->get(\VuFind\Db\Service\PluginManager::class);
         return new $requestedName(
-            $tableManager->get('Comments'),
-            $tableManager->get('CommentsRecord'),
-            $tableManager->get('Resource'),
-            $tableManager->get('Ratings'),
+            $dbServiceManager->get(UserServiceInterface::class),
+            $dbServiceManager->get(CommentsServiceInterface::class),
+            $dbServiceManager->get(RatingsServiceInterface::class),
+            $container->get(ResourcePopulator::class),
+            $container->get(RecordLoader::class),
+            $container->get(SearchRunner::class),
             ...($options ?? [])
         );
     }

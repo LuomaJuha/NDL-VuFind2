@@ -2,28 +2,36 @@
 \#*
 .\#*
 *~
+# Vim temporary files
+.*.sw[po]
 
 .php_cs_cache
+.phpmd.result-cache.php
 .phpstan_cache
+.rector
 .vagrant
 .vscode/*
 /downloads
-/Gruntfile.local.js
 /solr/vendor
+/themes/minktest
 /vendor
 ChangeLog
-TAGS
+/TAGS
 composer.phar
+env.bat
+env.sh
 import/solrmarc.log*
 lessphp_*.list
-module/VuFind/tests/.phpunit.result.cache
+module/VuFind/tests/.phpunit*
 node_modules
 
 # OS Created Files
-
-.DS_Store*
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 ehthumbs.db
-Icon?
 Thumbs.db
 
 # IDE Files
@@ -46,6 +54,8 @@ local/config/finna/*.ini
 local/config/finna/*.yaml
 local/config/finna/*.json
 local/config/finna/*.wsdl
+local/config/finna/*.xsd
+local/config/finna/*.sch
 local/config/vufind/*.ini
 local/config/vufind/*.yaml
 local/config/vufind/*.wsdl
@@ -53,11 +63,23 @@ local/httpd-vufind.conf
 local/import/import.properties
 local/import/import_auth.properties
 local/languages/finna/*-datasources.ini
-themes/finna2/css/finna.css
 themes/custom/css/finna.css
+themes/custom/css/finna.css.map
+themes/finna2/css/finna.css
+themes/finna2/css/finna.css.map
 *.diff
 vufind.bat
 public/swagger-ui
-local/config/vufind/*.ini
-local/config/vufind/*.json
-local/config/vufind/*.yaml
+tests/phpcs.cache.json
+themes/bootstrap5/scss/vendor/bootstrap
+local/DirLocations.ini
+local/config/vufind.bak
+local/config/vufind/*
+!local/config/vufind/README.txt
+!local/config/vufind/*.sample
+!local/config/vufind/*.national
+
+# Docker Compose dev environment
+socat.log
+.env
+local/*.secret

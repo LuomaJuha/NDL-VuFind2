@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Channel provider interface.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Channels
@@ -25,8 +26,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\ChannelProvider;
 
+use VuFind\Http\PhpEnvironment\Request as HttpRequest;
 use VuFind\RecordDriver\AbstractBase as RecordDriver;
 use VuFind\Search\Base\Params;
 use VuFind\Search\Base\Results;
@@ -45,11 +48,12 @@ interface ChannelProviderInterface
     /**
      * Hook to configure search parameters before executing search.
      *
-     * @param Params $params Search parameters to adjust
+     * @param Params      $params  Search parameters to adjust
+     * @param HttpRequest $request Current HTTP request
      *
      * @return void
      */
-    public function configureSearchParams(Params $params);
+    public function configureSearchParams(Params $params, HttpRequest $request): void;
 
     /**
      * Return channel information derived from a record driver object.

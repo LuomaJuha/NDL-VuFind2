@@ -1,8 +1,9 @@
 <?php
+
 /**
- * CSV Importer Test Class
+ * CSV Importer Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,14 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\CSV;
 
 use VuFind\CSV\Importer;
 use VuFindSearch\Backend\Solr\Document\RawJSONDocument;
 use VuFindTest\Container\MockContainer;
 
+use function array_slice;
+
 /**
- * CSV Importer Test Class
+ * CSV Importer Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -43,7 +47,7 @@ use VuFindTest\Container\MockContainer;
 class ImporterTest extends \PHPUnit\Framework\TestCase
 {
     use \VuFindTest\Feature\FixtureTrait;
-    use \VuFindTest\Feature\PathResolverTrait;
+    use \VuFindTest\Feature\ConfigRelatedServicesTrait;
 
     /**
      * Location of fixture files.
@@ -68,7 +72,7 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
     {
         $this->csvFixtureDir = $this->getFixtureDir() . 'csv/';
         $this->container = new MockContainer($this);
-        $this->addPathResolverToContainer($this->container);
+        $this->addConfigRelatedServicesToContainer($this->container);
     }
 
     /**
@@ -117,7 +121,35 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test skipping the header row in the CSV
+     * Test that importer injects dependencies into static callback classes
+     * when appropriate.
+     *
+     * @return void
+     */
+    public function testCallbackDependencyInjection(): void
+    {
+        // Before running the test, there will be no dependencies injected
+        // into the static callback container, and trying to call getConfig
+        // will throw an exception due to the missing dependency.
+        $errorMsg = '';
+        try {
+            \VuFind\XSLT\Import\VuFind::getConfig();
+        } catch (\Throwable $t) {
+            $errorMsg = $t->getMessage();
+        }
+        $this->assertSame('Call to a member function get() on null', $errorMsg);
+        $this->runTestModeTest(
+            [
+                'ini' => 'test-injection.ini',
+            ]
+        );
+        // After running the test, dependencies will have been injected, so
+        // we can now call the same method without errors:
+        \VuFind\XSLT\Import\VuFind::getConfig();
+    }
+
+    /**
+     * Test skipping the header row in the CSV.
      *
      * @return void
      */
@@ -146,7 +178,7 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test importing a CSV with extra callbacks using advanced features
+     * Test importing a CSV with extra callbacks using advanced features.
      *
      * @return void
      */
@@ -217,20 +249,21 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
      */
     public function testImportInLiveMode(): void
     {
-        $mockWriter = $this->getMockBuilder(\VuFind\Solr\Writer::class)
-            ->disableOriginalConstructor()->getMock();
+        $mockWriter = $this->createMock(\VuFind\Solr\Writer::class);
         $mockWriter->expects($this->once())->method('save')->with(
-            $this->equalTo('Solr'),
-            $this->callback(function ($doc) {
-                $expected = file_get_contents($this->csvFixtureDir . 'test.json');
-                $this->assertJsonStringEqualsJsonString(
-                    $expected,
-                    $doc->getContent()
-                );
-                // If we got past the assertion, we can report success!
-                return true;
-            }),
-            $this->equalTo('update')
+            'Solr',
+            $this->callback(
+                function ($doc) {
+                    $expected = file_get_contents($this->csvFixtureDir . 'test.json');
+                    $this->assertJsonStringEqualsJsonString(
+                        $expected,
+                        $doc->getContent()
+                    );
+                    // If we got past the assertion, we can report success!
+                    return true;
+                }
+            ),
+            'update'
         );
         $this->container->set(\VuFind\Solr\Writer::class, $mockWriter);
         $importer = $this->getImporter();
@@ -240,7 +273,7 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
             'Solr',
             false
         );
-        $this->assertEquals('', $result); // no output in non-test mode
+        $this->assertSame('', $result); // no output in non-test mode
     }
 
     /**
@@ -250,14 +283,15 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
      */
     public function testImportInSmallBatches(): void
     {
-        $mockWriter = $this->getMockBuilder(\VuFind\Solr\Writer::class)
-            ->disableOriginalConstructor()->getMock();
+        $mockWriter = $this->createMock(\VuFind\Solr\Writer::class);
         $mockWriter->expects($this->exactly(3))->method('save')->with(
-            $this->equalTo('Solr'),
-            $this->callback(function ($doc) {
-                return $doc instanceof RawJSONDocument;
-            }),
-            $this->equalTo('update')
+            'Solr',
+            $this->callback(
+                function ($doc) {
+                    return $doc instanceof RawJSONDocument;
+                }
+            ),
+            'update'
         );
         $this->container->set(\VuFind\Solr\Writer::class, $mockWriter);
         $importer = $this->getImporter();
@@ -267,6 +301,6 @@ class ImporterTest extends \PHPUnit\Framework\TestCase
             'Solr',
             false
         );
-        $this->assertEquals('', $result); // no output in non-test mode
+        $this->assertSame('', $result); // no output in non-test mode
     }
 }

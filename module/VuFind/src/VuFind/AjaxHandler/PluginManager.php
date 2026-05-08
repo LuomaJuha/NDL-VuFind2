@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AJAX handler plugin manager
+ * AJAX handler plugin manager.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 /**
- * AJAX handler plugin manager
+ * AJAX handler plugin manager.
  *
  * @category VuFind
  * @package  AJAX
@@ -47,9 +49,8 @@ class PluginManager extends \VuFind\ServiceManager\AbstractPluginManager
         'checkRequestIsValid' => CheckRequestIsValid::class,
         'commentRecord' => CommentRecord::class,
         'deleteRecordComment' => DeleteRecordComment::class,
-        'doiLookup' => DoiLookup::class,
+        'identifierLinksLookup' => IdentifierLinksLookup::class,
         'getACSuggestions' => GetACSuggestions::class,
-        'getFacetData' => GetFacetData::class,
         'getIlsStatus' => GetIlsStatus::class,
         'getItemStatuses' => GetItemStatuses::class,
         'getLibraryPickupLocations' => GetLibraryPickupLocations::class,
@@ -63,6 +64,7 @@ class PluginManager extends \VuFind\ServiceManager\AbstractPluginManager
         'getResolverLinks' => GetResolverLinks::class,
         'getResultCount' => GetResultCount::class,
         'getSaveStatuses' => GetSaveStatuses::class,
+        'getSearchResults' => GetSearchResults::class,
         'getSideFacets' => GetSideFacets::class,
         'getUserFines' => GetUserFines::class,
         'getUserHolds' => GetUserHolds::class,
@@ -71,6 +73,8 @@ class PluginManager extends \VuFind\ServiceManager\AbstractPluginManager
         'getUserTransactions' => GetUserTransactions::class,
         'getVisData' => GetVisData::class,
         'keepAlive' => KeepAlive::class,
+        'onlinePaymentNotify' => OnlinePaymentNotify::class,
+        'onlinePaymentRegister' => OnlinePaymentRegister::class,
         'recommend' => Recommend::class,
         'relaisAvailability' => RelaisAvailability::class,
         'relaisInfo' => RelaisInfo::class,
@@ -88,9 +92,8 @@ class PluginManager extends \VuFind\ServiceManager\AbstractPluginManager
         CheckRequestIsValid::class => AbstractIlsAndUserActionFactory::class,
         CommentRecord::class => CommentRecordFactory::class,
         DeleteRecordComment::class => DeleteRecordCommentFactory::class,
-        DoiLookup::class => DoiLookupFactory::class,
+        IdentifierLinksLookup::class => IdentifierLinksLookupFactory::class,
         GetACSuggestions::class => GetACSuggestionsFactory::class,
-        GetFacetData::class => GetFacetDataFactory::class,
         GetIlsStatus::class => GetIlsStatusFactory::class,
         GetItemStatuses::class => GetItemStatusesFactory::class,
         GetLibraryPickupLocations::class => AbstractIlsAndUserActionFactory::class,
@@ -105,15 +108,17 @@ class PluginManager extends \VuFind\ServiceManager\AbstractPluginManager
         GetResolverLinks::class => GetResolverLinksFactory::class,
         GetResultCount::class => GetResultCountFactory::class,
         GetSaveStatuses::class => GetSaveStatusesFactory::class,
+        GetSearchResults::class => GetSearchResultsFactory::class,
         GetSideFacets::class => GetSideFacetsFactory::class,
         GetUserFines::class => GetUserFinesFactory::class,
-        GetUserHolds::class => AbstractIlsAndUserActionFactory::class,
-        GetUserILLRequests::class => AbstractIlsAndUserActionFactory::class,
-        GetUserStorageRetrievalRequests::class =>
-            AbstractIlsAndUserActionFactory::class,
-        GetUserTransactions::class => AbstractIlsAndUserActionFactory::class,
+        GetUserHolds::class => AbstractIlsUserAndRendererActionFactory::class,
+        GetUserILLRequests::class => AbstractIlsUserAndRendererActionFactory::class,
+        GetUserStorageRetrievalRequests::class => AbstractIlsUserAndRendererActionFactory::class,
+        GetUserTransactions::class => AbstractIlsUserAndRendererActionFactory::class,
         GetVisData::class => GetVisDataFactory::class,
         KeepAlive::class => KeepAliveFactory::class,
+        OnlinePaymentNotify::class => AbstractOnlinePaymentActionFactory::class,
+        OnlinePaymentRegister::class => AbstractOnlinePaymentActionFactory::class,
         Recommend::class => RecommendFactory::class,
         RelaisAvailability::class => AbstractRelaisActionFactory::class,
         RelaisInfo::class =>  AbstractRelaisActionFactory::class,

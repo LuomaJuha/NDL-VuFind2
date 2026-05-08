@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Unit tests for Lucene syntax helper
+ * Unit tests for Lucene syntax helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace FinnaTest\Backend\Solr;
 
 use FinnaSearch\Backend\Solr\LuceneSyntaxHelper;
 
 /**
- * Unit tests for Lucene syntax helper
+ * Unit tests for Lucene syntax helper.
  *
  * @category VuFind
  * @package  Search
@@ -39,8 +40,10 @@ use FinnaSearch\Backend\Solr\LuceneSyntaxHelper;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
-class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
+class LuceneSyntaxHelperTest extends \PHPUnit\Framework\TestCase
 {
+    use \VuFindTest\Feature\ReflectionTrait;
+
     /**
      * Test wildcard handling functionality.
      *
@@ -239,7 +242,10 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
             ['[a      to      b]', '([a TO b] OR [A TO B])'],   // handle extra spaces
             // special case for timestamps:
             ['[1900-01-01t00:00:00z to 1900-12-31t23:59:59z]', '[1900-01-01T00:00:00Z TO 1900-12-31T23:59:59Z]'],
-            ['{1900-01-01T00:00:00Z       TO   1900-12-31T23:59:59Z}', '{1900-01-01T00:00:00Z TO 1900-12-31T23:59:59Z}']
+            [
+                '{1900-01-01T00:00:00Z       TO   1900-12-31T23:59:59Z}',
+                '{1900-01-01T00:00:00Z TO 1900-12-31T23:59:59Z}',
+            ],
         ];
         // @codingStandardsIgnoreEnd
 
@@ -253,7 +259,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
     }
 
     /**
-     * Test advanced query detection (default settings)
+     * Test advanced query detection (default settings).
      *
      * @return void
      */
@@ -297,7 +303,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
     }
 
     /**
-     * Test advanced query detection (with case insensitivity)
+     * Test advanced query detection (with case insensitivity).
      *
      * @return void
      */
@@ -319,7 +325,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
     }
 
     /**
-     * Test case insensitive range normalization
+     * Test case insensitive range normalization.
      *
      * @return void
      */
@@ -334,7 +340,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
     }
 
     /**
-     * Test colon normalization
+     * Test colon normalization.
      *
      * @return void
      */
@@ -361,7 +367,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
     }
 
     /**
-     * Test search term extraction
+     * Test search term extraction.
      *
      * @return void
      */
@@ -386,7 +392,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
             'index:+keyword index2:-keyword2^20' => 'keyword keyword2',
             'index:[start TO end]' => '[start TO end]',
             'index:{start TO end}' => '{start TO end}',
-            'es\\"caped field:test' => 'es\\"caped test'
+            'es\\"caped field:test' => 'es\\"caped test',
         ];
         foreach ($tests as $input => $expected) {
             $this->assertEquals(
@@ -397,7 +403,7 @@ class LuceneSyntaxHelperTest extends \VuFindTest\Unit\TestCase
     }
 
     /**
-     * Test normalization of unquoted special characters
+     * Test normalization of unquoted special characters.
      *
      * @return void
      */

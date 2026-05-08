@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Iframe helper
+ * Iframe helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,43 +17,43 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\I18n\Translator\TranslatorAwareTrait;
 
 /**
- * Iframe helper
+ * Iframe helper.
  *
  * @category VuFind
  * @package  Content
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-class Iframe extends \Laminas\View\Helper\AbstractHelper
-    implements TranslatorAwareInterface
+class Iframe extends \Laminas\View\Helper\AbstractHelper implements TranslatorAwareInterface
 {
     use TranslatorAwareTrait;
 
     /**
-     * Cookie consent configuration
+     * Cookie consent configuration.
      *
      * @var array
      */
     protected $consentConfig;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array $consentConfig Cookie consent configuration
      */
@@ -62,7 +63,7 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Render a generic iframe or link box depending on cookie consent
+     * Render a generic iframe or link box depending on cookie consent.
      *
      * @param string $style             Element style attribute used for both iframe
      * and possible placeholder div if required consent categories are not accepted
@@ -107,7 +108,7 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Render a link box to a service
+     * Render a link box to a service.
      *
      * @param string $serviceUrl        URL to the service's own interface
      * @param array  $consentCategories Required cookie consent categories
@@ -139,7 +140,7 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Render a Vimeo iframe or link box depending on cookie consent
+     * Render a Vimeo iframe or link box depending on cookie consent.
      *
      * @param string  $videoId           Video ID
      * @param array   $consentCategories Required cookie consent categories
@@ -153,8 +154,8 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     public function vimeo(
         string $videoId,
         array $consentCategories,
-        string $width = null,
-        string $height = null,
+        ?string $width = null,
+        ?string $height = null,
         array $attributes = []
     ): string {
         if (!isset($attributes['allow'])) {
@@ -172,13 +173,13 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
             'Vimeo',
             'https://player.vimeo.com/video/' . urlencode($videoId),
             $attributes,
-            'https://vimeo.com/?v=' . urlencode($videoId),
+            'https://vimeo.com/' . urlencode($videoId),
             $consentCategories
         );
     }
 
     /**
-     * Render a YouTube iframe or link box depending on cookie consent
+     * Render a YouTube iframe or link box depending on cookie consent.
      *
      * @param string  $videoId           Video ID
      * @param array   $consentCategories Required cookie consent categories
@@ -192,8 +193,8 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     public function youtube(
         string $videoId,
         array $consentCategories,
-        string $width = null,
-        string $height = null,
+        ?string $width = null,
+        ?string $height = null,
         array $attributes = []
     ): string {
         if (!isset($attributes['allow'])) {
@@ -218,7 +219,64 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Render a Twitter timeline iframe or link box depending on cookie consent
+     * Render an Icareus iframe or link box depending on cookie consent.
+     *
+     * @param string $src               Icareus video source
+     * @param array  $consentCategories Required cookie consent categories
+     * @param array  $attributes        Other iframe attributes (if this contains
+     * style, it overrides the style from the $style parameter for the iframe)
+     *
+     * @return string
+     */
+    public function icareus(
+        string $src,
+        array $consentCategories,
+        array $attributes = []
+    ): string {
+        $style = implode(' ', [
+            'position: absolute;',
+            'top: 0;',
+            'bottom: 0;',
+            'right: 0;',
+            'left: 0;',
+            'width: 100%;',
+            'height: 100%;',
+        ]);
+        $wrapper = true;
+        $wrapperStyle['style'] = implode(' ', [
+            'position: relative;',
+            'width: 100%;',
+            'padding-top: 56.25%;',
+            'clear: both',
+        ]);
+        $serviceUrl = $src;
+        $serviceBaseUrl = $this->getServiceBaseUrl($src);
+        $consentCategoriesTranslated
+            = $this->getTranslatedConsentCategories($consentCategories);
+        $embed = $this->hasConsent($consentCategories);
+
+        $title = 'Icareus video player';
+
+        return $this->getView()->render(
+            'Helpers/iframe.phtml',
+            compact(
+                'embed',
+                'style',
+                'title',
+                'src',
+                'attributes',
+                'serviceUrl',
+                'consentCategories',
+                'consentCategoriesTranslated',
+                'serviceBaseUrl',
+                'wrapper',
+                'wrapperStyle'
+            )
+        );
+    }
+
+    /**
+     * Render a Twitter timeline iframe or link box depending on cookie consent.
      *
      * @param string $screenName        User's screen name
      * @param array  $consentCategories Required cookie consent categories
@@ -259,7 +317,7 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Get base URL for a service
+     * Get base URL for a service.
      *
      * @param string $serviceUrl Service URL
      *
@@ -282,7 +340,7 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Get translated consent categories
+     * Get translated consent categories.
      *
      * @param array $categories Categories to translate
      *
@@ -302,7 +360,7 @@ class Iframe extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Check if user has consented to given categories
+     * Check if user has consented to given categories.
      *
      * @param array $categories Categories
      *

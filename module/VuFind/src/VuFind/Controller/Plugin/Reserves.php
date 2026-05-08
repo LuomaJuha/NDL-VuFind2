@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Action Helper - Reserves Support Methods
+ * VuFind Action Helper - Reserves Support Methods.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller_Plugins
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Controller\Plugin;
 
 use Laminas\Mvc\Controller\Plugin\AbstractPlugin;
@@ -32,7 +34,7 @@ use VuFindSearch\Command\RetrieveCommand;
 use VuFindSearch\Service;
 
 /**
- * Action helper to perform reserves-related actions
+ * Action helper to perform reserves-related actions.
  *
  * @category VuFind
  * @package  Controller_Plugins
@@ -51,21 +53,21 @@ class Reserves extends AbstractPlugin
     protected $useIndex;
 
     /**
-     * Search service
+     * Search service.
      *
      * @var Service
      */
     protected $searchService;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param bool    $useIndex      Do we need to use the Solr index for reserves
+     * @param bool     $useIndex      Do we need to use the Solr index for reserves
      * (true) or the ILS driver (false)?
-     * @param Service $searchService Search service (only required when $useIndex
+     * @param ?Service $searchService Search service (only required when $useIndex
      * is true).
      */
-    public function __construct($useIndex = false, Service $searchService = null)
+    public function __construct($useIndex = false, ?Service $searchService = null)
     {
         $this->useIndex = $useIndex;
         if ($useIndex && null === $searchService) {
@@ -88,9 +90,9 @@ class Reserves extends AbstractPlugin
     /**
      * Get reserve info from the catalog or Solr reserves index.
      *
-     * @param string $course Course ID to use as limit (optional)
-     * @param string $inst   Instructor ID to use as limit (optional)
-     * @param string $dept   Department ID to use as limit (optional)
+     * @param ?string $course Course ID to use as limit (optional)
+     * @param ?string $inst   Instructor ID to use as limit (optional)
+     * @param ?string $dept   Department ID to use as limit (optional)
      *
      * @return array
      */
@@ -118,7 +120,7 @@ class Reserves extends AbstractPlugin
                     'BIB_ID' => $bib_id,
                     'bib_id' => $bib_id,
                     'course' => $course,
-                    'instructor' => $instructor
+                    'instructor' => $instructor,
                 ];
             }
             return $bibs;

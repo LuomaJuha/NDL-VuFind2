@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Feed service
+ * Feed service.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2023.
  *
@@ -16,41 +17,50 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Feed;
 
 use Finna\OrganisationInfo\OrganisationInfo;
-use Finna\View\Helper\Root\CleanHtml;
-use Laminas\Config\Config;
 use Laminas\Feed\Reader\Entry\AbstractEntry;
 use Laminas\Feed\Reader\Feed\AbstractFeed;
 use Laminas\Feed\Reader\Reader;
 use Laminas\Mvc\Controller\Plugin\Url;
+use Laminas\View\Helper\ServerUrl;
+use Psr\Container\ContainerInterface;
 use VuFind\Cache\Manager as CacheManager;
+use VuFind\Config\Config;
+use VuFind\View\Helper\Root\CleanHtml;
 use VuFindTheme\View\Helper\ImageLink;
 
+use function in_array;
+use function is_object;
+use function is_string;
+use function strlen;
+
 /**
- * Feed service
+ * Feed service.
  *
  * @category VuFind
  * @package  Content
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
+class Feed implements
+    \VuFind\I18n\Translator\TranslatorAwareInterface,
     \VuFindHttp\HttpServiceAwareInterface,
-    \Laminas\Log\LoggerAwareInterface
+    \Psr\Log\LoggerAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
     use \VuFindHttp\HttpServiceAwareTrait;
@@ -78,35 +88,42 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
     protected $organisationInfoFeedConfig;
 
     /**
-     * Cache manager
+     * Cache manager.
      *
      * @var CacheManager
      */
     protected $cacheManager;
 
     /**
-     * URL helper
+     * URL helper.
      *
      * @var Url
      */
     protected $urlHelper;
 
     /**
-     * Image link helper
+     * Server URL helper.
+     *
+     * @var ServerUrl
+     */
+    protected $serverUrl;
+
+    /**
+     * Image link helper.
      *
      * @var ImageLink
      */
     protected $imageLinkHelper;
 
     /**
-     * Clean HTML helper
+     * Clean HTML helper.
      *
      * @var CleanHtml
      */
     protected $cleanHtml;
 
     /**
-     * Organisation info service
+     * Organisation info service.
      *
      * @var OrganisationInfo
      */
@@ -121,6 +138,7 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
      * configuration
      * @param CacheManager     $cm            Cache manager
      * @param Url              $url           URL helper
+     * @param ServerUrl        $serverUrl     Server URL helper
      * @param ImageLink        $imageLink     Image link helper
      * @param CleanHtml        $cleanHtml     Clean HTML helper
      * @param OrganisationInfo $orgInfo       Organisation info service
@@ -131,6 +149,7 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
         Config $orgFeedConfig,
         CacheManager $cm,
         Url $url,
+        ServerUrl $serverUrl,
         ImageLink $imageLink,
         CleanHTML $cleanHtml,
         OrganisationInfo $orgInfo
@@ -140,6 +159,7 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
         $this->organisationInfoFeedConfig = $orgFeedConfig;
         $this->cacheManager = $cm;
         $this->urlHelper = $url;
+        $this->serverUrl = $serverUrl;
         $this->imageLinkHelper = $imageLink;
         $this->cleanHtml = $cleanHtml;
         $this->organisationInfo = $orgInfo;
@@ -161,17 +181,9 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
         // Check for an organisation info feed:
         $idParts = explode('|', $id);
         if ('organisation-info' === $idParts[0] && isset($idParts[4])) {
-            [, $parent, $unitId, $type, $feedType] = $idParts;
-            $result = $this->organisationInfo->query(
-                $parent,
-                [
-                    'id' => $unitId,
-                    'orgType' => $type,
-                    'action' => 'details',
-                    'allServices' => 1,
-                    'fullDetails' => 1,
-                ]
-            );
+            [, $id, $locationId, $type, $feedType] = $idParts;
+            $sectors = 'museum' === $type ? ['mus'] : ['lib'];
+            $result = $this->organisationInfo->getDetails($sectors, $id, $locationId);
 
             $url = '';
             foreach ($result['rss'] as $current) {
@@ -260,7 +272,7 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
     }
 
     /**
-     * Check for a local file and create a timestamped link if found
+     * Check for a local file and create a timestamped link if found.
      *
      * @param string $url url
      *
@@ -331,7 +343,8 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
         $maxAge = isset($this->mainConfig->Content->feedcachetime)
             && '' !== $this->mainConfig->Content->feedcachetime
             ? $this->mainConfig->Content->feedcachetime : 10;
-        if ($maxAge && is_readable($localFile)
+        if (
+            $maxAge && is_readable($localFile)
             && time() - filemtime($localFile) < $maxAge * 60
         ) {
             if ($result = unserialize(file_get_contents($localFile))) {
@@ -347,16 +360,16 @@ class Feed implements \VuFind\I18n\Translator\TranslatorAwareInterface,
         if (strstr($url, 'finna-test.fi') || strstr($url, 'finna-pre.fi')) {
             // Refuse to load feeds from finna-test.fi or finna-pre.fi
             $feedStr = <<<EOT
-<?xml version="1.0" encoding="UTF-8"?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
-  <channel>
-    <atom:link href="" rel="self" type="application/rss+xml"/>
-    <link></link>
-    <title><![CDATA[<!-- Feed URL blocked -->]]></title>
-    <description></description>
-  </channel>
-</rss>
-EOT;
+                <?xml version="1.0" encoding="UTF-8"?>
+                <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+                  <channel>
+                    <atom:link href="" rel="self" type="application/rss+xml"/>
+                    <link></link>
+                    <title><![CDATA[<!-- Feed URL blocked -->]]></title>
+                    <description></description>
+                  </channel>
+                </rss>
+                EOT;
             $channel = Reader::importString($feedStr);
         } elseif (preg_match('/^http(s)?:\/\//', $url)) {
             // Absolute URL
@@ -395,16 +408,16 @@ EOT;
         if (!$channel) {
             // Cache also a failed load as an empty feed XML
             $feedStr = <<<EOT
-<?xml version="1.0" encoding="UTF-8"?>
-<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
-  <channel>
-    <atom:link href="" rel="self" type="application/rss+xml"/>
-    <link></link>
-    <title>Feed could not be loaded</title>
-    <description></description>
-  </channel>
-</rss>
-EOT;
+                <?xml version="1.0" encoding="UTF-8"?>
+                <rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+                  <channel>
+                    <atom:link href="" rel="self" type="application/rss+xml"/>
+                    <link></link>
+                    <title>Feed could not be loaded</title>
+                    <description></description>
+                  </channel>
+                </rss>
+                EOT;
             $channel = Reader::importString($feedStr);
         }
 
@@ -417,7 +430,7 @@ EOT;
     }
 
     /**
-     * Function to parse feed with config
+     * Function to parse feed with config.
      *
      * @param AbstractFeed $channel Feed channel
      * @param Config       $config  Feed config
@@ -438,6 +451,13 @@ EOT;
         $contentDateFormat = $config->contentDateFormat ?? 'j.n.Y';
         $fullDateFormat = $config->fullDateFormat ?? 'j.n.Y';
         $cleanContent = $config->cleanContent ?? true;
+        $titleTruncateSize = (int)($config->titleTruncateSize ?? 70);
+        $displayFormatHeader = $config->displayFormatHeader ?? false;
+        $titlePosition = $config->titlePosition ?? null;
+
+        $contentNavigation = $config->feedcontentNavigation ?? true;
+        $nextArticles = $config->feedcontentNextArticles ?? false;
+        $additionalHtml = $config->feedcontentadditionalHtml ?? '';
 
         $itemsCnt = $config->items ?? null;
         $elements = $config->content ?? [];
@@ -448,14 +468,16 @@ EOT;
             'id' => 'getId',
             'title' => 'getTitle',
             'text' => 'getContent',
+            'description' => 'getDescription',
+            'format' => 'getFormat',
             'image' => 'getEnclosure',
             'link' => 'getLink',
             'date' => 'getDateCreated',
-            'contentDate' => 'getDateCreated'
+            'contentDate' => 'getDateCreated',
         ];
 
         $xpathContent = [
-            'html' => '//item/content:encoded'
+            'html' => '//item/content:encoded',
         ];
 
         $xcalContent = [
@@ -470,7 +492,7 @@ EOT;
             'organizer-url',
             'url',
             'cost',
-            'categories'
+            'categories',
         ];
 
         $items = [];
@@ -484,8 +506,12 @@ EOT;
             }
             $data = [];
             $data['modal'] = $modal;
+            $data['titleTruncateSize'] = $titleTruncateSize;
+            $data['displayFormatHeader'] = $displayFormatHeader;
+            $data['titlePosition'] = $titlePosition;
             foreach ($content as $setting => $method) {
-                if (!isset($elements[$setting])
+                if (
+                    !isset($elements[$setting])
                     || $elements[$setting] != 0
                 ) {
                     $value = $item->{$method}();
@@ -537,8 +563,9 @@ EOT;
                             [
                                 'query' => [
                                     'element' => $itemId,
-                                    'lng' => $this->getTranslatorLocale()
-                                ]
+                                    'lng' => $this->getTranslatorLocale(),
+                                ],
+                                'normalize_path' => false,
                             ]
                         );
                     } elseif ($setting == 'id') {
@@ -547,6 +574,11 @@ EOT;
                         }
                     } elseif (is_string($value)) {
                         $value = strip_tags($value);
+                        if (filter_var($value, FILTER_VALIDATE_URL)) {
+                            $host = parse_url($this->serverUrl->getHost(), PHP_URL_HOST);
+                            $linkHost = parse_url($value, PHP_URL_HOST);
+                            $data['isExternal'] = $linkHost && $linkHost !== $host;
+                        }
                     }
                     if ($value) {
                         $data[$setting] = $value;
@@ -575,8 +607,9 @@ EOT;
                                 }
 
                                 $data['xcal']['featured'] = $imgLink;
-                                if ($elements['image'] != 0
-                                    || !isset($elements['image'])
+                                if (
+                                    !isset($elements['image'])
+                                    || $elements['image'] != 0
                                 ) {
                                     $data['image']['url'] = $imgLink;
                                 }
@@ -604,7 +637,8 @@ EOT;
             }
 
             // Make sure that we have something to display
-            if (trim($data['title'] ?? '') === ''
+            if (
+                trim($data['title'] ?? '') === ''
                 && trim($data['text'] ?? '') === ''
                 && empty($data['image'])
             ) {
@@ -631,65 +665,15 @@ EOT;
                 $cnt = 0;
                 foreach ($items as &$item) {
                     foreach ($xpathContent as $setting => $xpathElement) {
-                        $content = $xpath->query($xpathElement, $xpathItem)
-                            ->item($cnt++)->nodeValue;
+                        $content = $xpath->query($xpathElement, $xpathItem)->item($cnt++)?->nodeValue;
 
-                        // Remove width & height declarations from style
-                        // attributes in div & p elements
-                        $dom = new \DOMDocument();
-                        libxml_use_internal_errors(true);
-                        $dom->loadHTML(
-                            mb_convert_encoding($content, 'HTML-ENTITIES', 'UTF-8')
+                        $content = $this->processItemContent(
+                            $content ?: '',
+                            $searchReplace,
+                            $cleanContent,
+                            $id ?? '',
+                            $allowedImages
                         );
-                        $domx = new \DOMXPath($dom);
-
-                        // Process style attributes:
-                        $elements = $domx->query('//div[@style]|//p[@style]');
-                        foreach ($elements as $el) {
-                            $styleProperties = [];
-                            $styleAttr = $el->getAttribute('style');
-                            $properties = explode(';', $styleAttr);
-                            foreach ($properties as $prop) {
-                                [$field] = explode(':', $prop);
-                                if (stristr($field, 'width') === false
-                                    && stristr($field, 'height') === false
-                                    && stristr($field, 'margin') === false
-                                ) {
-                                    $styleProperties[] = $prop;
-                                }
-                            }
-                            $el->removeAttribute('style');
-                            $el->setAttribute(
-                                'style',
-                                implode(';', $styleProperties)
-                            );
-                        }
-
-                        // Proxify images:
-                        foreach ($domx->query('//img') as $el) {
-                            $srcAttr = $el->getAttribute('src');
-                            $allowedImages[] = $srcAttr;
-                            $el->setAttribute(
-                                'src',
-                                $this->proxifyImageUrl($srcAttr, $id)
-                            );
-                        }
-
-                        $content = $dom->saveHTML();
-
-                        // Process feed specific search-replace regexes
-                        foreach ($searchReplace as $search => $replace) {
-                            $pattern = "/$search/";
-                            $replaced = preg_replace($pattern, $replace, $content);
-                            if ($replaced !== null) {
-                                $content = $replaced;
-                            }
-                        }
-
-                        // Clean up the HTML:
-                        if ($cleanContent) {
-                            $content = ($this->cleanHtml)($content);
-                        }
 
                         $item[$setting] = $content;
                     }
@@ -704,12 +688,118 @@ EOT;
             'config',
             'modal',
             'contentPage',
-            'allowedImages'
+            'allowedImages',
+            'contentNavigation',
+            'nextArticles',
+            'additionalHtml',
+            'titleTruncateSize',
+            'titlePosition'
         );
     }
 
     /**
-     * Proxify an image url for loading via the FeedContent controller
+     * Set up custom extensions.
+     *
+     * @param ContainerInterface $container Service container
+     *
+     * @return void
+     */
+    public function registerExtensions(ContainerInterface $container)
+    {
+        $manager = new \Laminas\Feed\Reader\ExtensionPluginManager($container);
+        $manager->setInvokableClass(
+            'DublinCore\Entry',
+            \Finna\Feed\Reader\Extension\DublinCore\Entry::class
+        );
+        Reader::setExtensionManager($manager);
+        Reader::registerExtension('DublinCore');
+    }
+
+    /**
+     * Process item content.
+     *
+     * @param string $content       Content as string
+     * @param array  $searchReplace Search and replacement values
+     * @param bool   $cleanContent  Whether to run the content through cleanHtml
+     * @param string $feedId        Feed ID
+     * @param array  $allowedImages Allowed images
+     *
+     * @return string
+     */
+    protected function processItemContent(
+        string $content,
+        array $searchReplace,
+        bool $cleanContent,
+        string $feedId,
+        array &$allowedImages
+    ): string {
+        if (!$content) {
+            return $content;
+        }
+        // Remove width & height declarations from style
+        // attributes in div & p elements
+        $dom = new \DOMDocument();
+        $saveErrors = libxml_use_internal_errors(true);
+        // See https://stackoverflow.com/a/8218649 for more information on mb_encode_numericentity below
+        $dom->loadHTML(mb_encode_numericentity($content, [0x80, 0x10FFFF, 0, ~0], 'UTF-8'));
+        $domx = new \DOMXPath($dom);
+
+        // Process style attributes:
+        $elements = $domx->query('//div[@style]|//p[@style]');
+        foreach ($elements as $el) {
+            $styleProperties = [];
+            $styleAttr = $el->getAttribute('style');
+            $properties = explode(';', $styleAttr);
+            foreach ($properties as $prop) {
+                [$field] = explode(':', $prop);
+                if (
+                    stristr($field, 'width') === false
+                    && stristr($field, 'height') === false
+                    && stristr($field, 'margin') === false
+                ) {
+                    $styleProperties[] = $prop;
+                }
+            }
+            $el->removeAttribute('style');
+            $el->setAttribute(
+                'style',
+                implode(';', $styleProperties)
+            );
+        }
+
+        // Proxify images:
+        if ($feedId) {
+            foreach ($domx->query('//img') as $el) {
+                $srcAttr = $el->getAttribute('src');
+                $allowedImages[] = $srcAttr;
+                $el->setAttribute(
+                    'src',
+                    $this->proxifyImageUrl($srcAttr, $feedId)
+                );
+            }
+        }
+
+        $content = $dom->saveHTML();
+        libxml_use_internal_errors($saveErrors);
+
+        // Process feed specific search-replace regexes
+        foreach ($searchReplace as $search => $replace) {
+            $pattern = "/$search/";
+            $replaced = preg_replace($pattern, $replace, $content);
+            if ($replaced !== null) {
+                $content = $replaced;
+            }
+        }
+
+        // Clean up the HTML:
+        if ($cleanContent) {
+            $content = ($this->cleanHtml)($content);
+        }
+        return $content;
+    }
+
+    /**
+     * Proxify an image url for loading via the FeedContent controller.
      *
      * @param string $url    Image URL
      * @param string $feedId Feed identifier
@@ -734,7 +824,7 @@ EOT;
             [
                 'query' => [
                     'image' => $url,
-                ]
+                ],
             ]
         );
     }
@@ -742,16 +832,17 @@ EOT;
     /**
      * Populate icon data for feed slide.
      *
-     * @param array                  $data   Data for slide
-     * @param \Laminas\Config\Config $config Config for feed
+     * @param array                 $data   Data for slide
+     * @param \VuFind\Config\Config $config Config for feed
      *
      * @return void
      */
     protected function populateIcon(
         array &$data,
-        \Laminas\Config\Config $config
+        \VuFind\Config\Config $config
     ): void {
-        if (empty($config->showIcons)
+        if (
+            empty($config->showIcons)
             || empty($data['link'])
             || empty($this->mainConfig->Content->feedHostToNameMappings)
         ) {

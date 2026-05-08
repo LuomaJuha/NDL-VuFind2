@@ -1,13 +1,13 @@
-/*global VuFind, finna, checkSaveStatuses */
+/*global VuFind, finna */
 finna.encapsulatedRecords = (function encapsulatedRecords() {
   var my = {
     init: function init() {
-      $('.encapsulated-records.show-all').not(':data(inited)').each(function initRecords() {
+      $('.encapsulated-records.show-all').not('[data-inited="1"]').each(function initRecords() {
         var records = $(this);
-        records.data('inited', '1');
+        records.attr('data-inited', '1');
 
         var showMore = records.find('.show-more');
-        var spinner = records.find('.fa-spinner');
+        var spinner = records.find('.js-spinner-icon');
         records.find('.btn.load-more').on('click', function initLoadMore() {
           spinner.removeClass('hide').show();
 
@@ -43,19 +43,7 @@ finna.encapsulatedRecords = (function encapsulatedRecords() {
               });
 
               finna.myList.init();
-              finna.layout.initCondensedList(resultsContainer);
-              finna.layout.initTruncate();
-              finna.layout.initImagePaginators();
-              finna.openUrl.initLinks(resultsContainer);
-              finna.videoPopup.initIframeEmbed(resultsContainer);
-              finna.videoPopup.initVideoPopup(resultsContainer);
-              VuFind.itemStatuses.check(resultsContainer);
-              finna.itemStatus.initDedupRecordSelection(resultsContainer);
-              VuFind.recordVersions.init(resultsContainer);
-              VuFind.lightbox.bind(resultsContainer);
-              VuFind.cart.init(resultsContainer);
-              $.fn.finnaPopup.reIndex();
-              checkSaveStatuses(resultsContainer);
+              finna.common.initResultScripts(resultsContainer);
             })
             .fail(function onLoadRecordsFail() {
               btn.show();

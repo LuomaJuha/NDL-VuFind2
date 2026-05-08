@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Multiple Backend Driver.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2021.
+ * Copyright (C) The National Library of Finland 2015-2024.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  ILSdrivers
@@ -25,10 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:ils_drivers Wiki
  */
+
 namespace Finna\ILS\Driver;
 
 use VuFind\Exception\ILS as ILSException;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
+
+use function func_get_args;
+use function is_array;
 
 /**
  * Multiple Backend Driver.
@@ -42,11 +47,9 @@ use VuFind\I18n\Translator\TranslatorAwareInterface;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:ils_drivers Wiki
  */
-class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
-    implements TranslatorAwareInterface
+class MultiBackend extends \VuFind\ILS\Driver\MultiBackend implements TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
-    use \VuFind\Cache\CacheTrait;
 
     /**
      * Initialize the driver.
@@ -61,7 +64,8 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
     {
         parent::init();
 
-        if (null === $this->defaultDriver
+        if (
+            null === $this->defaultDriver
             || !isset($this->drivers[$this->defaultDriver])
         ) {
             // Try default login driver
@@ -77,33 +81,14 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
     }
 
     /**
-     * Change Password
-     *
-     * Attempts to change patron password (PIN code)
-     *
-     * @param array $details An array of patron id and old and new password
-     *
-     * @return mixed An array of data on the request including
-     * whether or not it was successful and a system message (if available)
-     */
-    public function changePassword($details)
-    {
-        // Remove old credentials from the cache regardless of whether the change
-        // was successful
-        $cacheKey = 'patron|' . $details['patron']['cat_username'];
-        $this->putCachedData($cacheKey, null);
-
-        return $this->callMethodIfSupported(null, 'changePassword', func_get_args());
-    }
-
-    /**
-     * Get available login targets (drivers enabled for login)
+     * Get available login targets (drivers enabled for login).
      *
      * @return string[] Source ID's
      */
     public function getLoginDrivers()
     {
         $drivers = parent::getLoginDrivers();
+        $drivers = array_intersect($drivers, array_keys($this->drivers));
         if ($this->config['General']['sort_login_drivers'] ?? true) {
             usort(
                 $drivers,
@@ -118,7 +103,7 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
     }
 
     /**
-     * Patron Login
+     * Patron Login.
      *
      * This is responsible for authenticating a patron against the catalog.
      *
@@ -130,22 +115,18 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
      */
     public function patronLogin($username, $password)
     {
-        $cacheKey = "patron|$username|$password";
-        $item = $this->getCachedData($cacheKey);
-        if ($item !== null) {
-            return $item;
-        }
-
         $patron = $this->callMethodIfSupported(null, 'patronLogin', func_get_args());
         if (is_array($patron)) {
             $patron['source'] = $this->getSource($username);
+            $patron['__source'] = $patron['source'];
+            $patron['__local_cat_username'] = $this->getLocalId($patron['cat_username']);
+            $patron['__local_id'] = $this->getLocalId($patron['id']);
         }
-        $this->putCachedData($cacheKey, $patron);
-        return $patron;
+        return $patron ?: null;
     }
 
     /**
-     * Get Renew Details
+     * Get Renew Details.
      *
      * In order to renew an item, the ILS requires information on the item and
      * patron. This function returns the information as a string which is then used
@@ -167,7 +148,7 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
 
     /**
      * Helper method to determine whether or not a certain method can be
-     * called on this driver.  Required method for any smart drivers.
+     * called on this driver. Required method for any smart drivers.
      *
      * @param string $method The name of the called method.
      * @param array  $params Array of passed parameters.
@@ -186,7 +167,7 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
     }
 
     /**
-     * Get configuration for the ILS driver.  We will load an .ini file named
+     * Get configuration for the ILS driver. We will load an .ini file named
      * after the driver class and number if it exists;
      * otherwise we will return an empty array.
      *
@@ -198,38 +179,72 @@ class MultiBackend extends \VuFind\ILS\Driver\MultiBackend
     protected function getDriverConfig($source)
     {
         // Determine config file name based on class name:
+        $config = [];
         try {
-            $config = $this->configLoader->get(
+            $config = $this->configManager->getConfigArray(
                 $this->drivers[$source] . '_' . $source
-            )->toArray();
-            if (!empty($config)) {
-                return $config;
-            }
+            );
             // Fallback for KohaRestSuomi to also look for KohaRest_$source.ini
-            if ('KohaRestSuomi' === $this->drivers[$source]) {
-                $config = $this->configLoader->get(
+            if (!$config && 'KohaRestSuomi' === $this->drivers[$source]) {
+                $config = $this->configManager->getConfigArray(
                     'KohaRest_' . $source
-                )->toArray();
-                if (!empty($config)) {
-                    return $config;
-                }
+                );
             }
         } catch (\Laminas\Config\Exception\RuntimeException $e) {
             // Fall through
         }
-        return parent::getDriverConfig($source);
+        if (!$config) {
+            $config = parent::getDriverConfig($source);
+        }
+
+        // Remap online payment settings and merge settings from datasources.ini for back-compatibility:
+        if (empty($config['OnlinePayment']) && !empty($config['onlinePayment'])) {
+            $config['OnlinePayment'] = $config['onlinePayment'];
+        }
+        if (isset($config['OnlinePayment'])) {
+            $config['OnlinePayment'] = $this->remapPaymentConfig($config['OnlinePayment']);
+            $datasourceConfig = $this->configManager->getConfigArray('datasources');
+            if ($paymentConfig = $datasourceConfig[$source]['onlinePayment'] ?? null) {
+                $config['OnlinePayment']
+                    = array_merge($this->remapPaymentConfig($paymentConfig), $config['OnlinePayment']);
+                if (empty($config['OnlinePayment']['errorEmail'])) {
+                    $config['OnlinePayment']['errorEmail'] = $datasourceConfig[$source]['feedbackEmail'] ?? null;
+                }
+            }
+        }
+
+        return $config;
     }
 
     /**
-     * Method to ensure uniform cache keys for cached VuFind objects.
+     * Remap legacy online payment configuration.
      *
-     * @param string|null $suffix Optional suffix that will get appended to the
-     * object class name calling getCacheKey()
+     * @param array $config Payment configuration
      *
-     * @return string
+     * @return array
      */
-    protected function getCacheKey($suffix = null)
+    protected function remapPaymentConfig(array $config): array
     {
-        return 'MultiBackend-' . md5($suffix);
+        static $map = [
+            'transactionFee' => 'serviceFee',
+            'transactionMaxDuration' => 'paymentMaxDuration',
+        ];
+
+        $result = [];
+        foreach ($config as $key => $value) {
+            if ('handler' === $key && 'PaytrailPaymentAPI' === $value) {
+                $value = 'Paytrail';
+            } elseif ('handler' === $key && 'TurkuPayment' === $value) {
+                $value = 'TurkuPaymentAPI';
+            } elseif ('productCodeMappings' === $key && is_array($value)) {
+                // If productCodeMappings is an array, it should be mapped to driverProductCodeMappings:
+                $key = 'driverProductCodeMappings';
+            }
+            $result[$map[$key] ?? $key] = $value;
+        }
+        if (!isset($result['vatBreakdown'])) {
+            $result['vatBreakdown'] = true;
+        }
+        return $result;
     }
 }

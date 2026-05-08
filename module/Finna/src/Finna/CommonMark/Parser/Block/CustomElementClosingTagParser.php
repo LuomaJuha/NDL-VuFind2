@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Custom element closing tag block continue parser
+ * Custom element closing tag block continue parser.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  CommonMark
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\CommonMark\Parser\Block;
 
 use Finna\CommonMark\Node\Block\CustomElementClosingTag;
@@ -36,7 +38,7 @@ use League\CommonMark\Parser\Block\BlockContinueParserInterface;
 use League\CommonMark\Parser\Cursor;
 
 /**
- * Custom element closing tag block continue parser
+ * Custom element closing tag block continue parser.
  *
  * @category VuFind
  * @package  CommonMark
@@ -47,7 +49,7 @@ use League\CommonMark\Parser\Cursor;
 class CustomElementClosingTagParser extends AbstractBlockContinueParser
 {
     /**
-     * The current block being parsed by this parser
+     * The current block being parsed by this parser.
      *
      * @var CustomElementClosingTag
      */
@@ -64,7 +66,7 @@ class CustomElementClosingTagParser extends AbstractBlockContinueParser
     }
 
     /**
-     * Return the current block being parsed by this parser
+     * Return the current block being parsed by this parser.
      *
      * @return CustomElementClosingTag
      */
@@ -75,7 +77,7 @@ class CustomElementClosingTagParser extends AbstractBlockContinueParser
 
     /**
      * Return whether we are interested in possibly lazily parsing any subsequent
-     * lines
+     * lines.
      *
      * @return bool
      */
@@ -85,7 +87,7 @@ class CustomElementClosingTagParser extends AbstractBlockContinueParser
     }
 
     /**
-     * Attempt to parse the given line
+     * Attempt to parse the given line.
      *
      * @param Cursor                       $cursor            Cursor
      * @param BlockContinueParserInterface $activeBlockParser Parser
@@ -100,7 +102,7 @@ class CustomElementClosingTagParser extends AbstractBlockContinueParser
     }
 
     /**
-     * Add the given line of text to the current block
+     * Add the given line of text to the current block.
      *
      * @param string $line Line
      *

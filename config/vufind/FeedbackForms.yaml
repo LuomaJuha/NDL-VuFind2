@@ -17,6 +17,7 @@
 #   title (string) Form title (translation key)
 #   onlyForLoggedUsers (boolean) Require the user to be logged in to see the form
 #                                (default = false)
+#   formActionRoute (string) Sets the route to which form data should be posted. (default = feedback-form)
 #   emailSubject (string) Email subject (translation key). (default = email_subject
 #                         value from config.ini [Feedback] section, or 'VuFind Feedback')
 #                         The subject may contain placeholders (for example %%receiver%%)
@@ -40,7 +41,7 @@
 #     - name: Recipient 2
 #       email: recipient2@email
 #
-#   response (string) Reponse after form submit (translation key)
+#   response (string) Response after form submit (translation key)
 #   senderInfoRequired (boolean)  Require sender to fill out name and email fields - deprecated
 #   senderEmailRequired (boolean) Require sender to fill out email field
 #   senderNameRequired (boolean)  Require sender to fill out name field
@@ -64,6 +65,14 @@
 #     post (string) Help text displayed at the end of the form (translation key)
 #
 #     Help texts may contain HTML-formatting.
+#
+#   prefillFields (array) Fields that could be prefilled by passing parameter to form URL. Could be
+#                         used only with hidden, text and textarea types.
+#                         Example:
+#                           prefillFields:
+#                             - siteCode
+#                          With configured field 'siteCode' enables prefilling the field with
+#                          /Feedback/Form/FeedbackSite?siteCode=website
 #
 #   fields (array) List of form elements with the following options:
 #
@@ -155,6 +164,7 @@ forms:
     useCaptcha: true
     reportReferrer: false
     reportUserAgent: true
+    #formActionRoute: controller-route
     #emailFrom:
     #  name: Your Library - Site Feedback
     #recipient:

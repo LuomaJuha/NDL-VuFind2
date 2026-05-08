@@ -1,0 +1,26 @@
+<!-- START of: finna - RecordDriver/CuratedRecord/result-condensed.phtml -->
+<?php $records = $this->driver->getEncapsulatedRecords(); ?>
+<?php if ($record = reset($records)): ?>
+  <?php if ($record instanceof \VuFind\RecordDriver\Missing): ?>
+    <div class="condensed-collapse-toggle">
+      <div class="condensed-body">
+        <p><?= $this->transEsc('Cannot find record') . ': ' . $this->escapeHtmlAttr($record->getUniqueID()) ?></p>
+        <?= $this->markdown()->toHtml($this->driver->getNotes()) ?>
+      </div>
+    </div>
+  <?php else: ?>
+    <?=
+      // Render the same template using the encapsulated record.
+      // renderTemplate() is used to set temporary global variables.
+      $this->record($record)->renderTemplate(
+          'result-condensed.phtml',
+          [
+              'driver' => $record,
+              'curatedRecord' => $this->driver,
+              'listNoteTitle' => $this->translate('Aipa::More Information'),
+          ]
+      )
+    ?>
+  <?php endif; ?>
+<?php endif; ?>
+<!-- END of: finna - RecordDriver/CuratedRecord/result-condensed.phtml -->

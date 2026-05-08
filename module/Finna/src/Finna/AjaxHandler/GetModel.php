@@ -1,8 +1,9 @@
 <?php
+
 /**
  * 3D model ajax handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,10 +26,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Finna\File\Loader as FileLoader;
-use Laminas\Http\Request;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\Router\Http\TreeRouteStack;
 use VuFind\Record\Loader as RecordLoader;
@@ -36,7 +37,7 @@ use VuFind\Session\Settings as SessionSettings;
 use VuFind\View\Helper\Root\Url;
 
 /**
- * GetModel AJAX handler
+ * GetModel AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -44,48 +45,47 @@ use VuFind\View\Helper\Root\Url;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetModel extends \VuFind\AjaxHandler\AbstractBase
-    implements \VuFindHttp\HttpServiceAwareInterface
+class GetModel extends \VuFind\AjaxHandler\AbstractBase implements \VuFindHttp\HttpServiceAwareInterface
 {
     use \VuFindHttp\HttpServiceAwareTrait;
 
     /**
-     * Session settings
+     * Session settings.
      *
      * @var Settings
      */
     protected $sessionSettings;
 
     /**
-     * Loader
+     * Loader.
      *
      * @var RecordLoader
      */
     protected $recordLoader;
 
     /**
-     * File loader
+     * File loader.
      *
      * @var Loader
      */
     protected $fileLoader;
 
     /**
-     * Domain url
+     * Domain url.
      *
      * @var Url
      */
     protected $urlHelper;
 
     /**
-     * Router
+     * Router.
      *
      * @var \Laminas\Router\Http\TreeRouteStack
      */
     protected $router;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param SessionSettings $ss           Session settings
      * @param RecordLoader    $recordLoader Recordloader
@@ -131,12 +131,13 @@ class GetModel extends \VuFind\AjaxHandler\AbstractBase
         $format = strtolower($format);
         $fileName = urlencode($id) . '-' . $index . '.' . $format;
         $driver = $this->recordLoader->load($id, $source ?? DEFAULT_SEARCH_BACKEND);
-        $models = $driver->tryMethod('getModels');
-        if (empty($models[$index][$format]['preview'])) {
+        $models = $driver->tryMethod('getModels')[$index]['models'] ?? [];
+        $found = array_search('preview', array_column($models, 'type'));
+        if (false === $found) {
             return $this->formatResponse(['json' => ['status' => '404']]);
         }
         // Always force preview model to be fetched
-        $url = $models[$index][$format]['preview'];
+        $url = $models[$found]['url'];
         // Use fileloader for proxies
         $file = $this->fileLoader->getFile($url, $fileName, 'Models', 'public');
         if (!empty($file['result'])) {
@@ -146,7 +147,7 @@ class GetModel extends \VuFind\AjaxHandler\AbstractBase
             return $this->formatResponse(compact('url'));
         } else {
             return $this->formatResponse(
-                ['json' => ['status' => self::STATUS_HTTP_ERROR]]
+                ['status' => self::STATUS_HTTP_ERROR]
             );
         }
     }

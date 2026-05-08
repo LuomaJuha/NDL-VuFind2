@@ -78,9 +78,11 @@ CREATE TABLE `finna_comments_inappropriate` (
   `created` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
   `reason` varchar(1000) DEFAULT NULL,
   `message` varchar(1000) DEFAULT NULL,
+  `session_id` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `comment_id` (`comment_id`),
+  KEY `session_id` (`session_id`),
   CONSTRAINT `finna_comments_inappropriate_ibfk_1` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 collate utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -95,49 +97,6 @@ CREATE TABLE `finna_due_date_reminder` (
   KEY `user_loan` (`user_id`,`loan_id`),
   CONSTRAINT `due_date_reminder_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 collate utf8mb4_unicode_ci;
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `finna_transaction` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `transaction_id` varchar(255) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `driver` varchar(255) NOT NULL,
-  `amount` int(11) NOT NULL,
-  `currency` varchar(3) NOT NULL DEFAULT 'EUR',
-  `transaction_fee` int(11) NOT NULL,
-  `created` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
-  `paid` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
-  `registered` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
-  `complete` tinyint(1) NOT NULL DEFAULT '0',
-  `status` varchar(255) DEFAULT '',
-  `cat_username` varchar(50) NOT NULL,
-  `reported` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
-  PRIMARY KEY (`id`),
-  KEY `transaction_id` (`transaction_id`),
-  KEY `complete_cat_username_created` (`complete`,`cat_username`, `created`),
-  KEY `paid_reported` (`paid`,`reported`),
-  KEY `driver` (`driver`),
-  CONSTRAINT `finna_transactions_ibfk1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 collate utf8mb4_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `finna_fee` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `transaction_id` int(11) NOT NULL,
-  `title` varchar(255) NOT NULL DEFAULT '',
-  `type` varchar(255) NOT NULL DEFAULT '',
-  `amount` float NOT NULL DEFAULT '0',
-  `currency` varchar(3) NOT NULL DEFAULT 'EUR',
-  PRIMARY KEY (`id`),
-  KEY `user_id` (`user_id`),
-  CONSTRAINT `finna_fee_ibfk1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `finna_fee_ibfk2` FOREIGN KEY (`transaction_id`) REFERENCES `finna_transaction` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 collate utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
@@ -198,24 +157,6 @@ CREATE TABLE `finna_session_stats` (
   `date` DATE NOT NULL,
   `count` int(11) NOT NULL DEFAULT 1,
   PRIMARY KEY (`institution`, `view`, `crawler`, `date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 collate utf8mb4_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `finna_record_stats` (
-  `institution` varchar(255) NOT NULL,
-  `view` varchar(255) NOT NULL,
-  -- Note: `crawler` is actually a bitmap for request type, but the name remains for
-  -- historical reasons.
-  `crawler` tinyint(1) NOT NULL,
-  `date` DATE NOT NULL,
-  `backend` varchar(128) NOT NULL,
-  `source` varchar(128) NOT NULL,
-  `count` int(11) NOT NULL DEFAULT 1,
-  PRIMARY KEY (`institution`, `view`, `crawler`, `date`, `backend`, `source`),
-  KEY `record_backend` (`backend`),
-  KEY `record_source` (`source`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 collate utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -305,6 +246,45 @@ CREATE TABLE `finna_record_view` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `finna_resource_list` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created` datetime NOT NULL DEFAULT '2000-01-01 00:00:00',
+  `institution` varchar(200) NOT NULL,
+  `list_config_identifier` varchar(200) NOT NULL,
+  `list_type` varchar(200) NOT NULL DEFAULT 'resourcelist',
+  `ordered` datetime DEFAULT NULL,
+  `pickup_date` datetime DEFAULT NULL,
+  `connection` varchar(40) NOT NULL DEFAULT 'email',
+  `external_id` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  CONSTRAINT `resource_list_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `finna_resource_list_resource` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `resource_id` int(11) NOT NULL,
+  `list_id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `notes` text DEFAULT NULL,
+  `saved` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `resource_id` (`resource_id`),
+  KEY `user_id` (`user_id`),
+  KEY `list_id` (`list_id`),
+  CONSTRAINT `finna_resource_list_resource_ibfk_1` FOREIGN KEY (`resource_id`) REFERENCES `resource` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `finna_resource_list_resource_ibfk_2` FOREIGN KEY (`list_id`) REFERENCES `finna_resource_list` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `finna_resource_list_resource_ibfk_3` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;

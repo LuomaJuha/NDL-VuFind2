@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Solr deduplication (merged records) listener.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2013-2023.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,12 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Solr;
 
 use Laminas\EventManager\EventInterface;
-
 use VuFindSearch\Query\Query;
 use VuFindSearch\Query\QueryGroup;
+
+use function in_array;
+use function strlen;
 
 /**
  * Solr merged record handling listener.
@@ -59,7 +63,8 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
             $query = method_exists($command, 'getQuery')
                 ? $command->getQuery()
                 : null;
-            if ($query
+            if (
+                $query
                 && !($query instanceof QueryGroup)
                 && ($query instanceof Query && $query->getHandler() === 'id')
             ) {
@@ -95,6 +100,16 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
                         $params->set('fq', $fq);
                     }
                 }
+                // Remove finna.deduplication from any facet fields:
+                if ($facetFields = $params->get('facet.field')) {
+                    $newFields = [];
+                    foreach ($facetFields as $field) {
+                        if (strstr($field, 'finna.deduplication') === false) {
+                            $newFields[] = $field;
+                        }
+                    }
+                    $params->set('facet.field', $newFields);
+                }
             }
         }
         $result = parent::onSearchPre($event);
@@ -103,7 +118,7 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
     }
 
     /**
-     * Fetch appropriate dedup child
+     * Fetch appropriate dedup child.
      *
      * @param EventInterface $event Event
      *
@@ -119,7 +134,8 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
         }
         $context = $command->getContext();
         $params = $command->getSearchParameters();
-        if ($params
+        if (
+            $params
             && in_array($context, ['search', 'similar', 'workExpressions'])
         ) {
             if ($params->contains('finna.deduplication', '1')) {
@@ -135,7 +151,7 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
     }
 
     /**
-     * Append fields from dedup record to the selected local record
+     * Append fields from dedup record to the selected local record.
      *
      * @param array $localRecordData Local record data
      * @param array $dedupRecordData Dedup record data
@@ -169,7 +185,8 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
             $localRecordData['online_urls_str_mv'] = [];
             foreach ($dedupRecordData['online_urls_str_mv'] as $onlineURL) {
                 $onlineURLArray = json_decode($onlineURL, true);
-                if (!$recordSources
+                if (
+                    !$recordSources
                     || isset($sourcePriority[$onlineURLArray['source']])
                 ) {
                     $localRecordData['online_urls_str_mv'][] = $onlineURL;
@@ -180,7 +197,7 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
     }
 
     /**
-     * Function that determines the priority for buildings
+     * Function that determines the priority for buildings.
      *
      * @param object $params Query parameters
      *
@@ -194,8 +211,8 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
             return $result;
         }
 
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class);
-        $searchConfig = $config->get($this->searchConfig);
+        $configManager = $this->serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class);
+        $searchConfig = $configManager->getConfigObject($this->searchConfig);
         if (!isset($searchConfig->Records->apiExcludedSources)) {
             return $result;
         }
@@ -207,7 +224,7 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
     }
 
     /**
-     * Function that determines the priority for sources
+     * Function that determines the priority for sources.
      *
      * @param array $recordSources Record sources defined in searches.ini
      *
@@ -215,8 +232,8 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
      */
     protected function determineSourcePriority($recordSources)
     {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class);
-        $mainConfig = $config->get('config');
+        $configManager = $this->serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class);
+        $mainConfig = $configManager->getConfigObject('config');
         // Sort sources alphabetically if necessary
         if (!empty($mainConfig->Record->sort_sources)) {
             $translator
@@ -240,9 +257,7 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
         $userPreferenceService = $this->serviceLocator->get(
             \Finna\Service\UserPreferenceService::class
         );
-        foreach (array_reverse($userPreferenceService->getPreferredDataSources())
-            as $source
-        ) {
+        foreach (array_reverse($userPreferenceService->getPreferredDataSources()) as $source) {
             if (false !== ($key = array_search($source, $recordSources))) {
                 unset($recordSources[$key]);
             }
@@ -252,9 +267,9 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
         // If handling an API call, remove excluded sources so that they don't get
         // become preferred (they will get filtered out of the dedup data later)
         if (getenv('VUFIND_API_CALL')) {
-            $searchConfig = $config->get($this->searchConfig);
-            if (isset($searchConfig->Records->apiExcludedSources)) {
-                $excluded = explode(',', $searchConfig->Records->apiExcludedSources);
+            $searchConfig = $configManager->getConfigArray($this->searchConfig);
+            if ($apiExcludedSources = $searchConfig['Records']['apiExcludedSources'] ?? null) {
+                $excluded = explode(',', $apiExcludedSources);
                 $recordSources = array_diff($recordSources, $excluded);
             }
         }
@@ -263,7 +278,7 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
     }
 
     /**
-     * Fetch local records for all the found dedup records
+     * Fetch local records for all the found dedup records.
      *
      * @param EventInterface $event Event
      *
@@ -277,8 +292,8 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
             return;
         }
 
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class);
-        $searchConfig = $config->get($this->searchConfig);
+        $configManager = $this->serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class);
+        $searchConfig = $configManager->getConfigObject($this->searchConfig);
         if (!isset($searchConfig->Records->apiExcludedSources)) {
             return;
         }
@@ -311,14 +326,9 @@ class DeduplicationListener extends \VuFind\Search\Solr\DeduplicationListener
         // Check for active sources first in the search params:
         $params = $event->getParam('command')->getSearchParameters();
         foreach ($params->get('fq') ?? [] as $filter) {
-            if (preg_match('/^source_str_mv:\((.+)\)$/', $filter, $matches)) {
-                $recordSources = array_map(
-                    function ($s) {
-                        return trim($s, '\\"');
-                    },
-                    explode(' OR ', $matches[1])
-                );
-                return $recordSources;
+            if (str_starts_with($filter, SolrExtensionsListener::TERMS_FILTER_PREFIX_SOURCE)) {
+                // See the counterpart in SolrExtensionsListener::addDataSourceFilter
+                return explode("\u{001f}", substr($filter, strlen(SolrExtensionsListener::TERMS_FILTER_PREFIX_SOURCE)));
             }
         }
 

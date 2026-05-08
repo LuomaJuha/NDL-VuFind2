@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Test functionality of the home page facets.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,7 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTest\Mink;
+
+use VuFindTest\Feature\CacheManagementTrait;
+use VuFindTest\Feature\SearchFacetFilterTrait;
 
 /**
  * Test functionality of the home page facets.
@@ -35,37 +40,127 @@ namespace VuFindTest\Mink;
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
- * @retry    4
  */
 class HomePageFacetsTest extends \VuFindTest\Integration\MinkTestCase
 {
+    use CacheManagementTrait;
+    use SearchFacetFilterTrait;
+
     /**
-     * Test that hierarchy facets work properly.
+     * Test that normal facets work properly.
      *
      * @return void
      */
-    public function testHierarchicalFacets()
+    public function testNormalFacets()
     {
-        $this->changeConfigs(
-            [
-                'facets' => [
-                    'Results' => [
-                        'hierarchical_facet_str_mv' => 'hierarchy'
-                    ],
-                    'SpecialFacets' => [
-                        'hierarchical[]' => 'hierarchical_facet_str_mv'
-                    ],
-                    'HomePage' => [
-                        'hierarchical_facet_str_mv' => 'Hierarchical'
-                    ]
-                ]
-            ]
-        );
-        $session = $this->getMinkSession();
-        $session->visit($this->getVuFindUrl() . '/Search/Home');
-        $page = $session->getPage();
+        $page = $this->getSearchHomePage();
         $this->waitForPageLoad($page);
-        $container = $this->findCss($page, "#facet_hierarchical_facet_str_mv");
-        $this->assertEquals('level1a level1z', $container->getText());
+        $this->assertSame('A - General Works', $this->findCssAndGetText($page, '.home-facet.callnumber-first a'));
+        $this->clickCss($page, '.home-facet.callnumber-first a');
+        $this->waitForPageLoad($page);
+        $this->assertStringEndsWith(
+            'Search/Results?filter%5B%5D=callnumber-first%3A%22A+-+General+Works%22',
+            $this->getMinkSession()->getCurrentUrl()
+        );
+    }
+
+    /**
+     * Data provider for testHierarchicalFacets.
+     *
+     * @return \Iterator
+     */
+    public static function hierarchicalFacetsProvider(): \Iterator
+    {
+        yield 'default sort' => [
+            null,
+            null,
+            'all',
+        ];
+        yield 'top level alphabetical' => [
+            'top',
+            'all',
+            'top',
+        ];
+        yield 'all alphabetical' => [
+            'all',
+            'top',
+            'all',
+        ];
+        yield 'count' => [
+            'count',
+            'all',
+            'count',
+        ];
+        yield 'top level alphabetical (inherited)' => [
+            null,
+            'top',
+            'top',
+        ];
+        yield 'all alphabetical (inherited)' => [
+            null,
+            'all',
+            'all',
+        ];
+        yield 'count (inherited)' => [
+            null,
+            'count',
+            'count',
+        ];
+    }
+
+    /**
+     * Test that hierarchy facets work properly.
+     *
+     * @param ?string $sort         Sort option
+     * @param ?string $defaultSort  Default sort option
+     * @param string  $expectedSort Expected sort order of options
+     *
+     * @return void
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('hierarchicalFacetsProvider')]
+    public function testHierarchicalFacets(?string $sort, ?string $defaultSort, string $expectedSort)
+    {
+        $config = [
+            'facets' => [
+                'Results' => [
+                    'hierarchical_facet_str_mv' => 'hierarchy',
+                ],
+                'SpecialFacets' => [
+                    'hierarchical[]' => 'hierarchical_facet_str_mv',
+                ],
+                'HomePage' => [
+                    'hierarchical_facet_str_mv' => 'Hierarchical',
+                ],
+                'Advanced_Settings' => [
+                    'translated_facets[]' => 'hierarchical_facet_str_mv:Facets',
+                ],
+            ],
+        ];
+        if (null !== $sort) {
+            $config['facets']['HomePage_Settings']['hierarchicalFacetSortOptions']['hierarchical_facet_str_mv'] = $sort;
+        }
+        if (null !== $defaultSort) {
+            $config['facets']['SpecialFacets']['hierarchicalFacetSortOptions']['hierarchical_facet_str_mv']
+                = $defaultSort;
+        }
+        $this->changeConfigs($config + $this->getCacheClearPermissionConfig());
+
+        // Clear object cache to ensure clean state:
+        $this->clearObjectCache();
+        $page = $this->getSearchHomePage();
+        $this->waitForPageLoad($page);
+
+        // Check hierarchy filter:
+        $expected = $this->getExpectedHierarchicalFacetTreeItems($expectedSort);
+        $actual = $this->getHierarchicalFacetTreeItems(
+            $page,
+            '.home-facet.hierarchical_facet_str_mv .home-facet-container'
+        );
+        $this->assertSame($expected, $actual);
+
+        $this->clickCss($page, '.home-facet.hierarchical_facet_str_mv .facet');
+        $this->waitForPageLoad($page);
+        $expectedValue = $this->getExpectedHierarchicalFacetFilterText($expectedSort, 0);
+        $this->assertAppliedFilter($page, 0, 'hierarchy', $expectedValue);
     }
 }

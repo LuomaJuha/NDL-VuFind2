@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Short link controller
+ * Short link controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,14 +26,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
-use Laminas\Config\Config;
 use Laminas\ServiceManager\ServiceLocatorInterface;
+use VuFind\Config\Config;
 use VuFind\UrlShortener\UrlShortenerInterface;
 
+use function is_callable;
+use function strlen;
+
 /**
- * Short link controller
+ * Short link controller.
  *
  * @category VuFind
  * @package  Controller
@@ -50,14 +55,14 @@ class ShortlinkController extends AbstractBase
     protected $redirectDelayHtml = 3;
 
     /**
-     * Which redirect mechanism to use (html, http, threshold:<urlLength>)
+     * Which redirect mechanism to use (html, http, threshold:<urlLength>).
      *
      * @var string
      */
     protected $redirectMethod = 'threshold:1000';
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm     Service manager
      * @param Config                  $config VuFind configuration
@@ -110,7 +115,7 @@ class ShortlinkController extends AbstractBase
     public function redirectAction()
     {
         if ($id = $this->params('id')) {
-            $resolver = $this->serviceLocator->get(UrlShortenerInterface::class);
+            $resolver = $this->getService(UrlShortenerInterface::class);
             if ($url = $resolver->resolve($id)) {
                 $threshRegEx = '"^threshold:(\d+)$"i';
                 if (preg_match($threshRegEx, $this->redirectMethod, $hits)) {

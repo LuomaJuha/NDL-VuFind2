@@ -3,7 +3,7 @@
 /**
  * Solr hierarchical facet listener.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2013.
  * Copyright (C) The National Library of Finland 2014.
@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -28,15 +28,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Solr;
 
 use Laminas\EventManager\EventInterface;
-
 use Laminas\EventManager\SharedEventManagerInterface;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use VuFind\I18n\TranslatableString;
+use VuFind\Service\GetServiceTrait;
 use VuFindSearch\Backend\BackendInterface;
 use VuFindSearch\Service;
+
+use function in_array;
+use function is_array;
 
 /**
  * Solr hierarchical facet handling listener.
@@ -50,19 +54,14 @@ use VuFindSearch\Service;
  */
 class HierarchicalFacetListener
 {
+    use GetServiceTrait;
+
     /**
      * Backend.
      *
      * @var BackendInterface
      */
     protected $backend;
-
-    /**
-     * Service container.
-     *
-     * @var ServiceLocatorInterface
-     */
-    protected $serviceLocator;
 
     /**
      * Facet configuration.
@@ -86,21 +85,21 @@ class HierarchicalFacetListener
     protected $displayStyles;
 
     /**
-     * Hierarchy level separators
+     * Hierarchy level separators.
      *
      * @var array
      */
     protected $separators;
 
     /**
-     * Facet settings
+     * Facet settings.
      *
      * @var array
      */
     protected $translatedFacets = [];
 
     /**
-     * Text domains for translated facets
+     * Text domains for translated facets.
      *
      * @var array
      */
@@ -123,10 +122,9 @@ class HierarchicalFacetListener
         $this->backend = $backend;
         $this->serviceLocator = $serviceLocator;
 
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class);
-        $this->facetConfig = $config->get($facetConfig);
-        $this->facetHelper = $this->serviceLocator
-            ->get(\VuFind\Search\Solr\HierarchicalFacetHelper::class);
+        $this->facetConfig = $this->getService(\VuFind\Config\ConfigManagerInterface::class)
+            ->getConfigObject($facetConfig);
+        $this->facetHelper = $this->getService(\VuFind\Search\Solr\HierarchicalFacetHelper::class);
 
         $specialFacets = $this->facetConfig->SpecialFacets;
         $this->displayStyles
@@ -160,14 +158,14 @@ class HierarchicalFacetListener
         SharedEventManagerInterface $manager
     ) {
         $manager->attach(
-            'VuFind\Search',
+            Service::class,
             Service::EVENT_POST,
             [$this, 'onSearchPost']
         );
     }
 
     /**
-     * Format hierarchical facets accordingly
+     * Format hierarchical facets accordingly.
      *
      * @param EventInterface $event Event
      *
@@ -181,16 +179,14 @@ class HierarchicalFacetListener
             return $event;
         }
         $context = $command->getContext();
-        if ($context == 'search' || $context == 'retrieve'
-            || $context == 'retrieveBatch' || $context == 'similar'
-        ) {
+        if (in_array($context, ['search', 'retrieve', 'retrieveBatch', 'similar'])) {
             $this->processHierarchicalFacets($event);
         }
         return $event;
     }
 
     /**
-     * Process hierarchical facets and format them accordingly
+     * Process hierarchical facets and format them accordingly.
      *
      * @param EventInterface $event Event
      *
@@ -214,7 +210,8 @@ class HierarchicalFacetListener
                         // Include a translation for each value only if we don't
                         // display full hierarchy or this is the deepest hierarchy
                         // level available
-                        if (!$allLevels
+                        if (
+                            !$allLevels
                             || $this->facetHelper->isDeepestFacetLevel(
                                 $fields[$facetName],
                                 $value
@@ -240,7 +237,7 @@ class HierarchicalFacetListener
     }
 
     /**
-     * Format a facet field according to the settings
+     * Format a facet field according to the settings.
      *
      * @param string $facet Facet field
      * @param string $value Facet value

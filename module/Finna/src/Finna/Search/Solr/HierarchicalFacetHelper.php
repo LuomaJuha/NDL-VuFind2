@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Facet Helper
+ * Facet Helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2014-2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,10 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Solr;
 
+use function array_slice;
+use function count;
+use function strlen;
+
 /**
- * Functions for manipulating facets
+ * Functions for manipulating facets.
  *
  * @category VuFind
  * @package  Search
@@ -67,68 +73,7 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
     }
 
     /**
-     * Filter hierarchical facets
-     *
-     * @param array $facets         Facet list
-     * @param array $filters        Facet filters
-     * @param array $excludeFilters Exclusion filters
-     *
-     * @return array
-     */
-    public function filterFacets($facets, $filters, $excludeFilters)
-    {
-        if (!empty($filters)) {
-            foreach ($facets as $key => &$facet) {
-                $value = $facet['value'];
-                [$level] = explode('/', $value);
-                $match = false;
-                $levelSpecified = false;
-                foreach ($filters as $filterItem) {
-                    [$filterLevel] = explode('/', $filterItem);
-                    if ($level == $filterLevel) {
-                        $levelSpecified = true;
-                    }
-                    if (strncmp($value, $filterItem, strlen($filterItem)) == 0) {
-                        $match = true;
-                    }
-                }
-                if (!$match && $levelSpecified) {
-                    unset($facets[$key]);
-                } elseif (!empty($facet['children'])) {
-                    $facet['children'] = $this->filterFacets(
-                        $facet['children'],
-                        $filters,
-                        $excludeFilters
-                    );
-                }
-            }
-        }
-
-        if (!empty($excludeFilters)) {
-            foreach ($facets as $key => &$facet) {
-                $value = $facet['value'];
-                $match = false;
-                foreach ($excludeFilters as $filterItem) {
-                    if (strncmp($value, $filterItem, strlen($filterItem)) == 0) {
-                        unset($facets[$key]);
-                        continue 2;
-                    }
-                }
-                if (!empty($facet['children'])) {
-                    $facet['children'] = $this->filterFacets(
-                        $facet['children'],
-                        $filters,
-                        $excludeFilters
-                    );
-                }
-            }
-        }
-
-        return array_values($facets);
-    }
-
-    /**
-     * Check if a filter value is an ancestor of the given facet item
+     * Check if a filter value is an ancestor of the given facet item.
      *
      * @param array  $item   Facet item
      * @param string $filter Filter value
@@ -156,7 +101,7 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
     }
 
     /**
-     * Check if a filter value is a child of the given facet item
+     * Check if a filter value is a child of the given facet item.
      *
      * @param array  $item   Facet item
      * @param string $filter Filter value
@@ -181,7 +126,7 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
 
     /**
      * Check all facets for applied ancestors/children and change the href to remove
-     * those filters
+     * those filters.
      *
      * @param string $facetName       Facet name
      * @param array  $facets          Hierarchical facet array
@@ -231,7 +176,7 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
         if (!isset($urlParts[1])) {
             return $item['href'];
         }
-        parse_str(htmlspecialchars_decode($urlParts[1]), $params);
+        parse_str($urlParts[1], $params);
 
         if (!isset($params['filter'])) {
             return $item['href'];
@@ -240,7 +185,8 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
         foreach ($params['filter'] as $filter) {
             [$filterField, $filterValue] = explode(':', $filter, 2);
             if ($filterField == $facet || $filterField == "~$facet") {
-                if ((!$children && $this->isAncestor($item, $filterValue))
+                if (
+                    (!$children && $this->isAncestor($item, $filterValue))
                     || ($children && $this->isChild($item, $filterValue))
                 ) {
                     continue;
@@ -249,11 +195,11 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
             $newFilters[] = $filter;
         }
         $params['filter'] = $newFilters;
-        return $urlParts[0] . '?' . htmlspecialchars(http_build_query($params));
+        return $urlParts[0] . '?' . http_build_query($params);
     }
 
     /**
-     * Flatten a hierarchical facet list to a simple array
+     * Flatten a hierarchical facet list to a simple array.
      *
      * @param array $facetList Facet list
      *
@@ -273,7 +219,7 @@ class HierarchicalFacetHelper extends \VuFind\Search\Solr\HierarchicalFacetHelpe
                 $tmpFacet['opt_group_start'] = true;
             }
             unset($tmpFacet['children']);
-            if (++$i === $count && ($tmpFacet['level'] !== '0' && !$children)) {
+            if (++$i === $count && (($tmpFacet['level'] ?? '0') !== '0' && !$children)) {
                 $tmpFacet['opt_group_end'] = true;
                 $i = 0;
             }

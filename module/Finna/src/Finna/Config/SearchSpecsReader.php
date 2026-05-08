@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind SearchSpecs Configuration Reader
+ * VuFind SearchSpecs Configuration Reader.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Config
@@ -27,10 +28,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Config;
 
 /**
- * VuFind SearchSpecs Configuration Reader
+ * VuFind SearchSpecs Configuration Reader.
  *
  * @category VuFind
  * @package  Config
@@ -42,18 +44,18 @@ namespace Finna\Config;
 class SearchSpecsReader extends \VuFind\Config\SearchSpecsReader
 {
     /**
-     * Cache for loaded searchspecs
+     * Cache for loaded searchspecs.
      *
      * @var array
      */
     protected $searchSpecs = [];
 
     /**
-     * Return search specs
+     * Return search specs.
      *
-     * @param string  $filename        Config file name
-     * @param boolean $useLocalConfig  Use local configuration if available
-     * @param boolean $ignoreFileCache Read from file even if config has been cached.
+     * @param string $filename        Config file name
+     * @param bool   $useLocalConfig  Use local configuration if available
+     * @param bool   $ignoreFileCache Read from file even if config has been cached.
      *
      * @return array
      */

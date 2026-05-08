@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Mailer Class
+ * VuFind Mailer Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2009.
  * Copyright (C) The National Library of Finland 2017.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Mailer
@@ -27,15 +28,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Mailer;
 
-use Laminas\Mail\Address;
-use Laminas\View\Renderer\PhpRenderer as ViewRenderer;
+use Laminas\View\Renderer\PhpRenderer;
+use Symfony\Component\Mime\Address;
 use VuFind\Exception\Mail as MailException;
 use VuFind\RecordDriver\AbstractBase as AbstractRecord;
 
 /**
- * VuFind Mailer Class
+ * VuFind Mailer Class.
  *
  * @category VuFind
  * @package  Mailer
@@ -44,30 +46,32 @@ use VuFind\RecordDriver\AbstractBase as AbstractRecord;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class Mailer  extends \VuFind\Mailer\Mailer
+class Mailer extends \VuFind\Mailer\Mailer
 {
     /**
-     * Send an email message representing a record.
+     * Send an email message representing a list of records.
      *
-     * @param string           $to      Recipient email address
-     * @param string|Address   $from    Sender name and email address
-     * @param string           $msg     User notes to include in message
-     * @param AbstractRecord[] $records Records being emailed
-     * @param ViewRenderer     $view    View object (used to render email templates)
-     * @param string           $subject Subject for email  (optional)
-     * @param string           $cc      CC recipient (null for none)
+     * @param string|Address|Address[]      $to      Recipient email address(es) (or delimited list)
+     * @param string|Address                $from    Sender name and email address
+     * @param string                        $msg     User notes to include in message
+     * @param AbstractRecord[]              $records Records being emailed
+     * @param PhpRenderer                   $view    View object (used to render email templates)
+     * @param ?string                       $subject Subject for email (optional)
+     * @param string|Address|Address[]|null $cc      CC recipient(s) (null for none)
+     * @param string|Address|Address[]|null $replyTo Reply-To address(es) (or delimited list, null for none)
      *
      * @throws MailException
      * @return void
      */
     public function sendRecords(
-        $to,
-        $from,
-        $msg,
-        $records,
-        $view,
-        $subject = null,
-        $cc = null
+        string|Address|array $to,
+        string|Address $from,
+        string $msg,
+        array $records,
+        PhpRenderer $view,
+        ?string $subject = null,
+        string|Address|array|null $cc = null,
+        string|Address|array|null $replyTo = null
     ) {
         if (null === $subject) {
             $subject = $this->getDefaultRecordSubject($records);
@@ -76,9 +80,9 @@ class Mailer  extends \VuFind\Mailer\Mailer
             'Email/records.phtml',
             [
                 'drivers' => $records, 'to' => $to, 'from' => $from,
-                'message' => $msg
+                'message' => $msg,
             ]
         );
-        $this->send($to, $from, $subject, $body, $cc);
+        $this->send($to, $from, $subject, $body, $cc, $replyTo);
     }
 }

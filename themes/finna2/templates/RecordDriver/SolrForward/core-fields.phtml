@@ -12,7 +12,7 @@
     ['label' => 'Distribution Information',
       'lines' => ['Distribution', 'Premiere Night', 'Premiere Theaters',
         'Film Copies', 'Number of Viewers', 'Other Screenings', 'Broadcasting Dates', 'Awards',
-        'Film Festivals', 'Foreign Distribution'
+        'Film Festivals', 'Foreign Distribution',
       ],
       'options' => ['context' => ['class' => 'field-group-distribution']]],
     ['label' => 'Filming Locations',
@@ -27,14 +27,14 @@
     ['label' => 'Technical Data',
       'lines' => ['Color', 'Sound', 'Aspect Ratio', 'Playing Time'],
       'options' => ['context' => ['class' => 'field-group-rating-technical-data']]],
-    ['lines' => ['Access']]
+    ['lines' => ['Access']],
   ], $coreFields));
 ?>
 <?php if (!empty($coreFieldGroups)): ?>
-  <table class="table table-finna-record record-details record-details-more record-field-groups" role="presentation">
+  <table class="table table-finna-record record-details record-details-more record-field-groups" role="presentation" tabindex="-1">
     <?=$this->record($this->driver)->renderTemplate('core-field-groups.phtml', ['data' => $coreFieldGroups]);?>
   </table>
 <?php endif; ?>
-<button class="btn show-details-button hidden"><?=$this->transEsc('show_more_details');?> <i class="fa fa-arrow-down"></i></button>
-<button class="btn hide-details-button hidden"><?=$this->transEsc('show_less_details');?> <i class="fa fa-arrow-up"></i></button>
+<button class="btn show-details-button hidden"><?=$this->transEsc('show_more_details');?> <?=$this->icon('show-more') ?></button>
+<button class="btn hide-details-button hidden"><?=$this->transEsc('show_less_details');?> <?=$this->icon('show-less') ?></button>
 <!-- END of: finna - RecordDriver/SolrForward/core-fields.phtml -->

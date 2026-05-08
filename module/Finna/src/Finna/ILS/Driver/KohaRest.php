@@ -1,10 +1,11 @@
 <?php
+
 /**
- * VuFind Driver for Koha, using REST API
+ * VuFind Driver for Koha, using REST API.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2017-2021.
+ * Copyright (C) The National Library of Finland 2017-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  ILS_Drivers
@@ -26,14 +27,22 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:ils_drivers Wiki
  */
+
 namespace Finna\ILS\Driver;
 
+use Finna\ILS\Driver\Feature\FinnaCommonILSTrait;
 use VuFind\Exception\ILS as ILSException;
 use VuFind\I18n\TranslatableString;
+use VuFind\ILS\Logic\AvailabilityStatus;
 use VuFind\Marc\MarcReader;
 
+use function array_key_exists;
+use function count;
+use function in_array;
+use function is_array;
+
 /**
- * VuFind Driver for Koha, using REST API
+ * VuFind Driver for Koha, using REST API.
  *
  * @category VuFind
  * @package  ILS_Drivers
@@ -44,8 +53,10 @@ use VuFind\Marc\MarcReader;
  */
 class KohaRest extends \VuFind\ILS\Driver\KohaRest
 {
+    use FinnaCommonILSTrait;
+
     /**
-     * Mappings from Koha messaging preferences
+     * Mappings from Koha messaging preferences.
      *
      * @var array
      */
@@ -56,7 +67,11 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         'Hold_Reminder' => 'pickUpReminder',
         'Item_Check_in' => 'checkinNotice',
         'Item_Checkout' => 'checkoutNotice',
-        'Item_Due' => 'dueDateNotice'
+        'Item_Due' => 'dueDateNotice',
+        'Ill_ready' => 'illRequestReadyForPickUp',
+        'Ill_unavailable' => 'illRequestUnavailable',
+        'Ill_update' => 'illRequestUpdate',
+        'Patron_Expiry' => 'cardExpiry',
     ];
 
     /**
@@ -71,25 +86,46 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     ];
 
     /**
-     * Whether to use location in addition to library when grouping holdings
+     * Whether to use location in addition to library when grouping holdings.
      *
      * @param bool
      */
     protected $groupHoldingsByLocation;
 
     /**
-     * Priority settings for the order of libraries or library/location combinations
+     * Priority settings for the order of libraries or library/location combinations.
      *
      * @var array
      */
     protected $holdingsLibraryOrder;
 
     /**
-     * Priority settings for the order of locations (in libraries)
+     * Priority settings for the order of locations (in libraries).
      *
      * @var array
      */
     protected $holdingsLocationOrder;
+
+    /**
+     * Minimum payable amount.
+     *
+     * @var int
+     */
+    protected $minimumPayableAmount = 0;
+
+    /**
+     * Non-payable fine types.
+     *
+     * @var array
+     */
+    protected $nonPayableTypes = [];
+
+    /**
+     * Non-payable fine statuses.
+     *
+     * @var array
+     */
+    protected $nonPayableStatuses = [];
 
     /**
      * Initialize the driver.
@@ -103,6 +139,11 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     public function init()
     {
         parent::init();
+
+        // BC for online payment configuration:
+        if (empty($this->config['OnlinePayment']) && !empty($this->config['onlinePayment'])) {
+            $this->config['OnlinePayment'] = $this->config['onlinePayment'];
+        }
 
         $this->patronStatusMappings['Patron::DebarredWithReason']
             = 'patron_status_restricted_with_reason';
@@ -128,16 +169,20 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             ? explode(':', $this->config['Holdings']['holdings_location_order'])
             : [];
         $this->holdingsLocationOrder = array_flip($this->holdingsLocationOrder);
+
+        if ($typeMappings = (array)($this->config['MessagingPrefTypeMappings'] ?? [])) {
+            $this->messagingPrefTypeMap = array_merge($this->messagingPrefTypeMap, $typeMappings);
+        }
     }
 
     /**
-     * Get Holding
+     * Get Holding.
      *
      * This is responsible for retrieving the holding information of a certain
      * record.
      *
      * @param string $id      The record id to retrieve the holdings for
-     * @param array  $patron  Patron data
+     * @param ?array $patron  Patron data
      * @param array  $options Extra options
      *
      * @throws \VuFind\Exception\ILS
@@ -147,28 +192,26 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    public function getHolding($id, array $patron = null, array $options = [])
+    public function getHolding($id, ?array $patron = null, array $options = [])
     {
         $data = parent::getHolding($id, $patron);
-        if (!empty($data['holdings'])) {
-            $summary = $this->getHoldingsSummary($data['holdings']);
-
-            // Remove request counts before adding the summary if necessary
-            if (isset($this->config['Holdings']['display_item_hold_counts'])
-                && !$this->config['Holdings']['display_item_hold_counts']
-            ) {
-                foreach ($data['holdings'] as &$item) {
+        // Remove request counts if necessary
+        if (
+            !empty($data['holdings'])
+            && !($this->config['Holdings']['display_item_hold_counts'] ?? true)
+        ) {
+            foreach ($data['holdings'] as &$item) {
+                if ('__HOLDINGSSUMMARYLOCATION__' !== $item['location']) {
                     unset($item['requests_placed']);
                 }
             }
-
-            $data['holdings'][] = $summary;
+            unset($item);
         }
         return $data;
     }
 
     /**
-     * Get Status
+     * Get Status.
      *
      * This is responsible for retrieving the status information of a certain
      * record.
@@ -180,16 +223,11 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
      */
     public function getStatus($id)
     {
-        $data = $this->getItemStatusesForBiblio($id, null, true);
-        if (!empty($data)) {
-            $summary = $this->getHoldingsSummary($data);
-            $data[] = $summary;
-        }
-        return $data;
+        return $this->getItemStatusesForBiblio($id, null, true);
     }
 
     /**
-     * Get Statuses
+     * Get Statuses.
      *
      * This is responsible for retrieving the status information for a
      * collection of records.
@@ -216,7 +254,146 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Get Patron Fines
+     * Get Patron Holds.
+     *
+     * This is responsible for retrieving all holds by a specific patron.
+     *
+     * Finna: Adds hold shelf support
+     *
+     * @param array $patron The patron array from patronLogin
+     *
+     * @throws DateException
+     * @throws ILSException
+     * @return array        Array of the patron's holds on success.
+     */
+    public function getMyHolds($patron)
+    {
+        $request = [
+            'path' => 'v1/holds',
+            'query' => [
+                'patron_id' => $patron['id'],
+                '_match' => 'exact',
+                '_per_page' => -1,
+            ],
+        ];
+        if ($this->config['Holds']['displayHoldShelf'] ?? false) {
+            $request['headers']['x-koha-embed'] = 'hold_pickup_shelf';
+        }
+        $result = $this->makeRequest($request);
+
+        $holds = [];
+        foreach ($result['data'] as $entry) {
+            $biblio = $this->getBiblio($entry['biblio_id']);
+            $frozen = !empty($entry['suspended']);
+            $volume = '';
+            if ($entry['item_id'] ?? null) {
+                $item = $this->getItem($entry['item_id']);
+                $volume = $item['serial_issue_number'];
+            }
+            $available = !empty($entry['waiting_date']);
+            $inTransit = !empty($entry['status']) && $entry['status'] == 'T';
+            $requestId = $entry['hold_id'];
+            $cancelDetails
+                = ($available || ($inTransit && !$this->allowCancelInTransit))
+                ? ''
+                : $requestId;
+            $updateDetails = ($available || $inTransit) ? '' : $requestId;
+            // Note: Expiration date is the last interest date until the hold becomes
+            // available for pickup. Then it becomes the last pickup date.
+            $expirationDate = $this->convertDate($entry['expiration_date']);
+            $holds[] = [
+                'id' => $entry['biblio_id'],
+                'item_id' => $entry['hold_id'],
+                'reqnum' => $requestId,
+                'location' => $this->getLibraryName(
+                    $entry['pickup_library_id'] ?? null
+                ),
+                'create' => $this->convertDate($entry['hold_date'] ?? null),
+                '__create' => $entry['hold_date'] ?? null,
+                'expire' => $available ? null : $expirationDate,
+                'position' => $entry['priority'],
+                'available' => $available,
+                'last_pickup_date' => $available ? $expirationDate : null,
+                'frozen' => $frozen,
+                'frozenThrough' => $frozen
+                    ? $this->convertDate($entry['suspended_until'] ?? null) : null,
+                'in_transit' => $inTransit,
+                'title' => $this->getBiblioTitle($biblio),
+                'isbn' => $biblio['isbn'] ?? '',
+                'issn' => $biblio['issn'] ?? '',
+                'publication_year' => $biblio['copyright_date']
+                    ?? $biblio['publication_year'] ?? '',
+                'volume' => $volume,
+                'cancel_details' => $cancelDetails,
+                'updateDetails' => $updateDetails,
+                'holdShelf' => $entry['hold_pickup_shelf']['shelf_name'] ?? null,
+            ];
+        }
+
+        if ($this->config['Holds']['enableRecalls'] ?? false) {
+            $result = $this->makeRequest(
+                [
+                    'path' => 'v1/recalls',
+                    'query' => [
+                        'patron_id' => $patron['id'],
+                        'completed' => 'false',
+                        '_match' => 'exact',
+                        '_per_page' => -1,
+                    ],
+                ]
+            );
+
+            foreach ($result['data'] as $entry) {
+                $biblio = $this->getBiblio($entry['biblio_id']);
+                $volume = '';
+                if ($entry['item_id'] ?? null) {
+                    $item = $this->getItem($entry['item_id']);
+                    $volume = $item['serial_issue_number'];
+                }
+                $available = !empty($entry['waiting_date']);
+                $inTransit = !empty($entry['status']) && $entry['status'] == 'in_transit';
+                $requestId = $entry['recall_id'];
+                $cancelDetails = '';
+                $updateDetails = ($available || $inTransit) ? '' : $requestId;
+                // Note: Expiration date is the last interest date until the hold becomes
+                // available for pickup. Then it becomes the last pickup date.
+                $expirationDate = $this->convertDate($entry['expiration_date']);
+                $holds[] = [
+                    'id' => $entry['biblio_id'],
+                    'item_id' => $entry['recall_id'],
+                    'reqnum' => $requestId,
+                    'location' => $this->getLibraryName(
+                        $entry['pickup_library_id'] ?? null
+                    ),
+                    'create' => $this->convertDate($entry['hold_date'] ?? null),
+                    '__create' => $entry['hold_date'] ?? null,
+                    'expire' => $available ? null : $expirationDate,
+                    'position' => $entry['priority'],
+                    'available' => $available,
+                    'last_pickup_date' => $available ? $expirationDate : null,
+                    'in_transit' => $inTransit,
+                    'title' => $this->getBiblioTitle($biblio),
+                    'isbn' => $biblio['isbn'] ?? '',
+                    'issn' => $biblio['issn'] ?? '',
+                    'publication_year' => $biblio['copyright_date']
+                        ?? $biblio['publication_year'] ?? '',
+                    'volume' => $volume,
+                    'cancel_details' => $cancelDetails,
+                    'updateDetails' => $updateDetails,
+                ];
+            }
+        }
+        $callback = function ($a, $b) {
+            return $a['__create'] === $b['__create']
+                ? $a['item_id'] <=> $b['item_id']
+                : $a['__create'] <=> $b['__create'];
+        };
+        usort($holds, $callback);
+        return $holds;
+    }
+
+    /**
+     * Get Patron Fines.
      *
      * This is responsible for retrieving all fines by a specific patron.
      *
@@ -228,15 +405,45 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
      */
     public function getMyFines($patron)
     {
-        $fines = parent::getMyFines($patron);
-        foreach ($fines as &$fine) {
-            $fine['payableOnline'] = $fine['balance'] > 0;
+        // TODO: Make this use X-Koha-Embed when the endpoint allows
+        $result = $this->makeRequest(['v1', 'patrons', $patron['id'], 'account']);
+
+        $fines = [];
+        foreach ($result['data']['outstanding_debits']['lines'] ?? [] as $entry) {
+            $bibId = null;
+            if (!empty($entry['item_id'])) {
+                $item = $this->getItem($entry['item_id']);
+                if (!empty($item['biblio_id'])) {
+                    $bibId = $item['biblio_id'];
+                }
+            }
+            $debitType = trim($entry['debit_type']);
+            $debitStatus = trim($entry['status'] ?? '');
+            $type = $this->feeTypeMappings[$debitType] ?? $debitType;
+            $description = trim($entry['description']);
+            $fine = [
+                'fineId' => (string)$entry['account_line_id'],
+                'amount' => (int)round($entry['amount'] * 100),
+                'balance' => (int)round($entry['amount_outstanding'] * 100),
+                'fine' => $type,
+                'description' => $description,
+                'createdate' => $this->convertDate($entry['date'] ?? null),
+                'checkout' => '',
+                'organization' => $entry['library_id'] ?? '',
+                '__status' => trim($entry['status'] ?? ''),
+            ];
+            $fine['payableOnline'] = $this->fineIsPayable($fine);
+            $fine['taxPercent'] = $this->getFineTaxRate($fine, $entry);
+            if (null !== $bibId) {
+                $fine['id'] = $bibId;
+            }
+            $fines[] = $fine;
         }
         return $fines;
     }
 
     /**
-     * Get Patron Profile
+     * Get Patron Profile.
      *
      * This is responsible for retrieving the profile for a specific patron.
      *
@@ -255,7 +462,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                     'query_relationships' => 1,
                     'query_messaging_preferences' => 1,
                     'query_messages' => 1,
-                ]
+                ],
             ]
         );
         if (200 !== $result['code']) {
@@ -269,155 +476,69 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         foreach ($result['guarantors'] ?? [] as $guarantor) {
             $guarantors[] = [
                 'firstname' => $guarantor['firstname'],
-                'lastname' => $guarantor['surname']
+                'lastname' => $guarantor['surname'],
             ];
         }
         $guarantees = [];
         foreach ($result['guarantees'] ?? [] as $guarantee) {
             $guarantees[] = [
                 'firstname' => $guarantee['firstname'],
-                'lastname' => $guarantee['surname']
+                'lastname' => $guarantee['surname'],
             ];
         }
 
-        $messagingSettings = [];
-        if ($this->config['Profile']['messagingSettings'] ?? true) {
-            foreach ($result['messaging_preferences'] as $type => $prefs) {
-                $typeName = $this->messagingPrefTypeMap[$type] ?? $type;
-                if (!$typeName) {
-                    continue;
-                }
-                $settings = [
-                    'type' => $typeName
-                ];
-                if (isset($prefs['transport_types'])) {
-                    $settings['settings']['transport_types'] = [
-                        'type' => 'multiselect'
-                    ];
-                    foreach ($prefs['transport_types'] as $key => $active) {
-                        $settings['settings']['transport_types']['options'][$key] = [
-                            'active' => $active
-                        ];
-                    }
-                }
-                if (isset($prefs['digest'])) {
-                    $settings['settings']['digest'] = [
-                        'type' => 'boolean',
-                        'name' => '',
-                        'active' => $prefs['digest']['value'],
-                        'readonly' => !$prefs['digest']['configurable']
-                    ];
-                }
-                if (isset($prefs['days_in_advance'])
-                    && ($prefs['days_in_advance']['configurable']
-                    || null !== $prefs['days_in_advance']['value'])
-                ) {
-                    $options = [];
-                    for ($i = 0; $i <= 30; $i++) {
-                        $options[$i] = [
-                            'name' => $this->translate(
-                                1 === $i ? 'messaging_settings_num_of_days'
-                                : 'messaging_settings_num_of_days_plural',
-                                ['%%days%%' => $i]
-                            ),
-                            'active' => $i == $prefs['days_in_advance']['value']
-                        ];
-                    }
-                    $settings['settings']['days_in_advance'] = [
-                        'type' => 'select',
-                        'value' => $prefs['days_in_advance']['value'],
-                        'options' => $options,
-                        'readonly' => !$prefs['days_in_advance']['configurable']
-                    ];
-                }
-                $messagingSettings[$type] = $settings;
-            }
-        }
+        $messagingSettings = $this->config['Profile']['messagingSettings'] ?? true
+            ? $this->createMessagingSettingsArray($result['messaging_preferences'])
+            : [];
 
         $messages = [];
         foreach ($result['messages'] ?? [] as $message) {
             $messages[] = [
                 'date' => $this->convertDate($message['date']),
                 'library' => $this->getLibraryName($message['library_id']),
-                'message' => $message['message']
+                'message' => $message['message'],
             ];
         }
 
-        $phoneField = $this->config['Profile']['phoneNumberField']
-            ?? 'mobile';
+        $phoneField = $this->config['Profile']['phoneNumberField'] ?? 'mobile';
+        $smsField = $this->config['Profile']['smsNumberField'] ?? 'sms_number';
+        $holdIdentifierField = $this->config['Profile']['holdIdentifierField'] ?? 'other_name';
+        $callingNameField = $this->config['Profile']['callingNameField'] ?? '';
 
-        $smsField = $this->config['Profile']['smsNumberField']
-            ?? 'sms_number';
+        $phone = $phoneField && !empty($result[$phoneField]) ? $result[$phoneField] : null;
+        $smsnumber = $smsField && !empty($result[$smsField]) ? $result[$smsField] : null;
 
-        $profile = [
-            'firstname' => $result['firstname'],
-            'lastname' => $result['surname'],
-            'email' => $result['email'],
-            'address1' => $result['address'],
-            'address2' => $result['address2'],
-            'zip' => $result['postal_code'],
-            'city' => $result['city'],
-            'country' => $result['country'],
-            'category' => $result['category_id'] ?? '',
-            'expiration_date' => $expirationDate,
-            'expiration_soon' => !empty($result['expiry_date_near']),
-            'expired' => !empty($result['blocks']['Patron::CardExpired']),
-            'hold_identifier' => $result['other_name'],
-            'guarantors' => $guarantors,
-            'guarantees' => $guarantees,
-            'loan_history' => $result['privacy'],
-            'messagingServices' => $messagingSettings,
-            'notes' => $result['opac_notes'],
-            'messages' => $messages,
-            'full_data' => $result,
-        ];
-        if ($phoneField && !empty($result[$phoneField])) {
-            $profile['phone'] = $result[$phoneField];
-        }
-        if ($smsField && !empty($result[$smsField])) {
-            $profile['smsnumber'] = $result[$smsField];
-        }
-
-        return $profile;
-    }
-
-    /**
-     * Purge Patron Transaction History
-     *
-     * @param array $patron The patron array from patronLogin
-     *
-     * @throws ILSException
-     * @return array Associative array of the results
-     */
-    public function purgeTransactionHistory($patron)
-    {
-        $result = $this->makeRequest(
-            [
-                'path' => [
-                    'v1', 'contrib', 'kohasuomi', 'patrons', $patron['id'],
-                    'checkouts', 'history'
-                ],
-                'method' => 'DELETE',
-                'errors' => true
+        return $this->createProfileArray(
+            firstname: $result['firstname'],
+            lastname: $result['surname'],
+            phone: $phone,
+            address1: $result['address'],
+            address2: $result['address2'],
+            zip: $result['postal_code'],
+            city: $result['city'],
+            country: $result['country'],
+            expiration_date: $expirationDate,
+            messagingServices: $messagingSettings,
+            loan_history: $result['privacy'],
+            email: $result['email'],
+            nonDefaultFields: [
+                'calling_name' => $result[$callingNameField] ?? '',
+                'category' => $result['category_id'] ?? '',
+                'expiration_soon' => !empty($result['expiry_date_near']),
+                'expired' => !empty($result['blocks']['Patron::CardExpired']),
+                'hold_identifier' => $result[$holdIdentifierField] ?? '',
+                'guarantors' => $guarantors,
+                'guarantees' => $guarantees,
+                'notes' => $result['opac_notes'],
+                'messages' => $messages,
+                'full_data' => $result,
+                'smsnumber' => $smsnumber,
             ]
         );
-        if (!in_array($result['code'], [200, 202, 204])) {
-            return  [
-                'success' => false,
-                'status' => 'Purging the loan history failed',
-                'sys_message' => $result['data']['error'] ?? $result['code']
-            ];
-        }
-
-        return [
-            'success' => true,
-            'status' => 'loan_history_purged',
-            'sys_message' => ''
-        ];
     }
 
     /**
-     * Update Patron Transaction History State
+     * Update Patron Transaction History State.
      *
      * Enable or disable patron's transaction history
      *
@@ -432,7 +553,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Update patron's phone number
+     * Update patron's phone number.
      *
      * @param array  $patron Patron array
      * @param string $phone  Phone number
@@ -447,7 +568,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Update patron's SMS alert number
+     * Update patron's SMS alert number.
      *
      * @param array  $patron Patron array
      * @param string $number SMS alert number
@@ -471,7 +592,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Update patron's email address
+     * Update patron's email address.
      *
      * @param array  $patron Patron array
      * @param String $email  Email address
@@ -486,7 +607,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Update patron contact information
+     * Update patron contact information.
      *
      * @param array $patron  Patron array
      * @param array $details Associative array of patron contact information
@@ -519,7 +640,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                 'path' => ['v1', 'contrib', 'kohasuomi', 'patrons', $patron['id']],
                 'json' => $request,
                 'method' => 'PATCH',
-                'errors' => true
+                'errors' => true,
             ]
         );
         if ($result['code'] >= 300) {
@@ -539,7 +660,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             return [
                 'success' => false,
                 'status' => $status,
-                'sys_message' => $result['data']['error'] ?? $result['code']
+                'sys_message' => $result['data']['error'] ?? $result['code'],
             ];
         }
 
@@ -547,12 +668,12 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             'success' => true,
             'status' => 202 === $result['code']
                 ? 'request_change_done' : 'request_change_accepted',
-            'sys_message' => ''
+            'sys_message' => '',
         ];
     }
 
     /**
-     * Update patron messaging settings
+     * Update patron messaging settings.
      *
      * @param array $patron  Patron array
      * @param array $details Associative array of messaging settings
@@ -572,12 +693,12 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                 }
                 if ('boolean' === $setting['type']) {
                     $result[$settingId] = [
-                        'value' => $setting['active']
+                        'value' => $setting['active'],
                     ];
                 } elseif ('select' === $setting['type']) {
                     $result[$settingId] = [
                         'value' => ctype_digit($setting['value'])
-                            ? (int)$setting['value'] : $setting['value']
+                            ? (int)$setting['value'] : $setting['value'],
                     ];
                 } else {
                     foreach ($setting['options'] as $optionId => $option) {
@@ -592,17 +713,17 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             [
                 'path' => [
                     'v1', 'contrib', 'kohasuomi', 'patrons', $patron['id'],
-                    'messaging_preferences'
+                    'messaging_preferences',
                 ],
                 'json' => $messagingSettings,
-                'method' => 'PUT'
+                'method' => 'PUT',
             ]
         );
         if ($result['code'] >= 300) {
             return  [
                 'success' => false,
                 'status' => 'Updating of patron information failed',
-                'sys_message' => $result['error'] ?? $result['code']
+                'sys_message' => $result['error'] ?? $result['code'],
             ];
         }
 
@@ -610,167 +731,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             'success' => true,
             'status' => $result['code'] == 202
                 ? 'request_change_done' : 'request_change_accepted',
-            'sys_message' => ''
-        ];
-    }
-
-    /**
-     * Return total amount of fees that may be paid online.
-     *
-     * @param array $patron Patron
-     * @param array $fines  Patron's fines
-     *
-     * @throws ILSException
-     * @return array Associative array of payment info,
-     * false if an ILSException occurred.
-     */
-    public function getOnlinePayableAmount($patron, $fines)
-    {
-        if (!empty($fines)) {
-            $amount = 0;
-            foreach ($fines as $fine) {
-                if ($fine['payableOnline']) {
-                    $amount += $fine['balance'];
-                }
-            }
-            $config = $this->getConfig('onlinePayment');
-            $nonPayableReason = false;
-            if (isset($config['minimumFee']) && $amount < $config['minimumFee']) {
-                $nonPayableReason = 'online_payment_minimum_fee';
-            }
-            $res = ['payable' => empty($nonPayableReason), 'amount' => $amount];
-            if ($nonPayableReason) {
-                $res['reason'] = $nonPayableReason;
-            }
-            return $res;
-        }
-        return [
-            'payable' => false,
-            'amount' => 0,
-            'reason' => 'online_payment_minimum_fee'
-        ];
-    }
-
-    /**
-     * Mark fees as paid.
-     *
-     * This is called after a successful online payment.
-     *
-     * @param array  $patron            Patron
-     * @param int    $amount            Amount to be registered as paid
-     * @param string $transactionId     Transaction ID
-     * @param int    $transactionNumber Internal transaction number
-     *
-     * @throws ILSException
-     * @return boolean success
-     */
-    public function markFeesAsPaid(
-        $patron,
-        $amount,
-        $transactionId,
-        $transactionNumber
-    ) {
-        $request = [
-            'credit_type' => 'PAYMENT',
-            'amount' => $amount / 100,
-            'note' => "Online transaction $transactionId"
-        ];
-
-        $result = $this->makeRequest(
-            [
-                'path' => ['v1', 'patrons', $patron['id'], 'account', 'credits'],
-                'json' => $request,
-                'method' => 'POST',
-                'errors' => true
-            ]
-        );
-        if ($result['code'] >= 300) {
-            $error = "Failed to mark payment of $amount paid for patron"
-                . " {$patron['id']}: {$result['code']}: " . print_r($result, true);
-            $this->logError($error);
-            throw new ILSException($error);
-        }
-        // Clear patron's block cache
-        $cacheId = 'blocks|' . $patron['id'];
-        $this->removeCachedData($cacheId);
-        return true;
-    }
-
-    /**
-     * Get a password recovery token for a user
-     *
-     * @param array $params Required params such as cat_username and email
-     *
-     * @return array Associative array of the results
-     */
-    public function getPasswordRecoveryToken($params)
-    {
-        $result = $this->makeRequest(
-            [
-                'path' => 'v1/patrons',
-                'query' => [
-                    '_match' => 'exact',
-                    'cardnumber' => $params['cat_username'],
-                    'email' => $params['email']
-                ],
-                'errors' => true
-            ]
-        );
-
-        if (200 === $result['code']) {
-            if (!empty($result['data'][0])) {
-                return [
-                    'success' => true,
-                    'token' => $result['data'][0]['patron_id']
-                ];
-            } else {
-                return [
-                    'success' => false,
-                    'error' => 'Patron not found'
-                ];
-            }
-        }
-
-        if (404 !== $result['code']) {
-            throw new ILSException('Problem with Koha REST API.');
-        }
-        return [
-            'success' => false,
-            'error' => 'Patron not found'
-        ];
-    }
-
-    /**
-     * Recover user's password with a token from getPasswordRecoveryToken
-     *
-     * @param array $params Required params such as cat_username, token and new
-     * password
-     *
-     * @return array Associative array of the results
-     */
-    public function recoverPassword($params)
-    {
-        $request = [
-            'password' => $params['password'],
-            'password_2' => $params['password']
-        ];
-
-        $result = $this->makeRequest(
-            [
-                'path' => ['v1', 'patrons', $params['token'], 'password'],
-                'json' => $request,
-                'method' => 'POST',
-                'errors' => true
-            ]
-        );
-        if ($result['code'] >= 300) {
-            return [
-                'success' => false,
-                'error' => $result['data']['error'] ?? $result['code']
-            ];
-        }
-        return [
-            'success' => true
+            'sys_message' => '',
         ];
     }
 
@@ -786,7 +747,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         $result = $this->makeRequest(
             [
                 'path' => ['v1', 'contrib', 'kohasuomi', 'patrons', $patron['id']],
-                'query' => ['query_permissions' => 1]
+                'query' => ['query_permissions' => 1],
             ]
         );
 
@@ -799,7 +760,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Get Pick Up Locations
+     * Get Pick Up Locations.
      *
      * This is responsible for gettting a list of valid library locations for
      * holds / recall retrieval
@@ -808,8 +769,8 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
      * method.
      * @param array $holdDetails Optional array, only passed in when getting a list
      * in the context of placing a hold; contains most of the same values passed to
-     * placeHold, minus the patron data.  May be used to limit the pickup options
-     * or may be ignored.  The driver must not add new options to the return array
+     * placeHold, minus the patron data. May be used to limit the pickup options
+     * or may be ignored. The driver must not add new options to the return array
      * based on this data or other areas of VuFind may behave incorrectly.
      *
      * @throws ILSException
@@ -838,12 +799,12 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                     [
                         'path' => [
                             'v1', 'contrib', 'kohasuomi', 'availability', 'items',
-                            $itemId, 'hold'
+                            $itemId, 'hold',
                         ],
                         'query' => [
                             'patron_id' => (int)$patron['id'],
-                            'query_pickup_locations' => 1
-                        ]
+                            'query_pickup_locations' => 1,
+                        ],
                     ]
                 );
                 if (empty($result['data'])) {
@@ -856,13 +817,13 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                     [
                         'path' => [
                             'v1', 'contrib', 'kohasuomi', 'availability', 'biblios',
-                            $bibId, 'hold'
+                            $bibId, 'hold',
                         ],
                         'query' => [
                             'patron_id' => (int)$patron['id'],
                             'query_pickup_locations' => 1,
                             'ignore_patron_holds' => $requestId ? 1 : 0,
-                        ]
+                        ],
                     ]
                 );
                 if (empty($result['data'])) {
@@ -878,7 +839,8 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         $locations = [];
         foreach ($this->getLibraries() as $library) {
             $code = $library['library_id'];
-            if ((null === $included && !$library['pickup_location'])
+            if (
+                (null === $included && !$library['pickup_location'])
                 || in_array($code, $excluded)
                 || (null !== $included && !in_array($code, $included))
             ) {
@@ -886,7 +848,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             }
             $locations[] = [
                 'locationID' => $code,
-                'locationDisplay' => $library['name']
+                'locationDisplay' => $library['name'],
             ];
         }
 
@@ -930,25 +892,21 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
      */
     public function getConfig($function, $params = null)
     {
-        if ('getPasswordRecoveryToken' === $function
-            || 'recoverPassword' === $function
-        ) {
-            return !empty($this->config['PasswordRecovery']['enabled'])
-                ? $this->config['PasswordRecovery'] : false;
-        } elseif ('getPatronStaffAuthorizationStatus' === $function) {
+        if ('getPatronStaffAuthorizationStatus' === $function) {
             return ['enabled' => true];
         }
         $functionConfig = parent::getConfig($function, $params);
-        if ($functionConfig && 'onlinePayment' === $function) {
+        if ($functionConfig && 'OnlinePayment' === $function) {
             if (!isset($functionConfig['exactBalanceRequired'])) {
                 $functionConfig['exactBalanceRequired'] = false;
             }
         }
+
         return $functionConfig;
     }
 
     /**
-     * Get Item Statuses
+     * Get Item Statuses.
      *
      * This is responsible for retrieving the status information of a certain
      * record.
@@ -967,9 +925,9 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             $holdingsResult = $this->makeRequest(
                 [
                     'path' => [
-                        'v1', 'contrib', 'kohasuomi', 'biblios', $id, 'holdings'
+                        'v1', 'contrib', 'kohasuomi', 'biblios', $id, 'holdings',
                     ],
-                    'errors' => true
+                    'errors' => true,
                 ]
             );
             if (404 === $holdingsResult['code']) {
@@ -985,15 +943,19 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             }
         }
 
-        $result = $this->makeRequest(
-            [
-                'path' => [
-                    'v1', 'contrib', 'kohasuomi', 'availability', 'biblios', $id,
-                    'search'
-                ],
-                'errors' => true
-            ]
-        );
+        $requestParams = [
+            'path' => [
+                'v1', 'contrib', 'kohasuomi', 'availability', 'biblios', $id,
+                'search',
+            ],
+            'errors' => true,
+            'query' => [],
+        ];
+        if ($this->includeSuspendedHoldsInQueueLength) {
+            $requestParams['query']['include_suspended_in_hold_queue'] = '1';
+        }
+
+        $result = $this->makeRequest($requestParams);
         if (404 === $result['code']) {
             return [];
         }
@@ -1002,10 +964,15 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         }
 
         $statuses = [];
+        $itemsTotal = 0;
+        $orderedTotal = 0;
+        $availableTotal = 0;
+        $requestsTotal = 0;
         foreach ($result['data']['item_availabilities'] ?? [] as $i => $item) {
             // $holding is a reference!
             unset($holding);
-            if (!empty($item['holding_id'])
+            if (
+                !empty($item['holding_id'])
                 && isset($holdings[$item['holding_id']])
             ) {
                 $holding = &$holdings[$item['holding_id']];
@@ -1017,7 +984,8 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             $available = $avail['available'];
             $statusCodes = $this->getItemStatusCodes($item);
             $status = $this->pickStatus($statusCodes);
-            if (isset($avail['unavailabilities']['Item::CheckedOut']['due_date'])
+            if (
+                isset($avail['unavailabilities']['Item::CheckedOut']['due_date'])
                 && !isset($avail['unavailabilities']['Item::Lost'])
             ) {
                 $duedate = $this->convertDate(
@@ -1036,18 +1004,58 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             } else {
                 $libraryId = $item['home_library_id'];
             }
+            // Check holding library and modify status if not in home library:
+            if (
+                $this->useHomeLibrary && null !== $item['holding_library_id']
+                && $item['home_library_id'] !== $item['holding_library_id']
+                && 'On Shelf' === $status
+            ) {
+                $available = false;
+                $status = 'Not Available';
+                array_unshift($statusCodes, 'Not Available');
+            }
             $locationId = $item['location'];
 
             $number = $item['serial_issue_number'];
             if (!$number) {
                 $number = $this->getItemSpecificLocation($item);
+            } else {
+                $number .= ' ' . $this->getItemSpecificLocation($item);
+            }
+
+            $requests = max(
+                [$item['hold_queue_length'],
+                $result['data']['hold_queue_length']]
+            );
+
+            if (-1 === ($avail['unavailabilities']['Item::NotForLoan']['status'] ?? null)) {
+                ++$orderedTotal;
+            } else {
+                ++$itemsTotal;
+            }
+            if ($available) {
+                ++$availableTotal;
+            }
+            $requestsTotal = max($requestsTotal, $requests);
+
+            $extraStatusInformation = [];
+            if ($transit = $avail['unavailabilities']['Item::Transfer'] ?? null) {
+                if (null !== ($toLibrary = $transit['to_library'] ?? null)) {
+                    $extraStatusInformation['location'] = $this->getLibraryName($toLibrary);
+                    if ($status == 'HoldingStatus::transit_to_date') {
+                        $extraStatusInformation['date'] = $this->convertDate(
+                            $transit['datesent'],
+                            true
+                        );
+                    }
+                }
             }
 
             $entry = [
                 'id' => $id,
                 'item_id' => $item['item_id'],
                 'location' => $location,
-                'availability' => $available,
+                'availability' => new AvailabilityStatus($available, $status, $extraStatusInformation),
                 'status' => $status,
                 'status_array' => $statusCodes,
                 'reserve' => 'N',
@@ -1056,12 +1064,9 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                 'number' => $number,
                 'barcode' => $item['external_id'],
                 'sort' => $i,
-                'requests_placed' => max(
-                    [$item['hold_queue_length'],
-                    $result['data']['hold_queue_length']]
-                ),
+                'requests_placed' => $requests,
                 'libraryId' => $libraryId,
-                'locationId' => $locationId
+                'locationId' => $locationId,
             ];
             if (!empty($item['public_notes'])) {
                 $entry['item_notes'] = [$item['public_notes']];
@@ -1095,30 +1100,27 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         }
 
         // Add holdings that don't have items
-        if (!empty($holdings)) {
-            foreach ($holdings as $holding) {
-                if ($holding['suppressed'] || !empty($holding['_hasItems'])) {
-                    continue;
-                }
-                $holdingData = $this->getHoldingData($holding);
-                $i++;
-                $entry = $this->createHoldingsEntry($id, $holding, $i);
-                $entry += $holdingData;
-
-                $statuses[] = $entry;
+        foreach ($holdings as $holding) {
+            if ($holding['suppressed'] || !empty($holding['_hasItems'])) {
+                continue;
             }
+            $holdingData = $this->getHoldingData($holding);
+            $i++;
+            $entry = $this->createHoldingsEntry($id, $holding, $i);
+            $entry += $holdingData;
+
+            $statuses[] = $entry;
         }
 
         // Add serial purchase information
-        if (!$brief && !empty($this->config['Holdings']['use_serial_subscriptions'])
-        ) {
+        if (!$brief && !empty($this->config['Holdings']['use_serial_subscriptions'])) {
             $serialsResult = $this->makeRequest(
                 [
                     'path' => [
                         'v1', 'contrib', 'kohasuomi', 'biblios', $id,
-                        'serialsubscriptions'
+                        'serialsubscriptions',
                     ],
-                    'errors' => true
+                    'errors' => true,
                 ]
             );
             if (404 === $serialsResult['code']) {
@@ -1144,7 +1146,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                             if (!$issue['received']) {
                                 continue;
                             }
-                            [$year] = explode('-', $issue['publisheddate']);
+                            [$year] = explode('-', $issue['publisheddate'] ?? '');
                             if ($year > $latestReceived) {
                                 $latestReceived = $year;
                             }
@@ -1154,10 +1156,11 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                         if (!$issue['received']) {
                             continue;
                         }
-                        [$year] = explode('-', $issue['publisheddate']);
+                        [$year] = explode('-', $issue['publisheddate'] ?? '');
                         if ($yearFilter) {
                             // Limit to current and last year
-                            if ($year && $year != $currentYear
+                            if (
+                                $year && $year != $currentYear
                                 && $year != $lastYear
                             ) {
                                 continue;
@@ -1176,14 +1179,15 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                     $issues = [];
                     foreach (array_reverse($seqs) as $seq) {
                         $issues[] = [
-                            'issue' => $seq
+                            'issue' => $seq,
                         ];
                     }
 
                     $entry = $this->createSerialEntry($subscription, $i);
 
                     foreach ($statuses as &$status) {
-                        if ($status['callnumber'] === $entry['callnumber']
+                        if (
+                            $status['callnumber'] === $entry['callnumber']
                             && $status['location'] === $entry['location']
                         ) {
                             $status['purchase_history'] = $issues;
@@ -1203,51 +1207,49 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
 
         // See if there are links in holdings
         $electronic = [];
-        if (!empty($holdings)) {
-            foreach ($holdings as $holding) {
-                if ($holding['suppressed']) {
-                    continue;
-                }
-                $marc = $this->getHoldingMarc($holding);
-                if (null === $marc) {
-                    continue;
-                }
+        foreach ($holdings as $holding) {
+            if ($holding['suppressed']) {
+                continue;
+            }
+            $marc = $this->getHoldingMarc($holding);
+            if (null === $marc) {
+                continue;
+            }
 
-                $notes = [];
-                if ($fields = $marc->getFields('852')) {
-                    foreach ($fields as $field) {
-                        if ($subfield = $marc->getSubfield($field, 'z')) {
-                            $notes[] = $subfield;
-                        }
+            $notes = [];
+            if ($fields = $marc->getFields('852')) {
+                foreach ($fields as $field) {
+                    if ($subfield = $marc->getSubfield($field, 'z')) {
+                        $notes[] = $subfield;
                     }
                 }
-                if ($fields = $marc->getFields('856')) {
-                    foreach ($fields as $field) {
-                        if ($subfields = $field['subfields'] ?? []) {
-                            $urls = [];
-                            $desc = [];
-                            $parts = [];
-                            foreach ($subfields as $subfield) {
-                                if ('u' === $subfield['code']) {
-                                    $urls[] = $subfield['data'];
-                                } elseif ('3' === $subfield['code']) {
-                                    $parts[] = $subfield['data'];
-                                } elseif (in_array($subfield['code'], ['y', 'z'])) {
-                                    $desc[] = $subfield['data'];
-                                }
+            }
+            if ($fields = $marc->getFields('856')) {
+                foreach ($fields as $field) {
+                    if ($subfields = $field['subfields'] ?? []) {
+                        $urls = [];
+                        $desc = [];
+                        $parts = [];
+                        foreach ($subfields as $subfield) {
+                            if ('u' === $subfield['code']) {
+                                $urls[] = $subfield['data'];
+                            } elseif ('3' === $subfield['code']) {
+                                $parts[] = $subfield['data'];
+                            } elseif (in_array($subfield['code'], ['y', 'z'])) {
+                                $desc[] = $subfield['data'];
                             }
-                            foreach ($urls as $url) {
-                                ++$i;
-                                $entry
-                                    = $this->createHoldingsEntry($id, $holding, $i);
-                                $entry['availability'] = true;
-                                $entry['location'] = implode('. ', $desc);
-                                $entry['locationhref'] = $url;
-                                $entry['use_unknown_message'] = false;
-                                $entry['status']
-                                    = implode('. ', array_merge($parts, $notes));
-                                $electronic[] = $entry;
-                            }
+                        }
+                        foreach ($urls as $url) {
+                            ++$i;
+                            $entry
+                                = $this->createHoldingsEntry($id, $holding, $i);
+                            $entry['availability'] = true;
+                            $entry['location'] = implode('. ', $desc);
+                            $entry['locationhref'] = $url;
+                            $entry['use_unknown_message'] = false;
+                            $entry['status']
+                                = implode('. ', array_merge($parts, $notes));
+                            $electronic[] = $entry;
                         }
                     }
                 }
@@ -1256,14 +1258,31 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
 
         usort($statuses, [$this, 'statusSortFunction']);
         usort($electronic, [$this, 'statusSortFunction']);
+
+        // Add summary
+        $summary = [
+            'id' => $id,
+            'available' => $availableTotal,
+            'total' => $itemsTotal,
+            'ordered' => $orderedTotal,
+            'locations' => count(array_unique(array_column($statuses, 'location'))),
+            'availability' => null,
+            'callnumber' => '',
+            'location' => '__HOLDINGSSUMMARYLOCATION__',
+        ];
+        if (!empty($this->config['Holdings']['display_total_hold_count'])) {
+            $summary['reservations'] = $requestsTotal;
+        }
+        $statuses[] = $summary;
+
         return [
             'holdings' => $statuses,
-            'electronic_holdings' => $electronic
+            'electronic_holdings' => $electronic,
         ];
     }
 
     /**
-     * Status item sort function
+     * Status item sort function.
      *
      * @param array $a First status record to compare
      * @param array $b Second status record to compare
@@ -1305,7 +1324,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Update a patron in Koha with the data in $fields
+     * Update a patron in Koha with the data in $fields.
      *
      * @param array $patron The patron array from patronLogin
      * @param array $fields Patron fields to update
@@ -1320,6 +1339,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         // Unset read-only fields
         unset($request['anonymized']);
         unset($request['restricted']);
+        unset($request['expired']);
 
         $request = array_merge($request, $fields);
 
@@ -1328,14 +1348,14 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                 'path' => ['v1', 'patrons', $patron['id']],
                 'json' => $request,
                 'method' => 'PUT',
-                'errors' => true
+                'errors' => true,
             ]
         );
         if ($result['code'] >= 300) {
             return [
                 'success' => false,
                 'status' => 'Updating of patron information failed',
-                'sys_message' => $result['data']['error'] ?? $result['code']
+                'sys_message' => $result['data']['error'] ?? $result['code'],
             ];
         }
 
@@ -1343,12 +1363,12 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             'success' => true,
             'status' => 202 === $result['code']
                 ? 'request_change_done' : 'request_change_accepted',
-            'sys_message' => ''
+            'sys_message' => '',
         ];
     }
 
     /**
-     * Return a location for a Koha item
+     * Return a location for a Koha item.
      *
      * @param array $item Item
      *
@@ -1377,7 +1397,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Return item-specific location information as configured
+     * Return item-specific location information as configured.
      *
      * @param array $item Koha item
      *
@@ -1390,48 +1410,49 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         }
 
         $result = [];
-        foreach (explode(',', $this->config['Holdings']['display_location_per_item'])
-            as $field
-        ) {
+        foreach (explode(',', $this->config['Holdings']['display_location_per_item']) as $field) {
             switch ($field) {
-            case 'collection_code':
-                if (!empty($item['collection_code'])) {
-                    $collection = $this->translateCollection(
-                        $item['collection_code'],
-                        $item['collection_code_description']
-                            ?? $item['collection_code']
-                    );
-                    if ($collection) {
-                        $result[] = $collection;
+                case 'collection_code':
+                    if (!empty($item['collection_code'])) {
+                        $collection = $this->translateCollection(
+                            $item['collection_code'],
+                            $item['collection_code_description']
+                                ?? $item['collection_code']
+                        );
+                        if ($collection) {
+                            $result[] = $collection;
+                        }
                     }
-                }
-                break;
-            case 'location':
-                if (!empty($item['location'])) {
-                    $location = $this->translateLocation(
-                        $item['location'],
-                        !empty($item['location_description'])
-                            ? $item['location_description'] : $item['location']
-                    );
-                    if ($location) {
-                        $result[] = $location;
+                    break;
+                case 'location':
+                    if (!empty($item['location'])) {
+                        $location = $this->translateLocation(
+                            $item['location'],
+                            !empty($item['location_description'])
+                                ? $item['location_description'] : $item['location']
+                        );
+                        if ($location) {
+                            $result[] = $location;
+                        }
                     }
-                }
-                break;
-            case 'sub_location':
-                if (!empty($item['sub_location'])) {
-                    $subLocations = $this->getSubLocations();
-                    $result[] = $this->translateSubLocation(
-                        $item['sub_location'],
-                        $subLocations[$item['sub_location']]['lib_opac'] ?? null
-                    );
-                }
-                break;
-            case 'callnumber':
-                if (!empty($item['callnumber'])) {
-                    $result[] = $item['callnumber'];
-                }
-                break;
+                    break;
+                case 'sub_location':
+                    if (!empty($item['sub_location'])) {
+                        $subLocations = $this->getSubLocations();
+                        // Before Koha 23.11, authorized values contained authorised_value and lib_opac.
+                        // From 23.11, they are 'value' and 'opac_description' (see Koha bug 32981):
+                        $subLocation = $subLocations[$item['sub_location']] ?? [];
+                        $result[] = $this->translateSubLocation(
+                            $item['sub_location'],
+                            $subLocation['opac_description'] ?? $subLocation['lib_opac'] ?? null
+                        );
+                    }
+                    break;
+                case 'callnumber':
+                    if (!empty($item['callnumber'])) {
+                        $result[] = $item['callnumber'];
+                    }
+                    break;
             }
         }
 
@@ -1439,7 +1460,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Translate sub-location name
+     * Translate sub-location name.
      *
      * @param string $location Location code
      * @param string $default  Default value if translation is not available
@@ -1464,7 +1485,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Get sub-locations from cache or from the API
+     * Get sub-locations from cache or from the API.
      *
      * @return array
      */
@@ -1479,7 +1500,9 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             );
             $locations = [];
             foreach ($result['data'] as $location) {
-                $locations[$location['authorised_value']] = $location;
+                // Before Koha 23.11, authorized values contained authorised_value field.
+                // From 23.11, it is 'value' (see Koha bug 32981):
+                $locations[$location['value'] ?? $location['authorised_value']] = $location;
             }
             $this->putCachedData($cacheKey, $locations, 3600);
         }
@@ -1487,7 +1510,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Create a holdings entry
+     * Create a holdings entry.
      *
      * @param string $id       Bib ID
      * @param array  $holdings Holdings record
@@ -1530,12 +1553,12 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             'callnumber' => $callnumber,
             'sort' => $sortKey,
             'libraryId' => $libraryId,
-            'locationId' => $locationId
+            'locationId' => $locationId,
         ];
     }
 
     /**
-     * Create a serial entry
+     * Create a serial entry.
      *
      * @param array $subscription Subscription record
      * @param int   $sortKey      Sort key
@@ -1549,7 +1572,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             'holding_library_id' => $subscription['library_id'],
             'location' => $subscription['location'],
             'location_description' => $subscription['location_description'] ?? null,
-            'callnumber' => $subscription['callnumber'] ?? null
+            'callnumber' => $subscription['callnumber'] ?? null,
         ];
         $location = $this->getItemLocationName($item);
         $callnumber = $this->getItemCallNumber($item);
@@ -1571,7 +1594,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Return a call number for a Koha item
+     * Return a call number for a Koha item.
      *
      * @param array $item Item
      *
@@ -1580,7 +1603,8 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     protected function getItemCallNumber($item)
     {
         $result = [];
-        if (!empty($item['collection_code'])
+        if (
+            !empty($item['collection_code'])
             && !empty($this->config['Holdings']['display_ccode'])
         ) {
             $result[] = $this->translateCollection(
@@ -1598,8 +1622,8 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
                 $result[] = $loc;
             }
         }
-        if ((!empty($item['callnumber'])
-            || !empty($item['callnumber_display']))
+        if (
+            (!empty($item['callnumber']) || !empty($item['callnumber_display']))
             && !empty($this->config['Holdings']['display_full_call_number'])
         ) {
             $result[] = $item['callnumber'];
@@ -1608,7 +1632,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Get a MARC record for the given holding or null if not available
+     * Get a MARC record for the given holding or null if not available.
      *
      * @param array $holding Holding
      *
@@ -1617,10 +1641,9 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     protected function getHoldingMarc(&$holding)
     {
         if (!isset($holding['_marcRecord'])) {
-            foreach ($holding['holdings_metadata'] ?? [$holding['metadata']]
-                as $metadata
-            ) {
-                if ('marcxml' === $metadata['format']
+            foreach ($holding['holdings_metadata'] ?? [$holding['metadata']] as $metadata) {
+                if (
+                    'marcxml' === $metadata['format']
                     && 'MARC21' === $metadata['schema']
                 ) {
                     $holding['_marcRecord'] = new MarcReader($metadata['metadata']);
@@ -1633,7 +1656,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Get holding data from a holding record
+     * Get holding data from a holding record.
      *
      * @param array $holding Holding record from Koha
      *
@@ -1710,7 +1733,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Get specified fields from a MARC Record
+     * Get specified fields from a MARC Record.
      *
      * @param MarcReader   $record     Marc reader
      * @param array|string $fieldSpecs Array or colon-separated list of
@@ -1759,53 +1782,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Return summary of holdings items.
-     *
-     * @param array $holdings Parsed holdings items
-     *
-     * @return array summary
-     */
-    protected function getHoldingsSummary($holdings)
-    {
-        $availableTotal = $itemsTotal = 0;
-        $requests = 0;
-        $locations = [];
-
-        foreach ($holdings as $item) {
-            if (!empty($item['availability'])) {
-                $availableTotal++;
-            }
-            if (strncmp($item['item_id'], 'HLD_', 4) !== 0) {
-                $itemsTotal++;
-            }
-            $locations[$item['location']] = true;
-            if ($item['requests_placed'] > $requests) {
-                $requests = $item['requests_placed'];
-            }
-        }
-
-        // Since summary data is appended to the holdings array as a fake item,
-        // we need to add a few dummy-fields that VuFind expects to be
-        // defined for all elements.
-
-        // Use a stupid location name to make sure this doesn't get mixed with
-        // real items that don't have a proper location.
-        $result = [
-           'available' => $availableTotal,
-           'total' => $itemsTotal,
-           'locations' => count($locations),
-           'availability' => null,
-           'callnumber' => null,
-           'location' => '__HOLDINGSSUMMARYLOCATION__'
-        ];
-        if (!empty($this->config['Holdings']['display_total_hold_count'])) {
-            $result['reservations'] = $requests;
-        }
-        return $result;
-    }
-
-    /**
-     * Translate collection name
+     * Translate collection name.
      *
      * @param string $code        Collection code
      * @param string $description Collection description
@@ -1826,7 +1803,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     }
 
     /**
-     * Translate location name
+     * Translate location name.
      *
      * @param string $location Location code
      * @param string $default  Default value if translation is not available
@@ -1840,12 +1817,20 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             return $defaultTranslation;
         }
 
+        // Try first with location_ prefix:
+        $prefix = 'location_' . $this->config['Catalog']['id'] . '_';
+        $key = "$prefix$location";
+        $translated = $this->translate($key);
+        if ($translated !== $key) {
+            return $translated;
+        }
+        // Fall back to just catalog id:
         $prefix = $this->config['Catalog']['id'] . '_';
         return $this->translate("$prefix$location", [], $defaultTranslation);
     }
 
     /**
-     * Get a description for a block
+     * Get a description for a block.
      *
      * @param string $reason  Koha block reason
      * @param array  $details Any details related to the reason
@@ -1856,45 +1841,45 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     {
         $params = [];
         switch ($reason) {
-        case 'Hold::MaximumHoldsReached':
-            $params = [
-                '%%blockCount%%' => $details['current_hold_count'],
-                '%%blockLimit%%' => $details['max_holds_allowed']
-            ];
-            break;
-        case 'Patron::Debt':
-        case 'Patron::DebtGuarantees':
-            $count = isset($details['current_outstanding'])
-                ? $this->formatMoney($details['current_outstanding'])
-                : '-';
-            $limit = isset($details['max_outstanding'])
-                ? $this->formatMoney($details['max_outstanding'])
-                : '-';
-            $params = [
-                '%%blockCount%%' => $count,
-                '%%blockLimit%%' => $limit,
-            ];
-            break;
-        case 'Patron::Debarred':
-            if (!empty($details['comment'])) {
+            case 'Hold::MaximumHoldsReached':
                 $params = [
-                    '%%reason%%' => $details['comment']
+                    '%%blockCount%%' => $details['current_hold_count'],
+                    '%%blockLimit%%' => $details['max_holds_allowed'],
                 ];
-                $reason = 'Patron::DebarredWithReason';
-            }
-            break;
-        case 'Patron::CardExpired':
-            $params = [
-                '%%expirationDate%%'
-                    => $this->convertDate($details['expiration_date'])
-            ];
-            break;
+                break;
+            case 'Patron::Debt':
+            case 'Patron::DebtGuarantees':
+                $count = isset($details['current_outstanding'])
+                    ? $this->formatMoney($details['current_outstanding'])
+                    : '-';
+                $limit = isset($details['max_outstanding'])
+                    ? $this->formatMoney($details['max_outstanding'])
+                    : '-';
+                $params = [
+                    '%%blockCount%%' => $count,
+                    '%%blockLimit%%' => $limit,
+                ];
+                break;
+            case 'Patron::Debarred':
+                if (!empty($details['comment'])) {
+                    $params = [
+                        '%%reason%%' => $details['comment'],
+                    ];
+                    $reason = 'Patron::DebarredWithReason';
+                }
+                break;
+            case 'Patron::CardExpired':
+                $params = [
+                    '%%expirationDate%%'
+                        => $this->convertDate($details['expiration_date']),
+                ];
+                break;
         }
         return $this->translate($this->patronStatusMappings[$reason] ?? '', $params);
     }
 
     /**
-     * Get Patron Transactions
+     * Get Patron Transactions.
      *
      * This is responsible for retrieving all transactions (i.e. checked-out items
      * or checked-in items) by a specific patron.
@@ -1912,16 +1897,20 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
     protected function getTransactions($patron, $params, $checkedIn)
     {
         $pageSize = $params['limit'] ?? 50;
-        $sort = $params['sort'] ?? '+due_date';
-        if ('+title' === $sort) {
-            $sort = '+title|+subtitle';
-        } elseif ('-title' === $sort) {
-            $sort = '-title|-subtitle';
-        }
+        $sort = match ($params['sort'] ?? null) {
+            '-checkout_date',
+            '+checkout_date',
+            '-checkin_date',
+            '+checkin_date',
+            '-due_date',
+            '+due_date' => $params['sort'],
+            '+title' => '+title,+subtitle',
+            default => $checkedIn ? '-checkout_date' : '+due_date',
+        };
         $queryParams = [
             '_order_by' => $sort,
             '_page' => $params['page'] ?? 1,
-            '_per_page' => $pageSize
+            '_per_page' => $pageSize,
         ];
         if ($checkedIn) {
             $queryParams['checked_in'] = '1';
@@ -1933,9 +1922,9 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             [
                 'path' => [
                     'v1', 'contrib', 'kohasuomi', 'patrons', $patron['id'],
-                    'checkouts'
+                    'checkouts',
                 ],
-                'query' => $queryParams
+                'query' => $queryParams,
             ]
         );
 
@@ -1946,7 +1935,7 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
         if (empty($result['data'])) {
             return [
                 'count' => 0,
-                $arrayKey => []
+                $arrayKey => [],
             ];
         }
         $transactions = [];
@@ -1970,7 +1959,8 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
             $message = '';
             if (!$renewable && !$checkedIn) {
                 $message = $this->mapRenewalBlockReason(
-                    $entry['renewability_blocks']
+                    $entry['renewability_blocks'],
+                    $entry['item_itype']
                 );
                 $permanent = in_array(
                     $entry['renewability_blocks'],
@@ -2027,12 +2017,12 @@ class KohaRest extends \VuFind\ILS\Driver\KohaRest
 
         return [
             'count' => $result['headers']['X-Total-Count'] ?? count($transactions),
-            $arrayKey => $transactions
+            $arrayKey => $transactions,
         ];
     }
 
     /**
-     * Create a HTTP client
+     * Create a HTTP client.
      *
      * @param string $url Request URL
      *

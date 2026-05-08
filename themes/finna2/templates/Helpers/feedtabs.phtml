@@ -1,37 +1,29 @@
 <!-- START of: finna - Helpers/feedtabs.phtml -->
-<div class="feed-tabs" id="feed-tabs-<?=$this->escapeHtmlAttr($this->id)?>">
-  <?php if (count($this->feedIds) > 3): ?>
-    <div class="tabs-responsive">
-  <?php endif; ?>
-  <div class="visible-md visible-lg">
+<div class="feed-tabs <?= $showMobileAccordion ? 'mobile-accordion-show' : 'mobile-accordion-hide'; ?>" id="feed-tabs-<?=$this->escapeHtmlAttr($this->id)?>">
     <div class="feed-tabs-container">
       <h2 class="feed-tabs-title"><?= $this->transEsc($this->title);?></h2>
-      <ul class="nav nav-tabs" role="tablist">
+      <ul class="nav <?= !empty($navStyle) ? 'feed-nav-' . $this->escapeHtmlAttr($this->navStyle) : 'nav-tabs' ?>" role="tablist">
       <?php $tabNames = []; ?>
       <?php $id = 0; ?>
       <?php foreach ($this->feedIds as $desc => $feed): ?>
         <?php
-          $tabName = preg_replace("/\W/", "-", strtolower($feed));
+          $tabName = preg_replace("/\W/", '-', strtolower($feed));
           $tabNames[] = $tabName;
           $isActive = 0 === strcasecmp($this->active, $feed);
           $tabId = $this->id . '-' . $feed;
         ?>
-        <li class="feed-tab <?=$isActive ? 'active' : ''?>" data-tab="<?=$this->escapeHtmlAttr($tabName)?>" role="tab" aria-selected="<?= $isActive ? 'true' : 'false' ?>">
-            <a class="feed-tab-anchor" tabindex="0" href="<?='#' . $this->escapeHtmlAttr($tabId)?>" id="<?=$this->escapeHtmlAttr($tabId) . '-tab'?>" data-tab="<?=$this->escapeHtmlAttr($feed)?>" aria-label="<?=$this->escapeHtmlAttr($this->transEsc($desc))?>" data-lightbox-ignore>
+        <li class="nav-item feed-tab" data-tab="<?=$this->escapeHtmlAttr($tabName)?>" role="presentation">
+            <a class="nav-link feed-tab-anchor<?=$isActive ? ' active' : ''?>" tabindex="0" role="tab" aria-selected="<?= $isActive ? 'true' : 'false' ?>" href="<?='#' . $this->escapeHtmlAttr($tabId)?>" id="<?=$this->escapeHtmlAttr($tabId) . '-tab'?>" data-tab="<?=$this->escapeHtmlAttr($feed)?>" aria-label="<?=$this->escapeHtmlAttr($this->transEsc($desc))?>" data-lightbox-ignore>
               <?= $this->transEsc($desc)?>
             </a>
         </li>
         <?php endforeach; ?>
       </ul>
     </div>
-  </div>
-  <?php if (count($this->feedIds) > 3): ?>
-    </div>
-  <?php endif; ?>
-
   <div class="feed-accordions" role="tablist">
     <h2 class="feed-accordions-title"><?= $this->transEsc($this->title); ?></h2>
-    <?php $i = 0; foreach ($this->feedIds as $desc => $feed): ?>
+    <?php $i = 0;
+    foreach ($this->feedIds as $desc => $feed): ?>
       <?php
         $classes = ['accordion', 'accordion-' . $tabNames[$i++]];
         $isActive = 0 === strcasecmp($this->active, $feed);
@@ -42,24 +34,23 @@
       ?>
       <div class="<?=$this->escapeHtmlAttr(implode(' ', $classes))?>" role="tab" aria-selected="<?= $isActive ? 'true' : 'false' ?>">
            <a class="feed-accordion-anchor" tabindex="0" href="<?='#' . $this->escapeHtmlAttr($tabId)?>" id="<?=$this->escapeHtmlAttr($tabId) . '-accordion'?>" data-tab="<?=$this->escapeHtmlAttr($feed)?>" aria-label="<?=$this->escapeHtmlAttr($this->transEsc($desc))?>" data-lightbox-ignore>
-              <?= $this->transEsc($desc)?>
-            </a>
-          <i class="icon"></i>
+             <?=$this->icon('accordion-collapse', 'js-accordion-open'); ?>
+             <?=$this->icon('accordion-expand', 'js-accordion-close'); ?>
+             <span class="title"><?= $this->transEsc($desc)?></span>
+          </a>
       </div>
     <?php endforeach; ?>
   </div>
 
-  <div class="tab-content">
-    <div class="feed-container" data-init="0"></div>
-  </div>
+  <finna-feed></finna-feed>
 </div>
 <?php
-$this->headScript()->appendFile("finna-feed-tabs.js");
+$this->assetManager()->appendScriptLink('finna-feed-tabs.js');
 $js = <<<JS
-$(document).ready(function(){
-  finna.feedTabs.init("feed-tabs-{$this->id}");
-});
-JS;
-$this->headScript()->appendScript($js);
+    $(document).ready(function(){
+      finna.feedTabs.init("feed-tabs-{$this->id}");
+    });
+    JS;
+$this->assetManager()->appendScriptString($js);
 ?>
 <!-- END of: finna - Helpers/feedtabs.phtml -->

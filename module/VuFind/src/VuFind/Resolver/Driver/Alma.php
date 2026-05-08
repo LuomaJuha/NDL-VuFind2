@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Alma Link Resolver Driver
+ * Alma Link Resolver Driver.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2019
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Resolver_Drivers
@@ -25,10 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:link_resolver_drivers Wiki
  */
+
 namespace VuFind\Resolver\Driver;
 
+use function in_array;
+
 /**
- * Alma Link Resolver Driver
+ * Alma Link Resolver Driver.
  *
  * @category VuFind
  * @package  Resolver_Drivers
@@ -39,21 +43,21 @@ namespace VuFind\Resolver\Driver;
 class Alma extends AbstractBase
 {
     /**
-     * HTTP client
+     * HTTP client.
      *
      * @var \Laminas\Http\Client
      */
     protected $httpClient;
 
     /**
-     * List of filter reasons that are ignored (displayed regardless of filtering)
+     * List of filter reasons that are ignored (displayed regardless of filtering).
      *
      * @var array
      */
     protected $ignoredFilterReasons = ['Date Filter'];
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param string               $baseUrl    Base URL for link resolver
      * @param \Laminas\Http\Client $httpClient HTTP client
@@ -74,7 +78,7 @@ class Alma extends AbstractBase
     }
 
     /**
-     * Fetch Links
+     * Fetch Links.
      *
      * Fetches a set of links corresponding to an OpenURL
      *
@@ -92,7 +96,7 @@ class Alma extends AbstractBase
     }
 
     /**
-     * Parse Links
+     * Parse Links.
      *
      * Parses an XML file returned by a link resolver
      * and converts it to a standardised format for display
@@ -105,7 +109,7 @@ class Alma extends AbstractBase
     {
         $records = []; // array to return
         try {
-            $xml = new \SimpleXmlElement($xmlstr);
+            $xml = new \SimpleXMLElement($xmlstr);
         } catch (\Exception $e) {
             return $records;
         }
@@ -133,7 +137,8 @@ class Alma extends AbstractBase
                     $title = $this->getKeyWithId($service, 'package_public_name');
                 }
                 $href = (string)$service->resolution_url;
-                if ('getOpenAccessFullText' === $originalServiceType
+                if (
+                    'getOpenAccessFullText' === $originalServiceType
                     || $this->getKeyWithId($service, 'Is_free')
                 ) {
                     $access = 'open';
@@ -167,7 +172,7 @@ class Alma extends AbstractBase
     }
 
     /**
-     * Get a key with the specified id from the context_service element
+     * Get a key with the specified id from the context_service element.
      *
      * @param \SimpleXMLElement $service Service element
      * @param string            $id      Key id
@@ -206,7 +211,7 @@ class Alma extends AbstractBase
     }
 
     /**
-     * Clean up textual information
+     * Clean up textual information.
      *
      * @param string $str Text
      *

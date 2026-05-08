@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Controller for legacy Primo URLs
+ * Controller for legacy Primo URLs.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Controller;
 
 /**
- * Controller for legacy Primo URLs
+ * Controller for legacy Primo URLs.
  *
  * @category VuFind
  * @package  Controller
@@ -39,7 +41,7 @@ namespace Finna\Controller;
 class PCIController extends \VuFind\Controller\AbstractBase
 {
     /**
-     * Home action
+     * Home action.
      *
      * @return mixed
      */
@@ -49,7 +51,7 @@ class PCIController extends \VuFind\Controller\AbstractBase
     }
 
     /**
-     * Search action -- call standard results action
+     * Search action -- call standard results action.
      *
      * @return mixed
      */
@@ -76,7 +78,7 @@ class PCIController extends \VuFind\Controller\AbstractBase
     }
 
     /**
-     * Primo record action
+     * Primo record action.
      *
      * @return mixed
      */

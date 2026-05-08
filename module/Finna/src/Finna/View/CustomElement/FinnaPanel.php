@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Finna-panel custom element
+ * Finna-panel custom element.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  CustomElements
@@ -25,10 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\View\CustomElement;
 
+use function in_array;
+
 /**
- * Finna-panel custom element
+ * Finna-panel custom element.
  *
  * @category VuFind
  * @package  CustomElements
@@ -102,7 +106,7 @@ class FinnaPanel extends AbstractBase
                     array_keys(self::getAttributeToVariableMap())
                 ),
                 'CDATA'
-            )
+            ),
         ];
     }
 
@@ -119,7 +123,7 @@ class FinnaPanel extends AbstractBase
             self::TYPE => 'Heading',
             self::CONTENTS => 'Inline',
             self::ATTR_COLLECTIONS => 'Common',
-            self::ATTRIBUTES => ['slot' => 'CDATA']
+            self::ATTRIBUTES => ['slot' => 'CDATA'],
         ];
         return [
             'h1' => $hArgs,
@@ -132,8 +136,8 @@ class FinnaPanel extends AbstractBase
                 self::TYPE => 'Inline',
                 self::CONTENTS => 'Inline',
                 self::ATTR_COLLECTIONS => 'Common',
-                self::ATTRIBUTES => ['slot' => 'CDATA']
-            ]
+                self::ATTRIBUTES => ['slot' => 'CDATA'],
+            ],
         ];
     }
 
@@ -144,7 +148,7 @@ class FinnaPanel extends AbstractBase
      */
     public static function getTemplateName(): ?string
     {
-        return 'components/molecules/containers/finna-panel/finna-panel';
+        return '_ui/components/finna-panel';
     }
 
     /**
@@ -157,7 +161,7 @@ class FinnaPanel extends AbstractBase
         return [
             'attributes'   => ['class' => 'finna-panel-default'],
             'headingLevel' => 3,
-            'headingTag'   => true
+            'headingTag'   => true,
         ];
     }
 
@@ -172,7 +176,7 @@ class FinnaPanel extends AbstractBase
         return [
             'collapsed'     => 'collapsed',
             'heading-level' => 'headingLevel',
-            'heading-tag'   => 'headingTag'
+            'heading-tag'   => 'headingTag',
         ];
     }
 }

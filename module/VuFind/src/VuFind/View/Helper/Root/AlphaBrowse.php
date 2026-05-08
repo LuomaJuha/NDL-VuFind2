@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Authentication view helper
+ * AlphaBrowse view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
 use Laminas\View\Helper\Url;
 
 /**
- * Authentication view helper
+ * AlphaBrowse view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -41,7 +43,7 @@ use Laminas\View\Helper\Url;
 class AlphaBrowse extends \Laminas\View\Helper\AbstractHelper
 {
     /**
-     * URL helper
+     * URL helper.
      *
      * @var Url
      */
@@ -55,7 +57,7 @@ class AlphaBrowse extends \Laminas\View\Helper\AbstractHelper
     protected $options;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param Url   $helper  URL helper
      * @param array $options Additional configuration options
@@ -67,7 +69,7 @@ class AlphaBrowse extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Get link to browse results (or null if no valid URL available)
+     * Get link to browse results (or null if no valid URL available).
      *
      * @param string $source AlphaBrowse index currently being used
      * @param array  $item   Item to link to
@@ -82,7 +84,7 @@ class AlphaBrowse extends \Laminas\View\Helper\AbstractHelper
 
         $query = [
             'type' => ucwords($source) . 'Browse',
-            'lookfor' => $this->escapeForSolr($item['heading']),
+            'lookfor' => $this->escapeForSolr($item['sort_key']),
         ];
         if ($this->options['bypass_default_filters'] ?? true) {
             $query['dfApplied'] = 1;

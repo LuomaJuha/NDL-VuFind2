@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Abstract authentication base class
+ * Abstract authentication base class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Authentication
@@ -26,14 +27,21 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Auth;
 
+use Exception;
 use Laminas\Http\PhpEnvironment\Request;
-use VuFind\Db\Row\User;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Db\Service\UserCardServiceInterface;
+use VuFind\Db\Service\UserServiceInterface;
 use VuFind\Exception\Auth as AuthException;
 
+use function in_array;
+use function is_callable;
+
 /**
- * Abstract authentication base class
+ * Abstract authentication base class.
  *
  * @category VuFind
  * @package  Authentication
@@ -42,34 +50,51 @@ use VuFind\Exception\Auth as AuthException;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
-abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
+abstract class AbstractBase implements
+    AuthInterface,
+    \VuFind\Db\Service\DbServiceAwareInterface,
     \VuFind\I18n\Translator\TranslatorAwareInterface,
-    \Laminas\Log\LoggerAwareInterface
+    \Psr\Log\LoggerAwareInterface
 {
-    use \VuFind\Db\Table\DbTableAwareTrait;
+    use \VuFind\Db\Service\DbServiceAwareTrait;
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
      * Has the configuration been validated?
      *
-     * @param bool
+     * @var bool
      */
     protected $configValidated = false;
 
     /**
-     * Configuration settings
+     * Configuration settings.
      *
-     * @param \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config = null;
 
     /**
-     * Get configuration (load automatically if not previously set).  Throw an
+     * Map of database column name to setter method for UserEntityInterface objects.
+     *
+     * @return array
+     */
+    protected $userSetterMap = [
+        'cat_username' => 'setCatUsername',
+        'college' => 'setCollege',
+        'email' => 'setEmail',
+        'firstname' => 'setFirstname',
+        'lastname' => 'setLastname',
+        'home_library' => 'setHomeLibrary',
+        'major' => 'setMajor',
+    ];
+
+    /**
+     * Get configuration (load automatically if not previously set). Throw an
      * exception if the configuration is invalid.
      *
      * @throws AuthException
-     * @return \Laminas\Config\Config
+     * @return \VuFind\Config\Config
      */
     public function getConfig()
     {
@@ -105,7 +130,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
      *
      * @return void
      */
-    public function resetState()
+    public function clearLoginState()
     {
         // By default, do no checking.
     }
@@ -113,7 +138,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     /**
      * Set configuration.
      *
-     * @param \Laminas\Config\Config $config Configuration to set
+     * @param \VuFind\Config\Config $config Configuration to set
      *
      * @return void
      */
@@ -154,7 +179,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Validate configuration parameters.  This is a support method for getConfig(),
+     * Validate configuration parameters. This is a support method for getConfig(),
      * so the configuration MUST be accessed using $this->config; do not call
      * $this->getConfig() from within this method!
      *
@@ -167,12 +192,12 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Attempt to authenticate the current user.  Throws exception if login fails.
+     * Attempt to authenticate the current user. Throws exception if login fails.
      *
      * @param Request $request Request object containing account credentials.
      *
      * @throws AuthException
-     * @return User Object representing logged-in user.
+     * @return UserEntityInterface Object representing logged-in user.
      */
     abstract public function authenticate($request);
 
@@ -193,7 +218,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
         } catch (AuthException $e) {
             return false;
         }
-        return $user instanceof User;
+        return $user instanceof UserEntityInterface;
     }
 
     /**
@@ -213,14 +238,14 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
      * @param Request $request Request object containing new account details.
      *
      * @throws AuthException
-     * @return User New user row.
+     * @return UserEntityInterface New user entity.
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function create($request)
     {
         throw new AuthException(
-            'Account creation not supported by ' . get_class($this)
+            'Account creation not supported by ' . static::class
         );
     }
 
@@ -230,44 +255,69 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
      * @param Request $request Request object containing new account details.
      *
      * @throws AuthException
-     * @return User New user row.
+     * @return UserEntityInterface Updated user entity.
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function updatePassword($request)
     {
         throw new AuthException(
-            'Account password updating not supported by ' . get_class($this)
+            'Account password updating not supported by ' . static::class
         );
     }
 
     /**
+     * Reset a user's password.
+     *
+     * @param array $recoveryData Account recovery data from getPasswordRecoveryData.
+     * @param array $params       User-entered form parameters.
+     *
+     * @throws AuthException
+     * @return void
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    public function resetPassword(array $recoveryData, array $params)
+    {
+        throw new AuthException('Account password reset not supported by ' . static::class);
+    }
+
+    /**
+     * Check if session initiator is used.
+     *
+     * @return bool
+     */
+    public function hasSessionInitiator(): bool
+    {
+        return $this->getSessionInitiator('') !== null;
+    }
+
+    /**
      * Get the URL to establish a session (needed when the internal VuFind login
-     * form is inadequate).  Returns false when no session initiator is needed.
+     * form is inadequate). Returns false when no session initiator is needed.
      *
      * @param string $target Full URL where external authentication method should
      * send user after login (some drivers may override this).
      *
-     * @return bool|string
+     * @return ?string
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    public function getSessionInitiator($target)
+    public function getSessionInitiator(string $target): ?string
     {
-        return false;
+        return null;
     }
 
     /**
-     * Perform cleanup at logout time.
+     * Get URL users should be redirected to for logout in external services if necessary.
      *
-     * @param string $url URL to redirect user to after logging out.
+     * @param string $url Internal URL to redirect user to after logging out.
      *
-     * @return string     Redirect URL (usually same as $url, but modified in
-     * some authentication modules).
+     * @return string Redirect URL (usually same as $url, but modified in some authentication modules).
      */
-    public function logout($url)
+    public function getLogoutRedirectUrl(string $url): string
     {
-        // No special cleanup or URL modification needed by default.
+        // No modification needed by default.
         return $url;
     }
 
@@ -283,7 +333,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Does this authentication method support password changing
+     * Does this authentication method support password changing.
      *
      * @return bool
      */
@@ -294,14 +344,34 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Does this authentication method support password recovery
+     * Does this authentication method support password recovery.
+     *
+     * @param ?string $target Authentication target for methods that support target selection
      *
      * @return bool
      */
-    public function supportsPasswordRecovery()
+    public function supportsPasswordRecovery(?string $target = null)
     {
         // By default, password recovery is not supported.
         return false;
+    }
+
+    /**
+     * Get password recovery data (such as a user id or recovery token) based on form data submitted by the user.
+     *
+     * @param array $params Request params (form data)
+     *
+     * @return ?array Null if user not found, or associative array with following keys:
+     *   string email    User's email address
+     *   string username Username (optional, for display)
+     *   array  details  Array of user details required for resetPassword request
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    public function getPasswordRecoveryData(array $params): ?array
+    {
+        // By default, don't return password recovery data
+        return null;
     }
 
     /**
@@ -316,7 +386,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Return a canned username or password policy hint when available
+     * Return a canned username or password policy hint when available.
      *
      * @param string  $type    Policy type (password or username)
      * @param ?string $pattern Current policy pattern
@@ -337,21 +407,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Return a canned password policy hint when available
-     *
-     * @param ?string $pattern Current policy pattern
-     *
-     * @return ?string
-     *
-     * @deprecated Use getCannedPolicyHint instead
-     */
-    protected function getCannedPasswordPolicyHint($pattern)
-    {
-        return $this->getCannedPolicyHint('password', $pattern);
-    }
-
-    /**
-     * Get a policy configuration
+     * Get a policy configuration.
      *
      * @param string $type Policy type (password or username)
      *
@@ -392,7 +448,7 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Get username policy for a new account (e.g. minLength, maxLength)
+     * Get username policy for a new account (e.g. minLength, maxLength).
      *
      * @return array
      */
@@ -402,11 +458,13 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     }
 
     /**
-     * Get password policy for a new password (e.g. minLength, maxLength)
+     * Get password policy for a new password (e.g. minLength, maxLength).
+     *
+     * @param ?string $target Authentication target for methods that support target selection
      *
      * @return array
      */
-    public function getPasswordPolicy()
+    public function getPasswordPolicy(?string $target = null): array
     {
         return $this->getPolicyConfig('password');
     }
@@ -414,16 +472,16 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
     /**
      * Get access to the user table.
      *
-     * @return \VuFind\Db\Table\User
+     * @return UserServiceInterface
      */
-    public function getUserTable()
+    public function getUserService(): UserServiceInterface
     {
-        return $this->getDbTableManager()->get('User');
+        return $this->getDbService(UserServiceInterface::class);
     }
 
     /**
      * Verify that a username fulfills the username policy. Throws exception if
-     * the usernmae is invalid.
+     * the username is invalid.
      *
      * @param string $username Password to verify
      *
@@ -443,16 +501,17 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
      * Verify that a password fulfills the password policy. Throws exception if
      * the password is invalid.
      *
-     * @param string $password Password to verify
+     * @param string  $password Password to verify
+     * @param ?string $target   Authentication target for methods that support target selection
      *
      * @return void
      * @throws AuthException
      */
-    protected function validatePasswordAgainstPolicy(string $password): void
+    protected function validatePasswordAgainstPolicy(string $password, ?string $target = null): void
     {
         $this->validateStringAgainstPolicy(
             'password',
-            $this->getPasswordPolicy(),
+            $this->getPasswordPolicy($target),
             $password
         );
     }
@@ -473,7 +532,8 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
         array $policy,
         string $string
     ): void {
-        if (isset($policy['minLength'])
+        if (
+            isset($policy['minLength'])
             && mb_strlen($string, 'UTF-8') < $policy['minLength']
         ) {
             // e.g. password_minimum_length or username_minimum_length:
@@ -484,7 +544,8 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
                 )
             );
         }
-        if (isset($policy['maxLength'])
+        if (
+            isset($policy['maxLength'])
             && mb_strlen($string, 'UTF-8') > $policy['maxLength']
         ) {
             // e.g. password_maximum_length or username_maximum_length:
@@ -506,7 +567,11 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
                     $valid = false;
                 }
             } else {
-                $result = preg_match("/({$policy['pattern']})/u", $string, $matches);
+                $result = @preg_match(
+                    "/({$policy['pattern']})/u",
+                    $string,
+                    $matches
+                );
                 if ($result === false) {
                     throw new \Exception(
                         "Invalid regexp in $type pattern: " . $policy['pattern']
@@ -521,5 +586,78 @@ abstract class AbstractBase implements \VuFind\Db\Table\DbTableAwareInterface,
                 throw new AuthException($this->translate("{$type}_error_invalid"));
             }
         }
+    }
+
+    /**
+     * Look up a user by username; create a new entity if no match is found.
+     *
+     * @param string $username Username
+     *
+     * @return UserEntityInterface
+     * @throws Exception
+     */
+    protected function getOrCreateUserByUsername(string $username): UserEntityInterface
+    {
+        $userService = $this->getUserService();
+        $user = $userService->getUserByUsername($username);
+        return $user ? $user : $userService->createEntityForUsername($username);
+    }
+
+    /**
+     * Set a value in a UserEntityObject using a field name.
+     *
+     * @param UserEntityInterface $user  User to update
+     * @param string              $field Field name being updated
+     * @param mixed               $value New value to set
+     *
+     * @return void
+     * @throws Exception
+     */
+    protected function setUserValueByField(UserEntityInterface $user, string $field, $value): void
+    {
+        $setter = $this->userSetterMap[$field] ?? null;
+        if (!$setter || !is_callable([$user, $setter])) {
+            throw new Exception("Unsupported field: $field");
+        }
+        $user->$setter($value);
+    }
+
+    /**
+     * Save user and any ILS credentials.
+     *
+     * Also updates user card data if library cards are enabled.
+     *
+     * @param UserEntityInterface $user             User
+     * @param ?string             $catPassword      ILS catalog password
+     * @param ILSAuthenticator    $ilsAuthenticator ILS authenticator
+     *
+     * @return void
+     */
+    protected function saveUserAndCredentials(
+        UserEntityInterface $user,
+        ?string $catPassword,
+        ILSAuthenticator $ilsAuthenticator
+    ): void {
+        // Save credentials if applicable. Note that we want to allow empty
+        // passwords (see https://github.com/vufind-org/vufind/pull/532), but
+        // we also want to be careful not to replace a non-blank password with a
+        // blank one in case the auth mechanism fails to provide a password on
+        // an occasion after the user has manually stored one. (For discussion,
+        // see https://github.com/vufind-org/vufind/pull/612). Note that in the
+        // (unlikely) scenario that a password can actually change from non-blank
+        // to blank, additional work may need to be done here.
+        if (!empty($catUsername = $user->getCatUsername())) {
+            $ilsAuthenticator->setUserCatalogCredentials(
+                $user,
+                $catUsername,
+                empty($catPassword) ? $ilsAuthenticator->getCatPasswordForUser($user) : $catPassword
+            );
+        }
+
+        // Save the user object:
+        $this->getUserService()->persistEntity($user);
+
+        // Update library card entry after saving the user so that we always have a user id:
+        $this->getDbService(UserCardServiceInterface::class)->synchronizeUserLibraryCardData($user);
     }
 }

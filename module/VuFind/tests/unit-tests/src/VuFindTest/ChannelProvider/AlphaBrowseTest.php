@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AlphaBrowse Test Class
+ * AlphaBrowse Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\ChannelProvider;
 
 use VuFind\ChannelProvider\AlphaBrowse;
@@ -32,7 +34,7 @@ use VuFindSearch\ParamBag;
 use VuFindTest\RecordDriver\TestHarness;
 
 /**
- * AlphaBrowse Test Class
+ * AlphaBrowse Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -42,6 +44,8 @@ use VuFindTest\RecordDriver\TestHarness;
  */
 class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
 {
+    use \VuFindTest\Feature\WithConsecutiveTrait;
+
     /**
      * Test deriving channel information from a record driver object.
      *
@@ -74,10 +78,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
      */
     public function testGetFromSearch(): void
     {
-        $results = $this->getMockBuilder(\VuFind\Search\Base\Results::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-
+        $results = $this->createMock(\VuFind\Search\Base\Results::class);
         $recordDriver = $this->getDriver(['solrField' => 'foo']);
         $results->expects($this->once())->method('getResults')
             ->willReturn([$recordDriver]);
@@ -96,9 +97,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
         $objects = $this->getAlphaBrowse(['maxRecordsToExamine' => 0]);
         $alpha = $objects['alpha'];
         $alpha->setProviderId('foo_ProviderId');
-        $results = $this->getMockBuilder(\VuFind\Search\Base\Results::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $results = $this->createMock(\VuFind\Search\Base\Results::class);
         $recordDriver = $this->getDriver(['solrField' => 'foo']);
         $results->expects($this->once())->method('getResults')
             ->willReturn([$recordDriver]);
@@ -106,7 +105,8 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
                 'title' => 'nearby_items',
                 'providerId' => 'foo_ProviderId',
                 'links' => [],
-                'token' => 'foo_Id'
+                'limit' => 24,
+                'token' => 'foo_Id',
             ]];
         $this->assertSame($expectedResult, $alpha->getFromSearch($results));
     }
@@ -119,9 +119,7 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
      */
     public function testGetFromSearchWhenChannelsIsEmpty(): void
     {
-        $results = $this->getMockBuilder(\VuFind\Search\Base\Results::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $results = $this->createMock(\VuFind\Search\Base\Results::class);
         $recordDriver = $this->getDriver();
         $results->expects($this->once())->method('getResults')
             ->willReturn([$recordDriver]);
@@ -138,9 +136,10 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
     /**
      * Support method to mock objects.
      *
-     * @param array $options Set options for theprovider
-     * @param bool $fetchFromSearchService  flag indicating test case to fetch from
-     * search service when the search results do not include object we are looking for
+     * @param array $options                Set options for the provider
+     * @param bool  $fetchFromSearchService Flag indicating test case to fetch from
+     * search service when the search results do not include object we are looking
+     * for
      *
      * @return array
      */
@@ -156,32 +155,26 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
         $alpha->setProviderId('foo_ProviderId');
         $driver = $this->getDriver(['solrField' => 'foo']);
 
-        $commandObj = $this->getMockBuilder(\VuFindSearch\Command\AbstractBase::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $details = ['Browse' =>
-                        ['items' =>
-                           [
-                            ['extras' =>
-                                ['title' => [['foo_title']],
-                                 'id' => [['foo_id']]
-                                ],
-                            ]
-                           ]
-                        ]
-                    ];
+        $commandObj = $this->createMock(\VuFindSearch\Command\AbstractBase::class);
+        $details = [
+            'Browse' => [
+                'items' => [
+                    ['extras' =>
+                        ['title' => [['foo_title']],
+                            'id' => [['foo_id']],
+                        ],
+                    ],
+                ],
+            ],
+        ];
 
         $params = new ParamBag(['extras' => 'title:author:isbn:id']);
-        $alphabeticArgs = ['lcc', 'foo', 0, 20, $params, -10];
+        $alphabeticArgs = ['lcc', 'foo', 0, 24, $params, -10];
         $retrieveBatchArgs = [['foo_id'], new ParamBag()];
         $retrieveArgs = ['channel_token', new ParamBag()];
         $class = \VuFindSearch\Command\RetrieveCommand::class;
         $retrieveBatchClass = \VuFindSearch\Command\RetrieveBatchCommand::class;
-        $collection = $this->getMockBuilder(
-            \VuFindSearch\Response\RecordCollectionInterface::class
-        )
-            ->disableOriginalConstructor()
-            ->getMock();
+        $collection = $this->createMock(\VuFindSearch\Response\RecordCollectionInterface::class);
         if ($fetchFromSearchService) {
             $collection->expects($this->once())->method('first')
                 ->willReturn($driver);
@@ -193,8 +186,10 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
                     [$driver]
                 );
 
-            $search->expects($this->exactly(3))->method('invoke')
-                ->WithConsecutive(
+            $this->expectConsecutiveCalls(
+                $search,
+                'invoke',
+                [
                     [$this->callback(
                         $this->getCommandChecker($retrieveArgs, $class, 'foo_Identifier')
                     )],
@@ -203,89 +198,86 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
                     )],
                     [$this->callback(
                         $this->getCommandChecker($retrieveBatchArgs, $retrieveBatchClass)
-                    )]
-                )
-                ->willReturnOnConsecutiveCalls(
-                    $commandObj,
-                    $commandObj,
-                    $commandObj
-                );
+                    )],
+                ],
+                $commandObj
+            );
         } else {
             $commandObj->expects($this->exactly(2))->method('getResult')
                 ->willReturnOnConsecutiveCalls(
                     $details,
                     [$driver]
                 );
-            $search->expects($this->exactly(2))->method('invoke')
-                ->withConsecutive(
+            $this->expectConsecutiveCalls(
+                $search,
+                'invoke',
+                [
                     [$this->callback($this->getCommandChecker($alphabeticArgs))],
                     [$this->callback(
                         $this->getCommandChecker($retrieveBatchArgs, $retrieveBatchClass)
-                    )]
-                )
-                ->willReturnOnConsecutiveCalls(
-                    $commandObj,
-                    $commandObj
-                );
+                    )],
+                ],
+                $commandObj
+            );
         }
 
-        $coverRouter = $this->getMockBuilder(\VuFind\Cover\Router::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $coverRouter = $this->createMock(\VuFind\Cover\Router::class);
         $coverRouter->expects($this->once())->method('getUrl')
-            ->with($this->equalTo($driver), $this->equalTo('medium'))
+            ->with($driver, 'medium')
             ->willReturn('foo_Thumbnail');
         $alpha->setCoverRouter($coverRouter);
-        $routeDetails = ['route' => 'test_route', 'params' => ['id'=> 'route_id']];
+        $routeDetails = ['route' => 'test_route', 'params' => ['id' => 'route_id']];
         $router->expects($this->once())->method('getRouteDetails')
-            ->with($this->equalTo($driver))
+            ->with($driver)
             ->willReturn($routeDetails);
-        $url->expects($this->exactly(3))->method('fromRoute')
-            ->withConsecutive(
-                [$this->equalTo($routeDetails['route']),
-                $this->equalTo($routeDetails['params'])],
-                [$this->equalTo('channels-record')],
-                [$this->equalTo('alphabrowse-home')]
-            )
-            ->willReturnOnConsecutiveCalls(
-                'url_test',
-                'channels-record',
-                'alphabrowse-home'
-            );
+        $this->expectConsecutiveCalls(
+            $url,
+            'fromRoute',
+            [
+                [$routeDetails['route'], $routeDetails['params']],
+                ['channels-record'],
+                ['alphabrowse-home'],
+            ],
+            ['url_test', 'channels-record', 'alphabrowse-home']
+        );
         $expectedResult = [[
             'title' => 'nearby_items',
             'providerId' => 'foo_ProviderId',
             'links' => [
                 [
                     'label' => 'View Record',
-                    'icon' => 'fa-file-text-o',
-                    'url' => 'url_test'
+                    'icon' => 'format-default',
+                    'url' => 'url_test',
                 ],
                 [
                     'label' => 'channel_expand',
-                    'icon' => 'fa-search-plus',
-                    'url' => 'channels-record?id=foo_Id&source=foo_Identifier'
+                    'icon' => 'ui-add',
+                    'url' => 'channels-record?id=foo_Id&source=foo_Identifier',
                 ],
                 [
                     'label' => 'channel_browse',
-                    'icon' => 'fa-list',
-                    'url' => 'alphabrowse-home?source=lcc&from=foo'
-                ]
+                    'icon' => 'list',
+                    'url' => 'alphabrowse-home?source=lcc&from=foo',
+                ],
             ],
+            'limit' => 24,
             'contents' => [[
                 'title' => 'foo_title',
                 'source' => 'Solr',
                 'thumbnail' => false,
-                'id' => 'foo_id']
+                'id' => 'foo_id'],
             ],
         ]];
-        return [$alpha, $expectedResult];
+        return [
+            $alpha,
+            $expectedResult,
+        ];
     }
 
     /**
      * Support method to test callbacks.
      *
-     * @param array $args    Command arguments
+     * @param array  $args   Command arguments
      * @param string $class  Command class
      * @param string $target Target identifier
      *
@@ -297,14 +289,17 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
         $target = 'Solr'
     ) {
         return function ($command) use ($class, $args, $target) {
-            return get_class($command) === $class
-                && $command->getArguments() == $args
-                && $command->getTargetIdentifier() === $target;
+            $this->assertSame($command::class, $class);
+            $this->assertEquals($args, $command->getArguments());
+            $this->assertSame($target, $command->getTargetIdentifier());
+            return true;
         };
     }
 
     /**
-     * Get a fake record driver
+     * Get a fake record driver.
+     *
+     * @param array $data Test data (solrField is only supported field)
      *
      * @return TestHarness
      */
@@ -316,14 +311,14 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
             'SourceIdentifier' => 'foo_Identifier',
             'Thumbnail' => 'foo_Thumbnail',
             'UniqueID' => 'foo_Id',
-            'callnumber-raw' => $data['solrField'] ?? null
+            'callnumber-raw' => $data['solrField'] ?? null,
         ];
         $driver->setRawData($data);
         return $driver;
     }
 
     /**
-     * Get AlphaBrowse object
+     * Get AlphaBrowse object.
      *
      * @param array $options options for the provider
      *
@@ -331,15 +326,9 @@ class AlphaBrowseTest extends \PHPUnit\Framework\TestCase
      */
     protected function getAlphaBrowse($options = [])
     {
-        $search = $this->getMockBuilder(\VuFindSearch\Service::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $url = $this->getMockBuilder(\Laminas\Mvc\Controller\Plugin\Url::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $router = $this->getMockBuilder(\VuFind\Record\Router::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $search = $this->createMock(\VuFindSearch\Service::class);
+        $url = $this->createMock(\Laminas\Mvc\Controller\Plugin\Url::class);
+        $router = $this->createMock(\VuFind\Record\Router::class);
         $alpha = new AlphaBrowse($search, $url, $router, $options);
 
         return compact('search', 'url', 'router', 'alpha');

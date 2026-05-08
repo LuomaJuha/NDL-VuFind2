@@ -1,13 +1,13 @@
 <!-- START of: finna - RecordDriver/SolrEad/core.phtml -->
 <?php
   $urls = $this->record($this->driver)->getLinkDetails();
-  if (!empty($urls)){
+  if (!empty($urls)) {
     $videoUrls = [];
     $audioUrls = [];
     $otherUrls = [];
-    foreach ($urls as $url){
+    foreach ($urls as $url) {
       $type = $url['type'] ?? null;
-      if (!empty($url['videoSources']) || !empty($url['embed']) && $url['embed'] == 'video' || $this->recordLinker()->getEmbeddedVideo($url['url']) == 'data-embed-iframe'){
+      if (!empty($url['videoSources']) || !empty($url['embed']) && $url['embed'] == 'video' || $this->recordLinker()->getEmbeddedVideo($url['url']) == 'data-embed-iframe') {
         array_push($videoUrls, $url);
       } elseif (!empty($url['embed']) && $url['embed'] == 'audio') {
         array_push($audioUrls, $url);
@@ -46,38 +46,36 @@
 <?php ob_end_clean(); ?>
 
 <?php $this->metadata()->generateMetatags($this->driver);?>
-<div class="media" vocab="http://schema.org/" resource="#record" typeof="<?=$this->driver->getSchemaOrgFormats()?> Product">
-  <h1 property="name" class="record-title visible-xs"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
+<div class="media">
+  <h1 class="record-title visible-xs"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
   <?php if ($thumbnail && $thumbnailAlignment == 'left'): ?>
     <?=$thumbnail ?>
   <?php endif; ?>
   <div class="media-body record-information">
-      <h1 property="name" class="record-title hidden-xs"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
+      <h1 class="record-title hidden-xs"><?=$this->escapeHtml($this->driver->getTitle())?></h1>
       <?php if ($results = $this->driver->getAlternativeTitles()): ?>
         <div class="recordAltTitles record-alt-titles">
           <?=implode('<br>', array_map([$this, 'escapeHtml'], $results))?>
         </div>
       <?php endif; ?>
-      <?= $this->R2()->register($this->driver, ['brief' => true])?>
+
+      <?=$this->record($this->driver)->renderTemplate('cached-record-warning.phtml', ['driver' => $this->driver])?>
+      <?=$this->record($this->driver)->getLabelList() ?>
+
       <?php if ($serviceURLs = $this->driver->getServiceURLs()): ?>
         <div class="recordURLs">
           <?php foreach ($serviceURLs as $current): ?>
-            <a href="<?=$this->escapeHtmlAttr($this->proxyUrl($current['url']))?>" target="_blank" aria-label="<?=$this->transEscAttr('external_online_link')?>"><i class="fa fa-external-link"></i> <?=$this->escapeHtml($this->translate($this->driver->getDataSource() . '_' . $current['desc'], null, $this->translate($current['desc'])))?></a>
+            <a href="<?=$this->escapeHtmlAttr($this->proxyUrl($current['url']))?>" target="_blank" aria-label="<?=$this->transEscAttr('external_online_link')?>"><?=$this->icon('external-link') ?> <?=$this->escapeHtml($this->translate($this->driver->getDataSource() . '_' . $current['desc'], null, $this->translate($current['desc'])))?></a>
           <?php endforeach; ?>
         </div>
       <?php endif; ?>
 
       <?php if (!empty($otherUrls)): ?>
-        <div class="recordURLs local-available-online-record">
-          <div class="truncate-field">
-          <?php foreach ($otherUrls as $url): ?>
-              <a href="<?=$this->escapeHtmlAttr($this->proxyUrl($url['url']))?>" target="_blank" aria-label="<?=$this->transEscAttr('external_online_link')?>"
-                <?php if (!empty($url['posterUrl'])): ?> data-poster-url="<?= $this->escapeHtmlAttr($url['posterUrl']) ?>"<?php endif; ?>
-              >
-                <i class="fa fa-external-link"></i> <?=$this->escapeHtml($this->translate('link_' . $url['desc'], null, $url['desc']))?>
-              </a>
-              <br/>
-          <?php endforeach; ?>
+        <div class="record-links">
+          <div class="recordURLs local-available-online-record">
+            <ul class="truncate-field outer" data-rows="4">
+              <?=$this->record($this->driver)->renderTemplate('document-links.phtml', ['documents' => $otherUrls])?>
+            </ul>
           </div>
         </div>
       <?php endif; ?>
@@ -119,11 +117,11 @@
       <?php if ($this->userlist()->getMode() !== 'disabled'): ?>
         <?php /* Display the lists that this record is saved to */ ?>
         <div class="savedLists" id="savedLists">
-          <strong><?=$this->transEsc("Saved in")?>:</strong>
+          <strong><?=$this->transEsc('Saved in')?>:</strong>
         </div>
       <?php endif; ?>
 
-      <?/* Display Main Details */?>
+      <?php /* Display Main Details */?>
       <?=
         $this->record($this->driver)->renderTemplate(
             'core-fields.phtml',
@@ -132,9 +130,9 @@
             ]
         );
       ?>
-      <?/* End Main Details */?>
+      <?php /* End Main Details */?>
 
-      <?php if ($template = $this->content()->findTemplateForLng("content/Additions/record-post-metadata")): ?>
+      <?php if ($template = $this->content()->findTemplateForLng('content/Additions/record-post-metadata')): ?>
       <div>
         <?=$this->render($template)?>
       </div>

@@ -1,0 +1,68 @@
+/* --- Login Screen --- */
+#authcontainer,
+#accountForm {
+    h3 {
+        font-weight: 400;
+        border-bottom: 1px solid $gray-lighter;
+    }
+    .login-info-icon {
+        float: left;
+        margin-top: 0.4em;
+        margin-left: 0.5em;
+        font-size: $font-size-icon-large;
+        color: $primary;
+    }
+    .login-description {
+        margin: 1em 0 1em 2.5em;
+        &.shibboleth {
+            font-weight: bold;
+        }
+    }
+    .remember-me-info {
+        margin-left: 17px;
+    }
+    .login-description-terms,
+    .register-description {
+        padding: 2em;
+        padding-left: 2.5em;
+        margin-bottom: 1em;
+        margin-left: 0.5em;
+        background-color: $info-bg-subtle;
+    }
+}
+@include media-breakpoint-up(sm) {
+    #authcontainer,
+    #accountForm {
+        .login-col {
+            float: left;
+            width: 50%;
+        }
+    }
+}
+@include media-breakpoint-down(sm) {
+    #authcontainer,
+    #accountForm {
+        .login-info-icon {
+            margin-top: 0;
+        }
+        .form-control {
+            font-size: 16px;
+        }
+    }
+}
+
+@include media-breakpoint-up(sm) {
+    #accountForm {
+        .login-col:first-of-type {
+            width: 40%;
+        }
+        .login-col:nth-of-type(2) {
+            width: 60%;
+        }
+    }
+}
+
+.template-name-login > .container {
+    padding-top: 30px;
+    padding-bottom: 30px;
+}

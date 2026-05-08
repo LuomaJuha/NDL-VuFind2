@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Abstract results search model.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Base
@@ -25,12 +26,22 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search\Base;
 
 use Laminas\Paginator\Paginator;
 use VuFind\Record\Loader;
 use VuFind\Search\Factory\UrlQueryHelperFactory;
 use VuFindSearch\Service as SearchService;
+
+use function array_slice;
+use function call_user_func_array;
+use function count;
+use function func_get_args;
+use function get_class;
+use function in_array;
+use function is_callable;
+use function is_object;
 
 /**
  * Abstract results search model.
@@ -46,14 +57,14 @@ use VuFindSearch\Service as SearchService;
 abstract class Results
 {
     /**
-     * Search parameters
+     * Search parameters.
      *
      * @var Params
      */
     protected $params;
 
     /**
-     * Total number of results available
+     * Total number of results available.
      *
      * @var int
      */
@@ -67,29 +78,29 @@ abstract class Results
     protected $backendId;
 
     /**
-     * Override (only for use in very rare cases)
+     * Override (only for use in very rare cases).
      *
-     * @var int
+     * @var ?int
      */
     protected $startRecordOverride = null;
 
     /**
      * Array of results (represented as Record Driver objects) retrieved on latest
-     * search
+     * search.
      *
      * @var array
      */
     protected $results = null;
 
     /**
-     * Any errors reported by the search backend
+     * Any errors reported by the search backend.
      *
      * @var array
      */
     protected $errors = null;
 
     /**
-     * An ID number for saving/retrieving search
+     * An ID number for saving/retrieving search.
      *
      * @var int
      */
@@ -110,42 +121,42 @@ abstract class Results
     protected $notificationFrequency = null;
 
     /**
-     * Query start time
+     * Query start time.
      *
      * @var float
      */
     protected $queryStartTime = null;
 
     /**
-     * Query end time
+     * Query end time.
      *
      * @var float
      */
     protected $queryEndTime = null;
 
     /**
-     * Query time (total)
+     * Query time (total).
      *
      * @var float
      */
     protected $queryTime = null;
 
     /**
-     * Helper objects
+     * Helper objects.
      *
      * @var array
      */
     protected $helpers = [];
 
     /**
-     * Spelling suggestions
+     * Spelling suggestions.
      *
      * @var array
      */
     protected $suggestions = null;
 
     /**
-     * Recommendations
+     * Recommendations.
      *
      * @var array
      */
@@ -159,28 +170,42 @@ abstract class Results
     protected $searchService;
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var Loader
      */
     protected $recordLoader;
 
     /**
-     * URL query helper factory
+     * URL query helper factory.
      *
      * @var UrlQueryHelperFactory
      */
     protected $urlQueryHelperFactory = null;
 
     /**
-     * Hierarchical facet helper
+     * Hierarchical facet helper.
      *
      * @var HierarchicalFacetHelperInterface
      */
     protected $hierarchicalFacetHelper = null;
 
     /**
-     * Constructor
+     * If the results provide only a restricted view.
+     *
+     * @var bool
+     */
+    protected bool $restrictedView = false;
+
+    /**
+     * Extra search details.
+     *
+     * @var ?array
+     */
+    protected $extraSearchBackendDetails = null;
+
+    /**
+     * Constructor.
      *
      * @param \VuFind\Search\Base\Params $params        Object representing user
      * search parameters.
@@ -198,7 +223,7 @@ abstract class Results
     }
 
     /**
-     * Copy constructor
+     * Copy constructor.
      *
      * @return void
      */
@@ -243,7 +268,7 @@ abstract class Results
     }
 
     /**
-     * Options for UrlQueryHelper
+     * Options for UrlQueryHelper.
      *
      * @return array
      */
@@ -284,6 +309,20 @@ abstract class Results
     }
 
     /**
+     * Store an empty response with an error message instead of performing a search.
+     *
+     * @param string|array $error Error message(s) to display to user.
+     *
+     * @return void
+     */
+    protected function storeErrorResponse(string|array $error): void
+    {
+        $this->resultTotal = 0;
+        $this->results = [];
+        $this->errors = (array)$error;
+    }
+
+    /**
      * Actually execute the search.
      *
      * @return void
@@ -292,7 +331,8 @@ abstract class Results
     {
         // Initialize variables to defaults (to ensure they don't stay null
         // and cause unnecessary repeat processing):
-        $this->resultTotal = 0;
+        // The value of -1 indicates that resultTotal is not available.
+        $this->resultTotal = -1;
         $this->results = [];
         $this->suggestions = [];
         $this->errors = [];
@@ -304,7 +344,7 @@ abstract class Results
     }
 
     /**
-     * Returns the stored list of facets for the last search
+     * Returns the stored list of facets for the last search.
      *
      * @param array $filter Array of field => on-screen description listing
      * all of the desired facet fields; set to null to get all configured values.
@@ -315,7 +355,7 @@ abstract class Results
 
     /**
      * Abstract support method for performAndProcessSearch -- perform a search based
-     * on the parameters passed to the object.  This method is responsible for
+     * on the parameters passed to the object. This method is responsible for
      * filling in all of the key class properties: results, resultTotal, etc.
      *
      * @return void
@@ -349,7 +389,7 @@ abstract class Results
     /**
      * Manually override the start record number.
      *
-     * @param int $rec Record number to use.
+     * @param ?int $rec Record number to use.
      *
      * @return void
      */
@@ -391,11 +431,9 @@ abstract class Results
         $pageLimit = $params->getLimit();
         $resultLimit = $this->getOptions()->getVisibleSearchResultLimit();
 
-        if ($resultLimit > -1 && $resultLimit < ($page * $pageLimit)) {
-            $record = $resultLimit;
-        } else {
-            $record = $page * $pageLimit;
-        }
+        $record = $resultLimit > -1 && $resultLimit < $page * $pageLimit
+            ? $resultLimit
+            : $page * $pageLimit;
         // If the end of the current page runs past the last record, use total
         // results; otherwise use the last record on this page:
         return ($record > $total) ? $total : $record;
@@ -454,9 +492,8 @@ abstract class Results
      */
     public function isSavedSearch()
     {
-        // This data is not available until \VuFind\Db\Table\Search::saveSearch()
-        // is called...  blow up if somebody tries to get data that is not yet
-        // available.
+        // This data is not available until the search has been saved; blow up if somebody
+        // tries to get data that is not yet available.
         if (null === $this->savedSearch) {
             throw new \Exception(
                 'Cannot retrieve save status before updateSaveStatus is called.'
@@ -474,13 +511,11 @@ abstract class Results
      */
     public function getNotificationFrequency(): int
     {
-        // This data is not available until \VuFind\Db\Table\Search::saveSearch()
-        // is called...  blow up if somebody tries to get data that is not yet
-        // available.
+        // This data is not available until the search has been saved; blow up if somebody
+        // tries to get data that is not yet available.
         if (null === $this->notificationFrequency) {
             throw new \Exception(
-                'Cannot retrieve notification frequency before '
-                . 'updateSaveStatus is called.'
+                'Cannot retrieve notification frequency before updateSaveStatus is called.'
             );
         }
         return $this->notificationFrequency;
@@ -490,20 +525,22 @@ abstract class Results
      * Given a database row corresponding to the current search object,
      * mark whether this search is saved and what its database ID is.
      *
-     * @param \VuFind\Db\Row\Search $row Relevant database row.
+     * @param SearchEntityInterface $row Relevant database row.
      *
      * @return void
      */
     public function updateSaveStatus($row)
     {
-        $this->searchId = $row->id;
-        $this->savedSearch = ($row->saved == true);
-        $this->notificationFrequency = $this->savedSearch
-            ? $row->notification_frequency : 0;
+        $this->searchId = $row->getId();
+        foreach ($this->results as $driver) {
+            $driver->setExtraDetail('searchId', $this->searchId);
+        }
+        $this->savedSearch = $row->getSaved();
+        $this->notificationFrequency = $this->savedSearch ? $row->getNotificationFrequency() : 0;
     }
 
     /**
-     * Start the timer to figure out how long a query takes.  Complements
+     * Start the timer to figure out how long a query takes. Complements
      * stopQueryTimer().
      *
      * @return void
@@ -511,19 +548,19 @@ abstract class Results
     protected function startQueryTimer()
     {
         // Get time before the query
-        $time = explode(" ", microtime());
+        $time = explode(' ', microtime());
         $this->queryStartTime = $time[1] + $time[0];
     }
 
     /**
-     * End the timer to figure out how long a query takes.  Complements
+     * End the timer to figure out how long a query takes. Complements
      * startQueryTimer().
      *
      * @return void
      */
     protected function stopQueryTimer()
     {
-        $time = explode(" ", microtime());
+        $time = explode(' ', microtime());
         $this->queryEndTime = $time[1] + $time[0];
         $this->queryTime = $this->queryEndTime - $this->queryStartTime;
     }
@@ -592,6 +629,28 @@ abstract class Results
     }
 
     /**
+     * Get the scores of the results.
+     *
+     * @return array
+     */
+    public function getScores()
+    {
+        // Not implemented in the base class
+        return [];
+    }
+
+    /**
+     * Getting the highest relevance of all the results.
+     *
+     * @return ?float
+     */
+    public function getMaxScore()
+    {
+        // Not implemented in the base class
+        return null;
+    }
+
+    /**
      * Get extra data for the search.
      *
      * Extra data can be used to store local implementation-specific information.
@@ -612,8 +671,6 @@ abstract class Results
      * @param array $data Extra data
      *
      * @return void
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function setExtraData(array $data): void
     {
@@ -621,6 +678,24 @@ abstract class Results
         if (!empty($data)) {
             error_log(get_class($this) . ': Extra data passed but not handled');
         }
+    }
+
+    /**
+     * Add settings to a minified object.
+     *
+     * @param \VuFind\Search\Minified $minified Minified Search Object
+     *
+     * @return void
+     */
+    public function minify(&$minified): void
+    {
+        $minified->id = $this->getSearchId();
+        $minified->i  = $this->getStartTime();
+        $minified->s  = $this->getQuerySpeed();
+        $minified->r  = $this->getResultTotal();
+        $minified->ex = $this->getExtraData();
+
+        $this->getParams()->minify($minified);
     }
 
     /**
@@ -637,6 +712,8 @@ abstract class Results
         $this->queryTime = $minified->s;
         $this->resultTotal = $minified->r;
         $this->setExtraData($minified->ex);
+
+        $this->getParams()->deminify($minified);
     }
 
     /**
@@ -694,7 +771,7 @@ abstract class Results
     }
 
     /**
-     * Get URL query helper factory
+     * Get URL query helper factory.
      *
      * @return UrlQueryHelperFactory
      */
@@ -707,7 +784,7 @@ abstract class Results
     }
 
     /**
-     * Set URL query helper factory
+     * Set URL query helper factory.
      *
      * @param UrlQueryHelperFactory $factory UrlQueryHelperFactory object
      *
@@ -719,7 +796,7 @@ abstract class Results
     }
 
     /**
-     * Set hierarchical facet helper
+     * Set hierarchical facet helper.
      *
      * @param HierarchicalFacetHelperInterface $helper Hierarchical facet helper
      *
@@ -732,7 +809,7 @@ abstract class Results
     }
 
     /**
-     * Get complete facet counts for several index fields
+     * Get complete facet counts for several index fields.
      *
      * @param array  $facetfields  name of the Solr fields to return facets for
      * @param bool   $removeFilter Clear existing filters from selected fields (true)
@@ -787,48 +864,188 @@ abstract class Results
     }
 
     /**
+     * Check if the results provide only a restricted view.
+     *
+     * @return bool
+     */
+    public function isRestrictedView()
+    {
+        return $this->restrictedView;
+    }
+
+    /**
+     * Get the extra search details.
+     *
+     * @return ?array
+     */
+    public function getExtraSearchBackendDetails()
+    {
+        return $this->extraSearchBackendDetails;
+    }
+
+    /**
      * A helper method that converts the list of facets for the last search from
      * RecordCollection's facet list.
      *
-     * @param array $facetList Facet list
-     * @param array $filter    Array of field => on-screen description listing
+     * @param array  $facetList Facet list
+     * @param ?array $filter    Array of field => on-screen description listing
      * all of the desired facet fields; set to null to get all configured values.
      *
      * @return array Facets data arrays
      */
-    protected function buildFacetList(array $facetList, array $filter = null): array
+    protected function buildFacetList(array $facetList, ?array $filter = null): array
     {
         // If there is no filter, we'll use all facets as the filter:
         if (null === $filter) {
             $filter = $this->getParams()->getFacetConfig();
         }
 
-        // Start building the facet list:
-        $result = [];
-
-        // Loop through every field returned by the result set
-        $translatedFacets = $this->getOptions()->getTranslatedFacets();
+        $options = $this->getOptions();
         $hierarchicalFacets
-            = is_callable([$this->getOptions(), 'getHierarchicalFacets'])
-            ? $this->getOptions()->getHierarchicalFacets()
+            = is_callable([$options, 'getHierarchicalFacets'])
+            ? $options->getHierarchicalFacets()
             : [];
+
+        $result = $this->initializeFacetResults($facetList, $filter, $options);
+        $this->addExcludeFilters($result, $filter, $hierarchicalFacets);
+        $this->setDisplayTextForFacetValues($result, $hierarchicalFacets, $options);
+        $this->buildHierarchicalFacets($result, $hierarchicalFacets, $options);
+
+        return $result;
+    }
+
+    /**
+     * Helper for buildFacetList. Initializes the facet list.
+     *
+     * @param array                       $facetList Facet list
+     * @param array                       $filter    Array of field => on-screen description listing
+     * all of the desired facet fields
+     * @param \VuFind\Search\Base\Options $options   Search options object
+     *
+     * @return array Facets data arrays
+     */
+    protected function initializeFacetResults(array $facetList, array $filter, object $options): array
+    {
+        $result = [];
+        $dateRangeFields = $options instanceof DateRangeOptionsInterface
+            ? $options->getDateRangeFacets() + $options->getFullDateRangeFacets()
+            : [];
+        // Loop through every field returned by the result set
         foreach (array_keys($filter) as $field) {
             $data = $facetList[$field] ?? [];
-            // Skip empty arrays:
-            if (count($data) < 1) {
+            // Skip empty arrays unless this is a date range field, where we want the range selector to be always
+            // displayed:
+            if (!$data && !in_array($field, $dateRangeFields)) {
                 continue;
             }
             // Initialize the settings for the current field
             $result[$field] = [
                 'label' => $filter[$field],
-                'list' => []
+                'list' => [],
             ];
             // Should we translate values for the current facet?
-            $translate = in_array($field, $translatedFacets);
-            $hierarchical = in_array($field, $hierarchicalFacets);
             $operator = $this->getParams()->getFacetOperator($field);
-            // Loop through values:
+            $resultList = [];
+
             foreach ($data as $value => $count) {
+                $isApplied = $this->getParams()->hasFilter("$field:" . $value)
+                    || $this->getParams()->hasFilter("~$field:" . $value);
+                $isExcluded = false;
+                $resultList[] = compact(
+                    'value',
+                    'count',
+                    'operator',
+                    'isApplied',
+                    'isExcluded'
+                );
+            }
+            $result[$field]['list'] = $resultList;
+        }
+        return $result;
+    }
+
+    /**
+     * Helper for buildFacetList. Adds exclude filters (they are not included in the search result facet values).
+     *
+     * @param array $result             Facet data arrays (passed by reference)
+     * @param array $filter             Array of field => on-screen description listing
+     * all of the desired facet fields
+     * @param array $hierarchicalFacets List of hierarchical facets
+     *
+     * @return void
+     */
+    protected function addExcludeFilters(array &$result, array $filter, array $hierarchicalFacets): void
+    {
+        foreach ($this->getParams()->getExcludeFilters() as $field => $values) {
+            if (!isset($filter[$field])) {
+                continue;
+            }
+            if (isset($result[$field])) {
+                $resultList = $result[$field]['list'];
+            } else {
+                $result[$field] = [
+                    'label' => $filter[$field],
+                    'list' => [],
+                ];
+                $resultList = [];
+            }
+            foreach ($values as $value) {
+                array_unshift($resultList, [
+                    'value' => $value,
+                    'count' => 0,
+                    'operator' => 'NOT',
+                    'isApplied' => false,
+                    'isExcluded' => true,
+                ]);
+            }
+            if (in_array($field, $hierarchicalFacets)) {
+                // Add the ancestors of excluded filters if needed
+                foreach ($values as $value) {
+                    $parts = explode('/', $value);
+                    if (count($parts) < 4) {
+                        continue;
+                    }
+                    $parts = array_slice($parts, 1, count($parts) - 3);
+                    for ($level = count($parts) - 1; $level >= 0; $level--) {
+                        $ancestor = $level . '/' . implode('/', $parts) . '/';
+                        $resultListValues = array_map(fn ($item) => $item['value'], $resultList);
+                        if (in_array($ancestor, $resultListValues)) {
+                            continue;
+                        }
+                        array_unshift($resultList, [
+                            'value' => $ancestor,
+                            'count' => 0,
+                            'operator' => $this->getParams()->getFacetOperator($field),
+                            'isApplied' => $this->getParams()->hasFilter("$field:" . $ancestor)
+                                || $this->getParams()->hasFilter("~$field:" . $ancestor),
+                            'isExcluded' => false,
+                        ]);
+                        array_pop($parts);
+                    }
+                }
+            }
+            $result[$field]['list'] = $resultList;
+        }
+    }
+
+    /**
+     * Helper for buildFacetList. Sets displayText for facet values.
+     *
+     * @param array                       $result             Facet data arrays (passed by reference)
+     * @param array                       $hierarchicalFacets List of hierarchical facets
+     * @param \VuFind\Search\Base\Options $options            Search options object
+     *
+     * @return void
+     */
+    protected function setDisplayTextForFacetValues(array &$result, array $hierarchicalFacets, object $options): void
+    {
+        $translatedFacets = $options->getTranslatedFacets();
+        foreach ($result as $field => $fieldResult) {
+            $resultList = $fieldResult['list'];
+            $hierarchical = in_array($field, $hierarchicalFacets);
+            $translate = in_array($field, $translatedFacets);
+            foreach ($resultList as $index => $valueResult) {
+                $value = $valueResult['value'];
                 $displayText = $this->getParams()
                     ->getFacetValueRawDisplayText($field, $value);
                 if ($hierarchical) {
@@ -844,19 +1061,38 @@ abstract class Results
                 $displayText = $translate
                     ? $this->getParams()->translateFacetValue($field, $displayText)
                     : $displayText;
-                $isApplied = $this->getParams()->hasFilter("$field:" . $value)
-                    || $this->getParams()->hasFilter("~$field:" . $value);
-
-                // Store the collected values:
-                $result[$field]['list'][] = compact(
-                    'value',
-                    'displayText',
-                    'count',
-                    'operator',
-                    'isApplied'
-                );
+                $valueResult['displayText'] = $displayText;
+                $resultList[$index] = $valueResult;
             }
+            $result[$field]['list'] = $resultList;
         }
-        return $result;
+    }
+
+    /**
+     * Helper for buildFacetList. Builds hierarchical facets.
+     *
+     * @param array                       $result             Facet data arrays (passed by reference)
+     * @param array                       $hierarchicalFacets List of hierarchical facets
+     * @param \VuFind\Search\Base\Options $options            Search options object
+     *
+     * @return void
+     */
+    protected function buildHierarchicalFacets(array &$result, array $hierarchicalFacets, object $options): void
+    {
+        $hierarchicalFacetSortSettings
+            = is_callable([$options, 'getHierarchicalFacetSortSettings'])
+            ? $options->getHierarchicalFacetSortSettings()
+            : [];
+        foreach ($result as $field => $fieldResult) {
+            if (!in_array($field, $hierarchicalFacets)) {
+                continue;
+            }
+            $resultList = $fieldResult['list'];
+            $sort = $hierarchicalFacetSortSettings[$field]
+                ?? $hierarchicalFacetSortSettings['*'] ?? 'count';
+            $this->hierarchicalFacetHelper->sortFacetList($resultList, $sort);
+            $resultList = $this->hierarchicalFacetHelper->buildFacetArray($field, $resultList);
+            $result[$field]['list'] = $resultList;
+        }
     }
 }

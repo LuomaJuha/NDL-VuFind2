@@ -1,0 +1,207 @@
+<!-- START of: finna - content/help-basic_se.phtml -->
+<?php $this->headTitle($this->translate('tabs_help-basic'))?>
+
+<?php if ($this->resolver('content/help-tabs.phtml')): ?>
+    <?=$this->render('content/help-tabs.phtml', ['activeTab' => 'help-basic'])?>
+<?php endif; ?>
+<div class="sidebar left">
+  <div class="content-navigation-menu">
+  </div>
+</div>
+<div class="mainbody right">
+  <h1>Vuođđoohcama bagadus</h1>
+  <div id="basicsearch" class="content-section">
+    <h2>Friddjasátneohcan</h2>
+    <p>Álggat ohcama nu ahte čálát ohcansániid ohcangieddái. Ohcan noahku ohcansánát ja fállá dutnje molssaeavttuid, go čálát ohcanbilkii ovdamearkka dihte girjji nama. Ná sáhtát gávdnat iežat ohcama njuolga.</p>
+    <p>Juos earuhat ohcansániid gaskačaskimiin, oaččut ohcanbohtosiid, main leat mielde visot iežat čállin sánit. Sáhtát maid ohcat AND-operáhtora ohcansániid gaskkas.</p>
+    <p>Ovdamearkka dihte:</p>
+    <pre class="code">Jansson Tove</pre>
+    <p>lea seamma ohcan go</p>
+    <pre class="code">Jansson AND Tove</pre>
+    <h3>Ovdaráddjen</h3>
+    <p>Ohcangietti fálus sáhtát ráddjet ohcama bajilčállosa, dahkki dehe fáttá vuođul.</p>
+    <p>Ohcanboađussiiddus sáhtát ráddjet ohcanbohtosiid lasi ovdamearkka dihte geavahanrivttiid, materiála sisdoallotiippa dehe gárvánanjagi mielde.</p>
+    <h3>Ovdamearkkat ohcancealkagiin </h3>
+    <p>Friddjasátneohcan ohcá materiála, mii laktása sihkkelii:</p>
+    <pre class="code">sihkkel</pre>
+    <p>Go čálát ohcansáni suhppenmearkkaid sisa, de oaččut dárkkit ohcanbohtosa. Oaččut boađusin materiálaid, main gávdno sátni “sihkkel”:</p>
+    <pre class="code">"sihkkel"</pre>
+    <p>Bija ohcansániid aisttonmearkkaid sisa, juos ozat materiála máŋggain sániin, mat gullet seamma ollisvuhtii. Ná ohcan ii dulko sániid sierranassan:</p>
+    <pre class="code">"Helssega universiteahtta"</pre>
+    <p>Juos geavahat OR-operáhtora, oaččut ohcanbohtosa, mas gávdno aŋkke okta du geavahan ohcansániin. Ovdamearkaohcamiin oaččut ohcanbohtosiid, mat laktásit dálonguvlui dehe eanandáluide:</p>
+    <pre class="code">dálonguovlu OR eanandállu</pre>
+    <p>Go ozat dahkki namain, čále vuohččan goarggu (sohkanama) ja bija ohcansáni aisttonmearkkaide:</p>
+    <pre class="code">"Kivi Aleksis"</pre>
+  </div>
+  <div id="narrowing-search" class="content-section">
+    <h2>Ohcanbohtosiid ráddjen</h2>
+    <p>Ohcanboađussiidu čájeha bajimussan bohtosiid, mat heivejit ohcamii buoremusat (aiddolašvuohta, deaivilvuohta). Ohcanbohtosiid ortnega sáhttá earáhuhttit maid ovdamearkka dihte boarrásepmosis ođđasepmosii gárvánanjagi dehe almmustuhttináigemuttu mielde. Sáhtát čájehit ohcanbohtosiid eará vugiid mielde:</p>
+    <ul class="list-bullets">
+      <li><strong>Dieđut ja govat</strong>, goas oainnát oktanaga govaid ja materiálaid dieđuid</li>
+      <li><strong>Govvagalleriija</strong>, goas oainnát govaid stuoribun ja unnit dieđuid</li>
+      <li><strong>Deahtistuvvon listu</strong>, goas oainnát eanet dárkkit dieđuid ja govat leat čihkkojuvvon</li>
+    </ul>
+    <h3>Ohcanbohtosiid ráddjen</h3>
+    <p>Ohcanboađussiiddu gurut ravddas gávnnat molssaeavttuid, mo sáhtát ráddjet iežat ozu.</p>
+    <p><strong>Fierpmis oažžunsajis:</strong> ráddje bohtosiid materiálii, masa lea beassan Finna bakte.</p>
+    <p><strong>Lobálaš geavahanvuogit:</strong> doaibmá materiálaiguin, mat leat fierpmis oažžunsajis. Oahpásnuva materiálaid olis ovdanbuktojuvvon geavahanriektedieđuide. Materiálaid geavaheaddjis lea ovddasvástádus dahkkivuoigatvuođaid ja priváhtaeallima suoji gudnejahttimis. Gáldu ja dahkki galget namuhuvvot, juos ráddjenmolssaeaktu lea juoga eará go friddja atnu.</p>
+    <p>Dárkilut dieđut geavahanvuoigatvuođaid merkejumiin gávdnojit <a href="<?=$this->url('content-page', ['page' => 'terms'])?>">materiálaid geavahanvuoigatvuođat</a> --rávasiiddus. Materiálaid geavaheaddjis lea ovddasvástádus dahkkivuoigatvuođaid ja priváhtavuođasuoji gudnejahttimis.</p>
+    <p><strong>Materiálatiipa:</strong> doallá sisttis sierralágán molssaeavttuid dan mielde, man tiipasaš materiála lea oažžunsajis, ovdamearkka dihte govat, diŋggat, girjjit jne.</p>
+    <p><strong>Dahkki:</strong> gii materiála lea buvttadan dehe gii rivttiid ráđđe</p>
+    <p><strong>Fáddá:</strong> gárvves fáttát álkidahttit ohcama ráddjema</p>
+    <p><strong>Guovlu:</strong> man guovllus materiála lea</p>
+    <p><strong>Gárvánanjahki:</strong> gárvánanjagis sáhttá meroštallojuvvot man áigegaskka materiála čájehuvvo, ovdamearkka dihte 1920-1980-logut. Bielkka čuolddat čájehit, man áiggis materiála lea fállun. Lagat dehe gáidat linnjáoidnosa + ja – boaluiguin. Lihkat linnjás njuollaboaluiguin. Ollesruvtu-boallu čájeha linnjá govddibun. Vállje linnjás iežat háliidan jagiid juogo nu ahte čálát dehe sáhpániin geasát áigelinnjás. Coahkkal <strong>Beaivát.</strong>.</p>
+    <ul class="list-bullets">
+      <li>Visot bohtosat</li>
+      <li>Bohtosat, mat gullet ollásit áigegaskii</li>
+      <li>Ráddje ohcanbohtosiid almmustuhttinjagi ja duddjonjagi mielde.</li>
+    </ul>
+    <p><strong>Fáttá áigi:</strong> fállá gárvves vuođđaloguid ja logijagiid. Ohcan vállje dihto ollisvuođaid ja gokčá eará molssaeavttuid eret. Ovdamearkka dihte 1930-lohku ii sirre jagi 1933 bohtosiid, muhto ohcá dieđuid, mat leat merkejuvvon namalassii 1930-lohkui.</p>
+    <p><strong>Giella:</strong> čájeha, man gielalaš materiála ohcanbohtosii gullet.</p>
+    <p><strong>Gullá publikašuvdnii:</strong> ilmmuha ovdamearkka dihte bláđi nama, juos ohcanbohtosis leat artihkkalat.</p>
+    <p><strong>Doaibmasuorgi:</strong> organisašuvnna tiipa, ovdamearkka dihte musea, arkiiva dehe girjerádju.</p>
+    <p><strong>Organisašuvdna:</strong>čájeha visot arkiivvaid, girjerájuid ja museaid, maid materiálaid ohcanbohtosii gullet.</p>
+    <p><strong>Ođas Finnas:</strong> čájeha, mii materiálaid Finnai lea maŋemus lasihuvvon.</p>
+    <h3>Go leat dahkan ráddjemiid</h3>
+    <p>Finna seailluha du dahkan ráddjemiid ja čájeha daid ohcangietti vulobealde. Ovttaskas ráddjema sáhtát sihkkut nu ahte coahkkalat gažaldatvuloš ráddjema sihkkunboalu: <?=$this->icon('search-filter-remove') ?>. Visot ráddjemiid sáhtát sihkkut ohcanbielkka vuolde go coahkkalat <strong>Sihko ráddjemiid</strong> -boalu ja dagat ođđa ohcama.</p>
+  </div>
+  <div id="saving-search" class="content-section">
+    <h2>Ohcama furken</h2>
+    <p>Čálihuvvan geavaheaddjin sáhtát furket iežat ohcama ohcanboađussiiddu vuolleoasi <strong>Furke ohcama</strong> -boaluin. Gávnnat ohcamiid go válljet <strong>Iežas kontu &rarr; Furkejuvvon ohcamat</strong>. Furkejuvvon ohcamii sáhtát bidja <a href="<?=$this->url('content-page', ['page' => 'help-account-management'])?>#saved-searches">ođasvuođa fávtta</a>, mii ilmmuha dutnje šleađgaboasttain ođđa materiálain ohcama mielde.</p>
+  </div>
+  <div id="combining-search" class="content-section">
+    <h2>Ohcansániid ovttastahttin</h2>
+    <p>Finna ohcan doaibmá Boole ohcanoperáhtoriiguin, main dábálaččamusat leat AND, OR ja NOT. Fuomášupmi! Ohcanoperáhtorat fertejit čállojuvvot STUORA BUSTÁVAIGUIN ohcansániid gaskii.</p>
+    <p>Juos geavahat ohcangihpus guovtti dehe eanet operáhtoriid, ane ruođuid ( ) ohcansániid gaskkas. Ovdamearkka dihte:</p>
+    <pre class="code">biebmodoallu AND (diehtta OR eallinvuohki)</pre>
+    <h3>AND</h3>
+    <p>AND-operáhtora geavahettiin ožžojuvvo ohcanboađus, mas gávdnojit visot ohcangietti ohcansánit. Juos čálát ohcangieddái máŋggaid ohcantearpmaid nu ahte earuhat daid gaskačaskimiin, gaskačaskin doaibmá dego AND-operáhtor.</p>
+    <p>Ovdamearkka dihte čuovvovaš guokte ohcansáni buvttadit seamma bohtosa:</p>
+    <pre class="code">Karisto Seppälä</pre>
+    <p>ja</p>
+    <pre class="code">Karisto AND Seppälä</pre>
+    <h3>OR</h3>
+    <p>OR-operáhtor viiddida ohcanbohtosa. Boađusin oaččut dakkár materiála, mas lea aŋkke muhtin du atnin ohcansániin. Juos vaikko ozat persovdnahistorjjás girjjálašvuođa, hábme ohcangihpu:</p>
+    <pre class="code">persovdnahistorjá OR biografiija</pre>
+    <p>dehe diehtu Krim soađis:</p>
+    <pre class="code">"Nuortaeatnanlaš soahti" OR "Ålándda soahti" OR "Krim soahti"</pre>
+    <h3>NOT</h3>
+    <p>NOT-operáhtor gokčá ohcanbohtosiin eret ávdnasiid, main gávdno NOT-operáhtora čuovvu ohcansáni. Juos vaikko ozat dieđu surrealismmas, muhto it háliit materiálaid, mat gieđahallet fáttá govvadáidaga orientašuvdnan:</p>
+    <pre class="code">surrealisma NOT (govvadáidda OR málendáidda)</pre>
+    <p>Fuom! NOT-operáhtor ii sáhte adnojuvvot ovtta ohcansáni ohcamiin. Ovdamearkka dihte čuovvovaš ohcan ii buvtte ollenge bohtosiid:</p>
+    <pre class="code">NOT surrealisma</pre>
+    <h3>Ohcanoperáhtorat + ja !- </h3>
+    <p>Dábálaččamus Boole ohcanoperáhtoriid (AND,OR,NOT) lassin Finnas leat anus ohcanoperáhtorat + ja !-.</p>
+    <h4>+ </h4>
+    <p>Mearkkain + dovddahuvvo gáibádus das, ahte ohcansátni ferte gávdnot juohke ohcanbohtosis.</p>
+    <p>Ovdamearkkas ohccojuvvo materiála, mas gávdno evttoheamit <i>economics</i>, ja mas sáhttá dasa lassin gávdnot <i>Keynes</i>:
+    <pre class="code">+economics Keynes</pre>
+    <h4>!- </h4>
+    <p>Mearkaoktiibijuin !- ohcanbohtosiin sáhttet sihkkojuvvot materiálat, main lea ohcamis !-mearka čuovvu ohcansátni</p>
+    <p>Ovdamearkkas ohccojuvvo materiála, mas lea tearbma economics, muhto ii tearbma <i>Keynes</i>:</p>
+    <pre class="code">economics !-Keynes</pre>
+    <p>Fuomášupmi! Mearkaoktiibidju !- ii sáhte adnojuvvot ovtta ohcansáni ohcamiin.</p>
+    <p>Ovdamearkka dihte čuovvovaš ohcanboađus ii buvtte ollenge bohtosiid:</p>
+    <pre class="code">!-economics</pre>
+    <p>Juos ozat materiála, mii álgá čuorvvasmearkkain, čuorvvasmearka sáhttá váldojuvvot mielde ohcamii anekeahttá njakčecázu (\).</p>
+  </div>
+  <div id="truncating-search" class="content-section">
+    <h2>Jokermearkkaid geavaheapmi ohcansániin</h2>
+    <p>Jokermearkkaiguin * ja ? sáhttá buhttet ohcansániid mearkkaid, vai ohcanmášen vuhtiiváldá viidáseappot ohcansáni vejolaš sátnegehčosiid.</p>
+    <p>Suomagielat ohcansániin jokermearkkaid geavaheapmi ii ávžžuhuvvo, daningo jokermearkkaid dihte oassi ozu gieđahallandoaimmain báhcá eret. Dákkár doaimmat leat ovdamearkka dihte synonymaid gieđahallan ja tearpmaid botken goallossázu buohta.</p>
+    <p>Finna váldá automáhtalaččat vuhtii suomagielat ohcansániid iešguđetlágán sojahemiid ja gehčosiid. Go ohcansátni lea “taulu”, ohcanmášen gávdná maiddái sáni sojahuvvon hámiid, nugo “taulut” ja “taulujen”. Jokermearkka geavaheapmi sáhttá seaguhit ohcanmášena automáhtalaš gieđahallandoaimmaid. Ozus máŋggaidlohku, mas lea s-geažus, ohcá automáhtalaččat maiddái ovttaidlogu ja máŋggaidlogu, mas lea ovttaidlogus s-geažus. Ovdamearkka dihte ohcansániin “paintings” gávdná maiddái hámi “painting”.</p>
+    <h3>Jokermearkkaid geavaheapmi</h3>
+    <p>Fuom! Jokermearkkat (* ja ?) eai sáhte leat ohcansáni vuosttas mearkkat.</p>
+    <h4>* (nástemearka)</h4>
+    <p>Nástemearka buhtte ovtta dahje eanet mearkka ohcansánis. Ohcanbohtosat sisdollet maiddái dan ohcansáni hámi, mainna ohcu dahkko.</p>
+    <p>Sáhtát botket ohcansáni loahpas nástemearkkain. Ovdamearkka dihte tearpmat <i>competition</i>, <i>competitions</i>, <i>competitor</i> ja <i>competitiveness</i> sáhttet ohccojuvvot ohcansániin:</p>
+    <pre class="code">competit*</pre>
+    <p>Sáhtát geavahit nástemearkka maid ohcansáni gaskkas buhttet ovtta dahje eanet mearkka. Ovdamearkka dihte tearpmat <i>color</i> ja <i>colour</i> sáhttet ohccojuvvot ohcansániin:</p>
+    <pre class="code">colo*r</pre>
+    <h4>? (gažaldatmearka)</h4>
+    <p>Gažaldatmearka buhtte ovtta mearkka ohcansánis, mii dahká vejolažžan máŋggaid sátnehámiid.</p>
+    <p>Ovdamearkka dihte tearpmat <i>woman</i> ja <i>women</i> sáhttet ohccojuvvot ovttain ohcansániin:
+    <pre class="code">wom?n</pre>
+  </div>
+  <div id="phrase-search" class="content-section">
+    <h2>Frásaohcan</h2>
+    <p>Frásaozu gánneha geavahit, jus háliidat bohtosiid main sátnelihttu oidno dihto ortnegis. Suomagielat ozus frásaohcu ohcá viidásit sierra gittiin frása sojahan- ja goallossátnehámiid. Earágielat ozuin sierra sátnehámit eai oidno, earret ovttaidloguin máŋggaidlogut, main leat s-gehčosat ja nuppe beliid. Dárkilis deaivamat ožžot stuorit árvvu ja danin oidnojit badjeleabbos deaivilvuođa mielde ordnejuvvon ohcanboađuslisttus.</p>
+    <p>Ovdamearkkas ohccojuvvojit materiálat, main lea sátnelihttu <i>Helssega universiteahtta</i>, iige ovdamearkka dihte <i>Helssega gávpot</i>:</p>
+    <p>Ovdamearkka dihte frásaohcu <i>Helssega universiteahtta</i> ohcá lassin deaivamiid nugo <i>Helssega universiteahtas</i>:</p>
+    <pre class="code">“Helssega universiteahtta”</pre>
+    <p>Go ozat eará gielaiguin, ovdamearkka dihte <i>classroom board</i> ohcanboađus ohcá bohtosiid <i>classroom boards</i> muhto ii <i>classroom chalkboard</i>:</p>
+    <pre class="code">"classroom board"</pre>
+  </div>
+  <div id="isbn-issn-search" class="content-section">
+    <h2>ISBN/ISSN -ohcan</h2>
+    <p>Juos háliidat ohcat girjji ISBN-nummáriin, čále nummárráiddu juogo gaskacázuiguin dehe dan haga. Juohke girjjis lea iežas ISBN-nummár, man mielde girjji lea álki dovdát. Gávnnat ISBN-dovddaldaga dávjá girjji duohken.</p>
+    <pre class="code">978-951-31-6583-3</pre>
+    <p>Sáhtát oažžut dárkilut ohcanbohtosa ISBN/ISSN nummiriiguin go lasihat aisttonmearkkaid (" ") dovddaldaga birra dahje sihkut eret goallossázu nummiriid gaskkas.</p>
+    <pre class="code">"978-951-31-6583-3"</pre>
+    <p>dehe</p>
+    <pre class="code">978951316583</pre>
+    <p>Sáhtát ohcat bláđi dahje ráiddu ISSN-nummiriin seamma láhkai, ovdamearkka dihte:</p>
+    <pre class="code">"0782-8195"</pre>
+    <p><strong>Aiddostahtton ozus</strong> sáhtát čuozihit ozu ISBN/ISSN-gieddái go ráddjet ozu dovddaldat-gieddái.</p>
+  </div>
+  <div id="fine-tuning" class="content-section">
+    <h2>Diehtoohcama loahppagieđahallan</h2>
+    <h3>Geađas ohcan</h3>
+    <p>Geađas ohcan ohcá maid dakkár bohtosiid, main lea namuhuvvon ohcansáni láhkásaš sátni.</p>
+    <p>Merke ohcanoperáhtora <strong>~</strong> sáni maŋemus mearkan, juos háliidat dahkat geađas ohcama. Sáhtát geavahit operáhtora dušše ovtta sáni ohcamiin.</p>
+    <p>Ovdamearkkas ohccojuvvo materiála geađas ohcamiin ohcansátnái <i>roam</i>. Geađas ohcamiin ohcan gávdná ovdamearkka dihte tearpmaid <i>foam</i> ja <i>roams</i>:</p>
+    <pre class="code">roam~</pre>
+    <h3>Gaskaohcan</h3>
+    <p>Gaskaohcamiin ožžojuvvojit bohtosat, main ohcansánit leat lahkalaga, muhto dat eai dárbbaš leat vealttakeahttá maŋŋálaga.</p>
+    <p>Merke ohcanoperáhtora ~ maŋemus mearkan ohcamii, mas leat máŋga sáni. Merke operáhtora maŋŋel nummára. Dát nummár muitala, man galli sáni geahčen ohcansánit sáhttet leat nuppiineaset. </p>
+    <p>Ovdamearkkas ohccojuvvojit ohcansániiguin <i>economics</i> ja <i>keynes</i>, mat sáhttet leat eanemusat 10 sáni geahčen nuppiineaset:</p>
+    <pre class="code">"economics Keynes"~10</pre>
+    <h3>Árvogaskaohcamat</h3>
+    <p>Árvogaskaohcamat dahkkojuvvojit nu ahte adnojuvvojit juogo bárroruođut { } dehe roahkkeruođut [ ]. Bárroruođut váldet vuhtii dušše árvvuid, mat leat du čállin sániid gaskkas. Ohcamii eai gula du čállin sánit.</p>
+    <p>Ovdamearkkas ohccojuvvo tearbma, mii álgá bustávain B dehe C:</p>
+    <pre class="code">{A TO D}</pre>
+    <p>Ovdamearkkas ohccojuvvojit árvvut 1920-1950:</p>
+    <pre class="code">[1920 TO 1950]</pre>
+    <p>Fuomáš, ahte sátni TO árvvuid gaskkas čállojuvvo STUORA BUSTÁVAIGUIN.</p>
+    <h3>Tearpma deattuheapmi</h3>
+    <p>Ohcanoperáhtor ^ bajida ohcansáni deaddoárvvu jearahallamis.</p>
+    <p>Ovdamearkkas ohcansáni <i>Koivisto</i> deaddoárvu lea bajiduvvon:</p>
+    <pre class="code">economics Koivisto^5</pre>
+  </div>
+  <div id="searching-cyrillic" class="content-section">
+    <h2>Kyrillalaš materiála ohcan</h2>
+    <h3>Mot kyrillalaš mearkkat sáhttet ohccojuvvot?</h3>
+    <p>Kyrillalaš materiála lea furkejuvvon diehtovuđđui kyrillalaš mearkkaid geavahemiin. Boares ortografiija ja giellaoahppahámit leat seailluhuvvon.</p>
+    <p>Kyrillalaš ohcamis sáhtát geavahit Windowsa kyrillalaš dáláruošša-, ukraina-, vilgesruošša-, makedonia-, bulgaria- ja serbiagiela mearkaválljahumiid.</p>
+    <p>Kyrillalaš ohcansánis ovttaskas mearka sáhttá buhttejuvvot guvttiin proseantamearkkain (%%).</p>
+    <p>Gokčevaččamus ohcanbohtosa oažžu translittererejuvvon ohcamiin.</p>
+    <h3>Ohcan translittererema mielde</h3>
+    <p>Ohcan dahkkojuvvo dábálaš latiinnalaš boallobeavddi geavahemiin. Ovtta kyrillalaš mearkka vástida okta latiinnalaš alfabehtaid mearka. Translittereren lea ISO 9-standárdda mieldásaš, muhto diakrihtat (jietnamearkkat) eai dárbbaš geavahuvvot.</p>
+    <h3>Spiehkastagat álbmotlaš translittereremiin:</h3>
+    <p>
+    е = e Ельцин = El'cin<br>
+    ж = z жизнь = zizn'<br>
+    з = z Заварзин = Zavarzin<br>
+    й = j Толстой = Tolstoj<br>
+    х = h Хармс = Harms<br>
+    ц = c Цветаева = Cvetaeva<br>
+    ч = c Чехов = Cehov<br>
+    ш = s Шолохов = Solohov<br>
+    щ = s Щедрин = Sedrin<br>
+    ъ = " объект = ob ekt (ohcamis " ferte buhttejuvvot gaskačaskimiin!)<br>
+    ы = y Лыков = Lykov<br>
+    ь = ' Гоголь = Gogol' tai Gogol<br>
+    ю = u юность = unost' tai unost<br>
+    я =a Яков = Akov<br>
+    њ = n Његош = Negos<br>
+    љ = l љубав = lubav<br>
+    ђ = d Ђинђић = Dindic<br>
+    ћ = c ћуприја = cuprija<br>
+    џ = d Караџић = Karadic<br>
+    Ѣ = e мѢра = mera<br>
+    Ѳ = f Ѳетъ = Fet"<br>
+    ѵ = i Сѵнодъ = Sinod"<br>
+    </p>
+  </div>
+</div>
+<!-- END of: finna - content/help-basic_se.phtml -->

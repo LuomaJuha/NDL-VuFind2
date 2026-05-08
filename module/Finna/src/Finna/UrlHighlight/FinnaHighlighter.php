@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Provide URL formatted as HTML and prefixed with proxy if applicable
+ * Provide URL formatted as HTML and prefixed with proxy if applicable.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  UrlHighlight
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\UrlHighlight;
 
 use Finna\View\Helper\Root\TruncateUrl;
@@ -32,7 +34,7 @@ use VStelmakh\UrlHighlight\Matcher\UrlMatch;
 use VuFind\View\Helper\Root\ProxyUrl;
 
 /**
- * Provide URL formatted as HTML and prefixed with proxy if applicable
+ * Provide URL formatted as HTML and prefixed with proxy if applicable.
  *
  * @category VuFind
  * @package  UrlHighlight
@@ -43,14 +45,14 @@ use VuFind\View\Helper\Root\ProxyUrl;
 class FinnaHighlighter extends \VuFind\UrlHighlight\VuFindHighlighter
 {
     /**
-     * URL truncator
+     * URL truncator.
      *
      * @var TruncateUrl
      */
     protected $truncateUrl;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ProxyUrl    $proxyUrl    Proxy url helper
      * @param TruncateUrl $truncateUrl URL truncator
@@ -62,7 +64,7 @@ class FinnaHighlighter extends \VuFind\UrlHighlight\VuFindHighlighter
     }
 
     /**
-     * Content used to display url: ...>{here}</a>
+     * Content used to display url: ...>{here}</a>.
      *
      * @param UrlMatch $match URL match
      *

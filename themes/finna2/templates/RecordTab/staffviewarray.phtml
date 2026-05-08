@@ -1,6 +1,6 @@
 <!-- START of: finna - RecordTab/staffviewarray.phtml -->
 <?php $rawFieldData = $this->driver->getRawData(); ?>
-<?php if (!empty($rawFieldData['fullrecord']) && strncmp($rawFieldData['fullrecord'], '<', 1) == 0): ?>
+<?php if (!empty($rawFieldData['fullrecord']) && is_string($rawFieldData['fullrecord']) && strncmp($rawFieldData['fullrecord'], '<', 1) == 0): ?>
   <?php
     $recordClass = get_class($this->driver);
     if ($p = strrpos($recordClass, '\\')) {
@@ -20,33 +20,34 @@
     $dom->preserveWhiteSpace = false;
     $dom->formatOutput = true;
     if ($dom->loadXML($rawFieldData['fullrecord'])) {
-      echo '<pre id="record-data">' . $this->escapeHtml($dom->saveXML()) . '</pre>';
-      $this->inlineScript(\Laminas\View\Helper\HeadScript::FILE, 'vendor/highlight.pack.js');
-      echo $this->inlineScript();
+      echo '<pre id="record-data" data-double-click-select-all>' . $this->escapeHtml($dom->saveXML()) . '</pre>';
       $script = <<<JS
-  $(document).ready(function() {
-    $('#record-data').each(function(i, block) {
-      hljs.highlightBlock(block);
-    });
-  });
-JS;
-      echo $this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
+            $(document).ready(function() {
+              const recordData = document.getElementById('record-data');
+              if (recordData) {
+                finna.scriptLoader.load(
+                  {'vendor-highlight': 'vendor/highlight.pack.js'},
+                  () => {
+                    hljs.highlightBlock(recordData);
+                  }
+                );
+              }
+            });
+          JS;
+      echo $this->assetManager()->outputInlineScriptString($script);
     } else {
-      echo '<pre id="record-data">' . $this->escapeHtml($rawFieldData['fullrecord']) . '</pre>';
+      echo '<pre id="record-data" data-double-click-select-all>' . $this->escapeHtml($rawFieldData['fullrecord']) . '</pre>';
     }
   ?>
 <h2><?=$this->transEsc('staff_view_finna_index')?></h2>
 <?php endif; ?>
-<table class="citation table table-striped">
-  <?php $rawData = $this->driver->getRawData(); ksort($rawData); foreach ($rawData as $field => $values): ?>
+<table class="staff-view table table-striped">
+  <?php $rawData = $this->driver->getRawData();
+  ksort($rawData);
+  foreach ($rawData as $field => $values): ?>
     <tr>
-      <th><?=$this->escapeHtml($field)?></th>
-      <td>
-        <?php if (!is_array($values)) { $values = [$values]; } ?>
-        <?php foreach ($values as $value): ?>
-          <?=$this->escapeHtml(is_array($value) ? print_r($value, true) : $value)?><br />
-        <?php endforeach; ?>
-      </td>
+      <th scope="row"><?=$this->escapeHtml($field)?></th>
+      <td><?=$this->printArrayHtml($values)?></td>
     </tr>
   <?php endforeach; ?>
 </table>

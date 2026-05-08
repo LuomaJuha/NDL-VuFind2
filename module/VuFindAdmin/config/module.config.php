@@ -1,4 +1,5 @@
 <?php
+
 namespace VuFindAdmin\Module\Configuration;
 
 $config = [
@@ -7,11 +8,11 @@ $config = [
             'VuFindAdmin\Controller\AdminController' => 'VuFind\Controller\AbstractBaseFactory',
             'VuFindAdmin\Controller\ConfigController' => 'VuFind\Controller\AbstractBaseFactory',
             'VuFindAdmin\Controller\FeedbackController' => 'VuFind\Controller\AbstractBaseFactory',
-            'VuFindAdmin\Controller\MaintenanceController' => 'VuFind\Controller\AbstractBaseFactory',
+            'VuFindAdmin\Controller\MaintenanceController' => 'VuFindAdmin\Controller\MaintenanceControllerFactory',
             'VuFindAdmin\Controller\SocialstatsController' => 'VuFind\Controller\AbstractBaseFactory',
             'VuFindAdmin\Controller\TagsController' => 'VuFind\Controller\AbstractBaseFactory',
-            'VuFindAdmin\Controller\OverdriveController' =>
-                'VuFind\Controller\AbstractBaseFactory',
+            'VuFindAdmin\Controller\OnlinePaymentController' => 'VuFind\Controller\AbstractBaseFactory',
+            'VuFindAdmin\Controller\OverdriveController' => 'VuFind\Controller\AbstractBaseFactory',
         ],
         'aliases' => [
             'Admin' => 'VuFindAdmin\Controller\AdminController',
@@ -20,6 +21,7 @@ $config = [
             'AdminMaintenance' => 'VuFindAdmin\Controller\MaintenanceController',
             'AdminSocial' => 'VuFindAdmin\Controller\SocialstatsController',
             'AdminTags' => 'VuFindAdmin\Controller\TagsController',
+            'AdminPayment' => 'VuFindAdmin\Controller\OnlinePaymentController',
             'AdminOverdrive' => 'VuFindAdmin\Controller\OverdriveController',
         ],
     ],
@@ -32,7 +34,8 @@ $config = [
                     'defaults' => [
                         'controller' => 'Admin',
                         'action'     => 'Home',
-                    ]
+                        'admin_route' => true,
+                    ],
                 ],
                 'may_terminate' => true,
                 'child_routes' => [
@@ -43,8 +46,8 @@ $config = [
                             'defaults' => [
                                 'controller' => 'Admin',
                                 'action'     => 'Disabled',
-                            ]
-                        ]
+                            ],
+                        ],
                     ],
                     'config' => [
                         'type' => 'Laminas\Router\Http\Segment',
@@ -53,8 +56,18 @@ $config = [
                             'defaults' => [
                                 'controller' => 'AdminConfig',
                                 'action'     => 'Home',
-                            ]
-                        ]
+                            ],
+                        ],
+                    ],
+                    'feedback-details' => [
+                        'type' => 'Laminas\Router\Http\Segment',
+                        'options' => [
+                            'route'    => '/Feedback/Details/:id',
+                            'defaults' => [
+                                'controller' => 'AdminFeedback',
+                                'action'     => 'Details',
+                            ],
+                        ],
                     ],
                     'feedback' => [
                         'type' => 'Laminas\Router\Http\Segment',
@@ -63,8 +76,8 @@ $config = [
                             'defaults' => [
                                 'controller' => 'AdminFeedback',
                                 'action'     => 'Home',
-                            ]
-                        ]
+                            ],
+                        ],
                     ],
                     'maintenance' => [
                         'type' => 'Laminas\Router\Http\Segment',
@@ -73,8 +86,18 @@ $config = [
                             'defaults' => [
                                 'controller' => 'AdminMaintenance',
                                 'action'     => 'Home',
-                            ]
-                        ]
+                            ],
+                        ],
+                    ],
+                    'script' => [
+                        'type' => 'Laminas\Router\Http\Segment',
+                        'options' => [
+                            'route'    => '/Script[/:name]',
+                            'defaults' => [
+                                'controller' => 'AdminMaintenance',
+                                'action'     => 'Script',
+                            ],
+                        ],
                     ],
                     'social' => [
                         'type' => 'Laminas\Router\Http\Segment',
@@ -83,8 +106,8 @@ $config = [
                             'defaults' => [
                                 'controller' => 'AdminSocial',
                                 'action'     => 'Home',
-                            ]
-                        ]
+                            ],
+                        ],
                     ],
                     'tags' => [
                         'type' => 'Laminas\Router\Http\Segment',
@@ -93,8 +116,8 @@ $config = [
                             'defaults' => [
                                 'controller' => 'AdminTags',
                                 'action'     => 'Home',
-                            ]
-                        ]
+                            ],
+                        ],
                     ],
                     'overdrive' => [
                         'type' => 'Laminas\Router\Http\Segment',
@@ -103,8 +126,38 @@ $config = [
                             'defaults' => [
                                 'controller' => 'AdminOverdrive',
                                 'action'     => 'Home',
-                            ]
-                        ]
+                            ],
+                        ],
+                    ],
+                    'payment' => [
+                        'type' => 'Laminas\Router\Http\Literal',
+                        'options' => [
+                            'route'    => '/Payment',
+                            'defaults' => [
+                                'controller' => 'AdminPayment',
+                                'action'     => 'Home',
+                            ],
+                        ],
+                    ],
+                    'payment-details' => [
+                        'type' => 'Laminas\Router\Http\Segment',
+                        'options' => [
+                            'route'    => '/Payment/:id/Details',
+                            'defaults' => [
+                                'controller' => 'AdminPayment',
+                                'action'     => 'Details',
+                            ],
+                        ],
+                    ],
+                    'payment-resolve' => [
+                        'type' => 'Laminas\Router\Http\Segment',
+                        'options' => [
+                            'route'    => '/Payment/:id/Resolve',
+                            'defaults' => [
+                                'controller' => 'AdminPayment',
+                                'action'     => 'Resolve',
+                            ],
+                        ],
                     ],
                 ],
             ],

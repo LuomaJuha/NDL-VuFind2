@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Default Controller
+ * Default Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,10 +27,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace Finna\Controller;
 
 use VuFindCode\ISBN;
 use VuFindSearch\Backend\Exception\BackendException;
+
+use function count;
+use function is_array;
+use function is_callable;
 
 /**
  * Redirects the user to the appropriate default VuFind action.
@@ -46,7 +52,7 @@ class SearchController extends \VuFind\Controller\SearchController
     use FinnaSearchControllerTrait;
 
     /**
-     * Handle an advanced search
+     * Handle an advanced search.
      *
      * @return mixed
      */
@@ -55,12 +61,14 @@ class SearchController extends \VuFind\Controller\SearchController
         $view = parent::advancedAction();
 
         $config = $this->getConfig();
+        $rangeMin = null;
         $ticks = [-1000, 0, 900, 1800, 1900];
         if (!empty($config->Site->advSearchYearScale)) {
             $ticks = array_map(
                 'trim',
                 explode(',', $config->Site->advSearchYearScale)
             );
+            $rangeMin = (int)$ticks[0];
         }
         $rangeEnd = date('Y', strtotime('+1 year'));
 
@@ -69,10 +77,13 @@ class SearchController extends \VuFind\Controller\SearchController
 
         $range = [
             'type' => 'date',
-            'field' => $params->getDateRangeSearchField()
+            'field' => $params->getDateRangeSearchField(),
+            'rangeMin' => $rangeMin,
+            'rangeMax' => null,
         ];
 
-        if ($view->saved
+        if (
+            $view->saved
             && is_callable([$view->saved->getParams(), 'getDateRangeFilter'])
             && ($filter = $view->saved->getParams()->getDateRangeFilter())
         ) {
@@ -104,7 +115,7 @@ class SearchController extends \VuFind\Controller\SearchController
     }
 
     /**
-     * Redirection for VuFind 1 DualResults action
+     * Redirection for VuFind 1 DualResults action.
      *
      * @return mixed
      */
@@ -181,7 +192,7 @@ class SearchController extends \VuFind\Controller\SearchController
     }
 
     /**
-     * Returns a list of all items associated with one facet for the lightbox
+     * Returns a list of all items associated with one facet for the lightbox.
      *
      * Parameters:
      * facet        The facet to retrieve
@@ -202,7 +213,7 @@ class SearchController extends \VuFind\Controller\SearchController
     }
 
     /**
-     * Parse OpenURL and return a keyed array
+     * Parse OpenURL and return a keyed array.
      *
      * @return array
      */
@@ -225,7 +236,8 @@ class SearchController extends \VuFind\Controller\SearchController
 
         if (isset($request['url_ver']) && $request['url_ver'] == 'Z39.88-2004') {
             // Parse OpenURL 1.0
-            if (isset($request['rft_val_fmt'])
+            if (
+                isset($request['rft_val_fmt'])
                 && $request['rft_val_fmt'] == 'info:ofi/fmt:kev:mtx:book'
             ) {
                 // Book format
@@ -285,7 +297,8 @@ class SearchController extends \VuFind\Controller\SearchController
             }
         }
 
-        if (ISBN::isValidISBN10($isbn)
+        if (
+            ISBN::isValidISBN10($isbn)
             || ISBN::isValidISBN13($isbn)
         ) {
             $isbnObj = new ISBN($isbn);
@@ -308,7 +321,7 @@ class SearchController extends \VuFind\Controller\SearchController
     }
 
     /**
-     * Process the OpenURL params and try to find record(s) with them
+     * Process the OpenURL params and try to find record(s) with them.
      *
      * @param array $params        Referent params
      * @param array $hiddenFilters Optional hidden filters
@@ -321,7 +334,8 @@ class SearchController extends \VuFind\Controller\SearchController
         $results = false;
 
         // Journal first..
-        if (!$params['eissn']
+        if (
+            !$params['eissn']
             || !($results = $this->trySearch(
                 $runner,
                 ['ISN' => $params['eissn']],
@@ -337,7 +351,8 @@ class SearchController extends \VuFind\Controller\SearchController
             }
         }
         if ($results) {
-            if ($params['date'] || $params['volume'] || $params['issue']
+            if (
+                $params['date'] || $params['volume'] || $params['issue']
                 || $params['spage'] || $params['atitle']
             ) {
                 // Ok, we found a journal. See if we can find an article too.
@@ -399,7 +414,8 @@ class SearchController extends \VuFind\Controller\SearchController
         }
 
         // Try to find a book or something
-        if (!$params['isbn']
+        if (
+            !$params['isbn']
             || !($results = $this->trySearch(
                 $runner,
                 ['ISN' => $params['isbn']],
@@ -431,7 +447,7 @@ class SearchController extends \VuFind\Controller\SearchController
     }
 
     /**
-     * Try a search and return results if found
+     * Try a search and return results if found.
      *
      * @param \VuFind\Search\SearchRunner $runner             Search runner
      * @param array                       $params             Search params
@@ -483,7 +499,7 @@ class SearchController extends \VuFind\Controller\SearchController
     }
 
     /**
-     * Open map facet modal
+     * Open map facet modal.
      *
      * @return \VuFind\Controller\ViewModel
      */
@@ -497,7 +513,7 @@ class SearchController extends \VuFind\Controller\SearchController
             [
                 'results' => $results,
                 'geoFilters' =>
-                $params->getGeographicFilters($params->getFilterList())
+                $params->getGeographicFilters($params->getFilterList()),
             ]
         );
         $view->setTemplate('Recommend/SideFacets/map-facet-modal');

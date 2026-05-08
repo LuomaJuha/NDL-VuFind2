@@ -1,10 +1,11 @@
 <?php
+
 /**
- * GetDescription AJAX handler
+ * GetDescription AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2019.
+ * Copyright (C) The National Library of Finland 2015-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -26,18 +27,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
-use Laminas\Config\Config;
+use Finna\Content\Description\PluginManager as DescriptionPluginManager;
 use Laminas\Mvc\Controller\Plugin\Params;
-use Laminas\View\Renderer\RendererInterface;
 use VuFind\Cache\Manager as CacheManager;
+use VuFind\Config\Config;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\Record\Loader;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * GetDescription AJAX handler
+ * GetDescription AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -45,61 +47,81 @@ use VuFind\Session\Settings as SessionSettings;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetDescription extends \VuFind\AjaxHandler\AbstractBase
-    implements TranslatorAwareInterface, \VuFindHttp\HttpServiceAwareInterface
+class GetDescription extends \VuFind\AjaxHandler\AbstractBase implements
+    TranslatorAwareInterface
 {
+    use \VuFind\Config\Feature\ExplodeSettingTrait;
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
-    use \VuFindHttp\HttpServiceAwareTrait;
 
     /**
-     * Cache manager
+     * Cache manager.
      *
      * @var CacheManager
      */
     protected $cacheManager;
 
     /**
-     * Config
+     * Config.
      *
      * @var Config
      */
     protected $config;
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var Loader
      */
     protected $recordLoader;
 
     /**
-     * View renderer
+     * Data source configuration.
      *
-     * @var RendererInterface
+     * @var Config
      */
-    protected $renderer;
+    protected $dataSourceConfig;
 
     /**
-     * Constructor
+     * Description provider plugin manager.
      *
-     * @param SessionSettings   $ss       Session settings
-     * @param CacheManager      $cm       Cache manager
-     * @param Config            $config   Main configuration
-     * @param Loader            $loader   Record loader
-     * @param RendererInterface $renderer View renderer
+     * @var DescriptionPluginManager
+     */
+    protected $descriptionPluginManager;
+
+    /**
+     * Language code.
+     *
+     * @var string
+     */
+    protected $langCode;
+
+    /**
+     * Constructor.
+     *
+     * @param SessionSettings          $ss       Session settings (for disableSessionWrites)
+     * @param CacheManager             $cm       Cache manager
+     * @param Loader                   $loader   Record loader
+     * @param DescriptionPluginManager $dpm      Description provider plugin manager
+     * @param array                    $config   Main configuration
+     * @param array                    $dsConfig Data source configuration
+     * @param string                   $langCode Current language code
      */
     public function __construct(
         SessionSettings $ss,
         CacheManager $cm,
-        Config $config,
         Loader $loader,
-        RendererInterface $renderer
+        DescriptionPluginManager $dpm,
+        array $config,
+        array $dsConfig,
+        string $langCode
     ) {
         $this->sessionSettings = $ss;
         $this->cacheManager = $cm;
-        $this->config = $config;
         $this->recordLoader = $loader;
-        $this->renderer = $renderer;
+        $this->descriptionPluginManager = $dpm;
+        $this->config = $config;
+        $this->dataSourceConfig = $dsConfig;
+        $this->langCode = $langCode;
     }
 
     /**
@@ -113,85 +135,71 @@ class GetDescription extends \VuFind\AjaxHandler\AbstractBase
     {
         $this->disableSessionWrites();  // avoid session write timing bug
 
-        $id = $params->fromPost('id', $params->fromQuery('id'));
-
-        if (!$id) {
+        if (!($id = $params->fromPost('id') ?? $params->fromQuery('id'))) {
             return $this->formatResponse('', self::STATUS_HTTP_BAD_REQUEST);
         }
+        $source = $params->fromPost('source') ?? $params->fromQuery('source') ?? 'Solr';
 
-        $cacheDir = $this->cacheManager->getCache('description')->getOptions()
-            ->getCacheDir();
-
-        $localFile = "$cacheDir/" . urlencode($id) . '.txt';
-
+        $cacheDir = $this->cacheManager->getCache('description')->getOptions()->getCacheDir();
+        $localFile = "$cacheDir/" . urlencode($id) . '_' . $this->langCode . '.txt';
         $maxAge = $this->config->Content->summarycachetime ?? 1440;
 
-        if (is_readable($localFile)
+        if (
+            is_readable($localFile)
             && time() - filemtime($localFile) < $maxAge * 60
         ) {
             // Load local cache if available
-            if (($content = file_get_contents($localFile)) !== false) {
-                return $this->formatResponse(['html' => $content]);
+            if (($html = file_get_contents($localFile)) !== false) {
+                return $this->formatResponse(compact('html'));
             } else {
                 return $this->formatResponse('', self::STATUS_HTTP_ERROR);
             }
-        } else {
-            // Get URL
-            $driver = $this->recordLoader->load($id, 'Solr');
-            $url = $driver->getDescriptionURL();
-            // Get, manipulate, save and display content if available
-            if ($url) {
-                $result = $this->httpService->get($url, [], 60);
-                if ($result->isSuccess() && ($content = $result->getBody())) {
-                    if ($contentType = $result->getHeaders()->get('Content-Type')) {
-                        $encoding = strtoupper($contentType->getCharset());
-                    } else {
-                        $encoding = mb_detect_encoding(
-                            $content,
-                            ['UTF-8', 'ISO-8859-1']
-                        );
-                    }
-                    if ('UTF-8' !== $encoding) {
-                        $content = mb_convert_encoding($content, 'UTF-8', $encoding);
-                    }
-                    // Remove head tag, so no titles will be printed.
-                    $content = preg_replace(
-                        '/<head[^>]*>(.*?)<\/head>/si',
-                        '',
-                        $content
-                    );
+        }
 
-                    $content = preg_replace('/.*<.B>(.*)/', '\1', $content);
-                    $content = strip_tags($content, '<br><p>');
-
-                    // Trim leading and trailing whitespace
-                    $content = trim($content);
-
-                    // Replace line breaks with <br>
-                    $content = preg_replace(
-                        '/(\r\n|\n|\r){3,}/',
-                        '<br><br>',
-                        $content
-                    );
-
-                    file_put_contents($localFile, $content);
-
-                    return $this->formatResponse(['html' => $content]);
-                }
-            }
-            $language = $this->translator->getLocale();
-            if ($summary = $driver->getSummary($language)) {
-                $summary = implode("\n\n", $summary);
-
-                // Replace double hash with a <br>
-                $summary = str_replace('##', "\n\n", $summary);
-
-                // Process markdown
-                $summary = $this->renderer->plugin('markdown')->toHtml($summary);
-
-                return $this->formatResponse(['html' => $summary]);
+        // Try each description provider:
+        $driver = $this->recordLoader->load($id, $source);
+        $dataSourceId = strtok($id, '.');
+        $html = '';
+        foreach ($this->getProviders($dataSourceId) as $providerConfig) {
+            $provider = $this->descriptionPluginManager->get($providerConfig['id']);
+            if ($html = $provider->get($providerConfig['key'], $driver)) {
+                break;
             }
         }
-        return $this->formatResponse(['html' => '']);
+        file_put_contents($localFile, $html);
+        return $this->formatResponse(compact('html'));
+    }
+
+    /**
+     * Get a list of active description providers.
+     *
+     * @param string $sourceId Record source ID
+     *
+     * @return array
+     */
+    protected function getProviders(string $sourceId): array
+    {
+        $providers = $this->explodeSetting($this->dataSourceConfig[$sourceId]['descriptions'] ?? '', true, ',');
+        $sharedProviders = $this->explodeSetting($this->config['Content']['descriptions'] ?? '', true, ',');
+
+        if ($providers) {
+            if (false !== ($offset = array_search('shared', $providers))) {
+                // Splice in the common providers:
+                array_splice($providers, $offset, 1, $sharedProviders);
+            }
+        } else {
+            $providers = $sharedProviders;
+        }
+
+        return array_map(
+            function ($s) {
+                $parts = explode(':', $s, 2);
+                return [
+                    'id' => $parts[0],
+                    'key' => $parts[1] ?? '',
+                ];
+            },
+            array_values(array_unique(array_filter($providers)))
+        );
     }
 }

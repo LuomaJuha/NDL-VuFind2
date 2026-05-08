@@ -7,30 +7,35 @@
 <div class="image-link hidden-print">
     <?php $urls = $image['urls']; ?>
     <?php if ($hiRes): ?>
-        <i aria-hidden="true" class="fa fa-download"></i>
+        <?=$this->icon('download') ?>
         <div class="dropdown">
-            <button class="btn btn-default dropdown-toggle download" type="button" id="downloadMenu-<?=$index?>" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <button class="btn btn-default dropdown-toggle download" type="button" id="downloadMenu-<?=$index?>" data-bs-toggle="dropdown" aria-expanded="false">
                 <?=$this->transEsc('Download the image')?> <span class="caret"></span>
             </button>
             <ul class="dropdown-menu download" aria-labelledby="downloadMenu-<?=$index?>">
                 <?php if (isset($urls['large'])): ?>
-                    <li class="display-image"><a href="<?=$this->escapeHtmlAttr($urls['large']['url'] ?? $urls['large'])?>" download target="_blank" rel="nofollow"><?=$this->transEsc('display_image') ?> <span class="image-dimensions"></span> jpg</a></li>
+                    <li class="display-image"><a class="dropdown-item" href="<?=$this->escapeHtmlAttr($urls['large']['url'] ?? $urls['large'])?>" download target="_blank" rel="nofollow"><?=$this->transEsc('display_image') ?> <span class="image-dimensions"></span> jpg</a></li>
                 <?php endif; ?>
                 <?php if (!$this->userAgent()->isBot()): ?>
                     <?php foreach ($hiRes as $size => $img): ?>
                         <?php foreach ($img as $key => $info): ?>
                             <?php
-                                $data = $info['data'];
-                                $imageSize = !empty($data['size']['value']) ? $this->fileSize(preg_replace("/[^0-9]/", "", $data['size']['value'])) : '';
-                                $dimensions = '';
-                                if (!empty($data['width']) && !empty($data['height'])) {
-                                    $cleanWidth = preg_replace("/[^0-9]/", "", $data['width']['value']);
-                                    $cleanHeight = preg_replace("/[^0-9]/", "", $data['height']['value']);
-                                    $dimensions = "($cleanWidth x $cleanHeight px)";
+                                $imageInfoParts = [];
+                                $width = $info['data']['width'] ?? [];
+                                $height = $info['data']['height'] ?? [];
+                                if (!empty($width['value']) && !empty($height['value']) && $height['unit'] === 'pixel' && $width['unit'] === 'pixel') {
+                                    $cleanWidth = preg_replace('/[^0-9]/', '', $width['value']);
+                                    $cleanHeight = preg_replace('/[^0-9]/', '', $height['value']);
+                                    $imageInfoParts[] = "$cleanWidth x $cleanHeight px";
                                 }
+                                $imageSize = $info['data']['size'] ?? [];
+                                if (!empty($imageSize['value']) && $imageSize['unit'] === 'byte') {
+                                    $imageInfoParts[] = $this->fileSize($imageSize['value']);
+                                }
+                                $imageInfo = $imageInfoParts ? '(' . implode(', ', $imageInfoParts) . ')' : '';
                                 $downloadName = str_replace('.', '-', $this->driver->getUniqueID()) . '-' . ($info['resourceID'] ?? $index) . '-' . $size;
                             ?>
-                            <li><a download="<?=$downloadName?>" href="<?=$this->escapeHtmlAttr($this->url('record-downloadfile', [], ['query' => $info['params']]))?>" rel="nofollow"> <?=$this->transEsc('high_resolution_image')?> <span class="image-dimensions"><?=$this->escapeHtml($dimensions)?></span> <span class="image-size"><?=$this->escapeHtml($imageSize)?></span>  <?=$this->escapeHtml($info['format'] ?? '')?></a></li>
+                            <li><a class="dropdown-item" download="<?=$downloadName?>" href="<?=$this->escapeHtmlAttr($this->url('record-downloadfile', [], ['query' => $info['params']]))?>" rel="nofollow"> <?=$this->transEsc('high_resolution_image')?> <span class="image-dimensions"><?=$this->escapeHtml($imageInfo)?></span>  <?=$this->escapeHtml($info['format'] ?? '')?></a></li>
                         <?php endforeach; ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -44,7 +49,7 @@
         ?>
             <div class="open-link">
                 <a target="_blank" href="<?=$this->escapeHtmlAttr($originalImage) ?>" rel="nofollow" download>
-                    <i aria-hidden="true" class="fa fa-download"></i>
+                    <?=$this->icon('download') ?>
                     <span><?=$this->transEsc('Download the image') ?></span>
                 </a>
                 <span class="image-dimensions"></span>

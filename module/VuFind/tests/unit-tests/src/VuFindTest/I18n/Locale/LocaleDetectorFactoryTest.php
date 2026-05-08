@@ -1,8 +1,9 @@
 <?php
+
 /**
- * LocaleDetectorFactory Test Class
+ * LocaleDetectorFactory Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\I18n\Locale;
 
 use SlmLocale\Strategy\HttpAcceptLanguageStrategy;
@@ -34,8 +36,10 @@ use VuFind\I18n\Locale\LocaleDetectorFactory;
 use VuFind\I18n\Locale\LocaleDetectorParamStrategy;
 use VuFind\I18n\Locale\LocaleSettings;
 
+use function func_get_args;
+
 /**
- * LocaleDetectorFactory Test Class
+ * LocaleDetectorFactory Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -74,7 +78,7 @@ class LocaleDetectorFactoryTest extends \PHPUnit\Framework\TestCase
                 LocaleDetectorParamStrategy::class,
                 QueryStrategy::class,
                 LocaleDetectorCookieStrategy::class,
-                HttpAcceptLanguageStrategy::class
+                HttpAcceptLanguageStrategy::class,
             ],
             $this->getStrategyClasses()
         );
@@ -87,17 +91,16 @@ class LocaleDetectorFactoryTest extends \PHPUnit\Framework\TestCase
      */
     public function testStrategyListWithBrowserDetection(): void
     {
-        $mockSettings = $this->getMockBuilder(LocaleSettings::class)
-            ->disableOriginalConstructor()->getMock();
+        $mockSettings = $this->createMock(LocaleSettings::class);
         $mockSettings->expects($this->once())
             ->method('browserLanguageDetectionEnabled')
-            ->will($this->returnValue(true));
+            ->willReturn(true);
         $this->assertEquals(
             [
                 LocaleDetectorParamStrategy::class,
                 QueryStrategy::class,
                 LocaleDetectorCookieStrategy::class,
-                HttpAcceptLanguageStrategy::class
+                HttpAcceptLanguageStrategy::class,
             ],
             $this->getStrategyClasses($mockSettings)
         );
@@ -111,11 +114,10 @@ class LocaleDetectorFactoryTest extends \PHPUnit\Framework\TestCase
      */
     public function testStrategyListWithoutBrowserDetection(): void
     {
-        $mockSettings = $this->getMockBuilder(LocaleSettings::class)
-            ->disableOriginalConstructor()->getMock();
+        $mockSettings = $this->createMock(LocaleSettings::class);
         $mockSettings->expects($this->once())
             ->method('browserLanguageDetectionEnabled')
-            ->will($this->returnValue(false));
+            ->willReturn(false);
         $this->assertEquals(
             [
                 LocaleDetectorParamStrategy::class,

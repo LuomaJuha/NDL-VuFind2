@@ -3,7 +3,7 @@
 /**
  * Unit tests for RetrieveCommand.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindTest\Command;
 
 use PHPUnit\Framework\TestCase;
@@ -44,7 +45,7 @@ use VuFindSearch\ParamBag;
 class RetrieveCommandTest extends TestCase
 {
     /**
-     * Test that a supported backed behaves as expected
+     * Test that a supported backed behaves as expected.
      *
      * @return void
      */
@@ -52,23 +53,21 @@ class RetrieveCommandTest extends TestCase
     {
         $params = new ParamBag(['foo' => 'bar']);
         $backendId = 'bar';
-        $backend = $this->getMockBuilder(\VuFindSearch\Backend\Solr\Backend::class)
-            ->disableOriginalConstructor()->getMock();
-        $result = $this->getMockBuilder(\VuFindSearch\Response\RecordCollectionInterface::class)
-            ->getMock();
-        $command = new RetrieveCommand($backendId, "id", $params);
+        $backend = $this->createMock(\VuFindSearch\Backend\Solr\Backend::class);
+        $result = $this->createMock(\VuFindSearch\Response\RecordCollectionInterface::class);
+        $command = new RetrieveCommand($backendId, 'id', $params);
         $backend->expects($this->once())->method('getIdentifier')
-            ->will($this->returnValue($backendId));
+            ->willReturn($backendId);
         $backend->expects($this->once())->method('retrieve')
             ->with(
-                $this->equalTo('id'),
-                $this->equalTo($params)
-            )->will($this->returnValue($result));
+                'id',
+                $params
+            )->willReturn($result);
         $this->assertEquals($result, $command->execute($backend)->getResult());
     }
 
     /**
-     * Test getArguments method
+     * Test getArguments method.
      *
      * @return void
      */

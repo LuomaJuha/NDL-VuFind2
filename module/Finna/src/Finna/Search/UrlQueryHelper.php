@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Class to help build URLs and forms in the view based on search settings.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,19 +17,22 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Search;
 
 use Finna\Search\Solr\AuthorityHelper;
+
+use function is_array;
 
 /**
  * Class to help build URLs and forms in the view based on search settings.
@@ -38,7 +42,7 @@ use Finna\Search\Solr\AuthorityHelper;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class UrlQueryHelper extends \VuFind\Search\UrlQueryHelper
 {
@@ -112,10 +116,10 @@ class UrlQueryHelper extends \VuFind\Search\UrlQueryHelper
     /**
      * Sets search id in the params.
      *
-     * @param string  $class  Search class.
-     * @param int     $id     Search id or NULL if the current id for this
-     *                        search class should be removed.
-     * @param boolean $output Output query string?
+     * @param string $class  Search class.
+     * @param int    $id     Search id or NULL if the current id for this
+     *                       search class should be removed.
+     * @param bool   $output Output query string?
      *
      * @return string
      */

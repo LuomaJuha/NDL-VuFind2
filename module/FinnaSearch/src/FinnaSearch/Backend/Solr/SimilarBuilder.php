@@ -3,7 +3,7 @@
 /**
  * SOLR SimilarBuilder.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2016-2018.
@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -30,9 +30,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace FinnaSearch\Backend\Solr;
 
 use VuFindSearch\ParamBag;
+
+use function in_array;
+use function strlen;
 
 /**
  * SOLR SimilarBuilder.
@@ -49,7 +53,7 @@ use VuFindSearch\ParamBag;
 class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
 {
     /**
-     * Solr field used to store unique identifier
+     * Solr field used to store unique identifier.
      *
      * @var string
      */
@@ -64,42 +68,42 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
     protected $useHandler = false;
 
     /**
-     * MoreLikeThis Handler parameters
+     * MoreLikeThis Handler parameters.
      *
      * @var string
      */
     protected $handlerParams = '';
 
     /**
-     * Number of similar records to retrieve
+     * Number of similar records to retrieve.
      *
      * @var int
      */
     protected $count = 5;
 
     /**
-     * Boost multiplier for full string match when using the MoreLikeThis Handler
+     * Boost multiplier for full string match when using the MoreLikeThis Handler.
      *
      * @var string
      */
     protected $fullMatchBoostMultiplier = 10;
 
     /**
-     * Characters that need to be escaped in a Solr query
+     * Characters that need to be escaped in a Solr query.
      *
      * @var string
      */
     protected $escapedChars = '+-&|!(){}[]^"~*?:\\/';
 
     /**
-     * Stop words that are ignored
+     * Stop words that are ignored.
      *
      * @var array
      */
     protected $stopWords = ['and', 'not', 'the'];
 
     /**
-     * Whether to exclude other versions of the reference record from results
+     * Whether to exclude other versions of the reference record from results.
      *
      * @var bool
      */
@@ -108,14 +112,13 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
     /**
      * Constructor.
      *
-     * @param \Laminas\Config\Config $searchConfig Search config
-     * @param string                 $uniqueKey    Solr field used to store unique
-     * identifier
+     * @param ?\VuFind\Config\Config $searchConfig Search config
+     * @param string                 $uniqueKey    Solr field used to store unique identifier
      *
      * @return void
      */
     public function __construct(
-        \Laminas\Config\Config $searchConfig = null,
+        ?\VuFind\Config\Config $searchConfig = null,
         $uniqueKey = 'id'
     ) {
         $this->uniqueKey = $uniqueKey;
@@ -138,16 +141,15 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
     /// Public API
 
     /**
-     * Return SOLR search parameters based on interesting terms.
+     * Build SOLR search parameters based on interesting terms.
      *
-     * @param array $record Interesting terms to use in the query
+     * @param array    $record Interesting terms to use in the query
+     * @param ParamBag $params Query parameters
      *
-     * @return ParamBag
+     * @return void
      */
-    public function buildInterestingTermQuery($record)
+    public function buildInterestingTermQuery(array $record, ParamBag $params): void
     {
-        $params = new ParamBag();
-
         $boost = true;
         $settings = [];
         $specs = [
@@ -156,7 +158,7 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
             'callnumber-label^400',
             'topic^300',
             'language^30',
-            'author^75','publishDate'
+            'author^75','publishDate',
         ];
         if ($this->handlerParams) {
             if (preg_match('/boost=([^\s]+)/', $this->handlerParams, $matches)) {
@@ -176,28 +178,28 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
         }
         $query = [];
         foreach ($settings as $field => $boostValue) {
-            if (isset($record[$field])) {
-                $count = 0;
-                foreach ((array)$record[$field] as $values) {
-                    if (strlen($values) < 3) {
+            $count = 0;
+            foreach ((array)($record[$field] ?? []) as $values) {
+                if (strlen($values) < 3) {
+                    continue;
+                }
+                $escaped = addcslashes($values, $this->escapedChars);
+                $fullBoost = $this->fullMatchBoostMultiplier * $boostValue;
+                $query[] = "$field:($escaped)^$fullBoost";
+                $rest = explode(' ', $values);
+                array_shift($rest);
+                foreach ($rest as $value) {
+                    if (strlen($value) < 3) {
                         continue;
                     }
-                    $escaped = addcslashes($values, $this->escapedChars);
-                    $fullBoost = $this->fullMatchBoostMultiplier * $boostValue;
-                    $query[] = "$field:($escaped)^$fullBoost";
-                    foreach (explode(' ', $values) as $value) {
-                        if (strlen($value) < 3) {
-                            continue;
-                        }
-                        $valueLower = mb_strtolower($value, 'UTF-8');
-                        if (in_array($valueLower, $this->stopWords)) {
-                            continue;
-                        }
-                        $escaped = addcslashes($value, $this->escapedChars);
-                        $query[] = "$field:($escaped)^$boostValue";
-                        if (++$count > 15) {
-                            break;
-                        }
+                    $valueLower = mb_strtolower($value, 'UTF-8');
+                    if (in_array($valueLower, $this->stopWords)) {
+                        continue;
+                    }
+                    $escaped = addcslashes($value, $this->escapedChars);
+                    $query[] = "$field:($escaped)^$boostValue";
+                    if (++$count > 15) {
+                        break;
                     }
                 }
             }
@@ -205,6 +207,7 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
         if (!$query) {
             $queryStr = 'noproperinterestingtermsfound';
         } else {
+            $query = array_unique($query);
             $queryStr = implode(' OR ', $query);
             if ($this->excludeOtherVersions) {
                 // Filter out records with same work keys
@@ -224,8 +227,6 @@ class SimilarBuilder extends \VuFindSearch\Backend\Solr\SimilarBuilder
         if (null === $params->get('rows')) {
             $params->set('rows', $this->count);
         }
-
-        return $params;
     }
 
     /**

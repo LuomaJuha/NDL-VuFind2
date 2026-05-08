@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Organisation info factory.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  * Copyright (C) The National Library of Finland 2019-2023.
@@ -17,16 +18,18 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
+ * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\OrganisationInfo;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -42,13 +45,14 @@ use Psr\Container\ContainerInterface;
  * @package  Service
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
+ * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
 class OrganisationInfoFactory implements FactoryInterface
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -64,18 +68,20 @@ class OrganisationInfoFactory implements FactoryInterface
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
         if (!empty($options)) {
             throw new \Exception('Unexpected options passed to factory.');
         }
-        return new $requestedName(
-            $container->get(\VuFind\Config\PluginManager::class)
-                ->get('OrganisationInfo'),
+        $result = new $requestedName(
+            $container->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('OrganisationInfo'),
             $container->get(\VuFind\Cache\Manager::class),
-            $container->get('ViewRenderer'),
-            $container->get(\VuFind\Date\Converter::class),
-            $container->get('ControllerPluginManager')->get('url')
+            $container->get(\VuFind\Search\Results\PluginManager::class),
+            $container->get(\VuFind\Search\Solr\HierarchicalFacetHelper::class),
+            $container->get(\Finna\OrganisationInfo\Provider\Kirkanta::class),
+            $container->get(\Finna\OrganisationInfo\Provider\MuseotFi::class),
         );
+        $result->setSorter($container->get(\VuFind\I18n\Sorter::class));
+        return $result;
     }
 }

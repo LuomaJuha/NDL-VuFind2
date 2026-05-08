@@ -7,7 +7,7 @@
           'results' => $this->results,
           'params' => $this->params,
           'indexStart' => $this->indexStart,
-          'hideCartControls' => true
+          'hideCartControls' => true,
         ];
         if (!isset($this->layout()->templateDir)) {
           // This needs to be set so that list notes are shown
@@ -23,25 +23,25 @@
               $transParams = [
                 '%%start%%' => 1,
                 '%%end%%' => $limit,
-                '%%total%%' => $this->localizedNumber($this->total)
+                '%%total%%' => $this->localizedNumber($this->total),
               ];
             ?>
             <?=$this->translate('showing_results_of_html', $transParams)?>
           </div>
           <button class="btn btn-outline-primary load-more" aria-label="<?= $this->transEscAttr('See all')?>" data-id="<?= $this->escapeHtmlAttr($this->id)?>" data-start-index="<?= $this->escapeHtmlAttr($this->indexStart + $limit)?>" data-offset="<?= $this->escapeHtmlAttr($limit + 1)?>" data-view="<?= $this->escapeHtmlAttr($this->view)?>"<?= $this->sort ? (' data-sort="' . $this->escapeHtmlAttr($this->sort) . '"') : ''?>><?= $this->transEsc('See all'); ?></button>
-          <i class="fa fa-spinner fa-spin hide"></i>
+          <?= $this->icon('spinner', 'js-spinner-icon hide') ?>
         </div>
       <?php endif; ?>
     </div>
   </div>
   <?php
-    $this->headScript()->appendFile('finna-encapsulated-records.js');
+    $this->assetManager()->appendScriptLink('finna-encapsulated-records.js');
     $js = <<<JS
-$(document).ready(function(){
-  finna.encapsulatedRecords.init();
-});
-JS;
-    $this->headScript()->appendScript($js);
+        $(document).ready(function(){
+          finna.encapsulatedRecords.init();
+        });
+        JS;
+    $this->assetManager()->appendScriptString($js);
   ?>
 <?php endif; ?>
 <!-- END of: finna - RecordDriver/DefaultRecord/encapsulated-records.phtml -->

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Custom element block node
+ * Custom element block node.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  CommonMark
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\CommonMark\Node\Block;
 
 use League\CommonMark\Node\Block\AbstractBlock;
 use League\CommonMark\Node\Node;
 
 /**
- * Custom element block node
+ * Custom element block node.
  *
  * @category VuFind
  * @package  CommonMark
@@ -42,28 +44,28 @@ use League\CommonMark\Node\Node;
 class CustomElement extends AbstractBlock
 {
     /**
-     * Custom element name
+     * Custom element name.
      *
      * @var string
      */
     protected string $name;
 
     /**
-     * Opening tag
+     * Opening tag.
      *
      * @var string
      */
     protected string $openingTag;
 
     /**
-     * Can the custom element be server-side rendered
+     * Can the custom element be server-side rendered.
      *
      * @var bool
      */
     protected bool $canSsr;
 
     /**
-     * Is the block closed
+     * Is the block closed.
      *
      * @var bool
      */
@@ -89,7 +91,7 @@ class CustomElement extends AbstractBlock
     }
 
     /**
-     * Get custom element name
+     * Get custom element name.
      *
      * @return string
      */
@@ -99,7 +101,7 @@ class CustomElement extends AbstractBlock
     }
 
     /**
-     * Get custom element opening tag
+     * Get custom element opening tag.
      *
      * @return string
      */
@@ -109,18 +111,18 @@ class CustomElement extends AbstractBlock
     }
 
     /**
-     * Should the custom element be server-side rendered
+     * Should the custom element be server-side rendered.
      *
      * @return bool
      */
-    public function shouldSsr():  bool
+    public function shouldSsr(): bool
     {
         return $this->canSsr
-            && false === strpos($this->openingTag, 'ssr="false"');
+            && !str_contains($this->openingTag, 'ssr="false"');
     }
 
     /**
-     * Is the block closed
+     * Is the block closed.
      *
      * @return bool
      */

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Admin Api Controller
+ * Admin Api Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2017.
  *
@@ -26,7 +27,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace FinnaApi\Controller;
+
+use VuFind\Service\Feature\RetryTrait;
+
+use function ini_get;
 
 /**
  * Provides web api for different admin tasks.
@@ -40,6 +46,49 @@ namespace FinnaApi\Controller;
  */
 class AdminApiController extends \VuFindApi\Controller\AdminApiController
 {
+    use RetryTrait;
+
+    /**
+     * Clear the cache.
+     *
+     * @return \Laminas\Http\Response
+     */
+    public function clearCacheAction()
+    {
+        $this->disableSessionWrites();
+        $this->determineOutputMode();
+
+        if ($result = $this->isAccessDenied($this->cacheAccessPermission)) {
+            return $result;
+        }
+
+        // Check time limit; increase if necessary:
+        if (ini_get('max_execution_time') < 3600) {
+            ini_set('max_execution_time', '3600');
+        }
+
+        try {
+            $cacheList = $this->getRequest()->getQuery()->get('id')
+                ?: $this->getDefaultCachesToClear();
+            foreach ((array)$cacheList as $id) {
+                // Try a couple of times in case we fail to remove something due to a race condition:
+                $this->callWithRetry(
+                    [$this->cacheManager->getCache($id), 'flush'],
+                    options: [
+                        'retryCount' => 10,
+                        'firstBackoff' => 0,
+                        'subsequentBackoff' => 0,
+                        'exponentialBackoff' => false,
+                    ]
+                );
+            }
+        } catch (\Exception $e) {
+            return $this->output([], self::STATUS_ERROR, 500, (string)$e);
+        }
+
+        return $this->output([], self::STATUS_OK);
+    }
+
     /**
      * Returns available core record fields as an associative array of
      * cssClass => translated label pairs.
@@ -61,10 +110,31 @@ class AdminApiController extends \VuFindApi\Controller\AdminApiController
             }
             $data[] = [
                 'label' => $this->translate($key),
-                'class' => $val['context']['class']
+                'class' => $val['context']['class'],
             ];
         }
 
         return $this->output(['fields' => $data], self::STATUS_OK);
+    }
+
+    /**
+     * Returns list of organisations.
+     *
+     * @return \Laminas\Http\Response
+     */
+    public function organisationListAction(): \Laminas\Http\Response
+    {
+        $this->disableSessionWrites();
+        $this->determineOutputMode();
+
+        $organisationInfo = $this->serviceLocator->get(
+            \Finna\OrganisationInfo\OrganisationInfo::class
+        );
+        return $this->output(
+            [
+                'data' => $organisationInfo->getOrganisationsList(),
+            ],
+            self::STATUS_OK
+        );
     }
 }

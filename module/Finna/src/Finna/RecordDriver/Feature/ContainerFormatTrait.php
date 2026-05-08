@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Common functionality for container record formats.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2022.
+ * Copyright (C) The National Library of Finland 2022-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -25,11 +26,20 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver\Feature;
 
 use Finna\Record\Loader;
+use Finna\RecordDriver\CuratedRecord;
+use Finna\RecordDriver\CuratedRecordList;
 use Finna\RecordDriver\PluginManager;
+use FinnaXml\XmlDoc;
 use VuFind\RecordDriver\AbstractBase;
+use VuFindSearch\ParamBag;
+use VuFindSearch\Response\RecordInterface;
+
+use function count;
+use function is_callable;
 
 /**
  * Common functionality for container record formats.
@@ -42,6 +52,20 @@ use VuFind\RecordDriver\AbstractBase;
  */
 trait ContainerFormatTrait
 {
+    /**
+     * Aipa XML namespace.
+     *
+     * @var string
+     */
+    protected string $aipaNs = 'http://finna.fi/ns/aipa/';
+
+    /**
+     * LRMI XML namespace.
+     *
+     * @var string
+     */
+    protected string $lrmiNs = 'http://dublincore.org/dcx/lrmi-terms/1.1/';
+
     /**
      * Cache for encapsulated records.
      *
@@ -114,6 +138,7 @@ trait ContainerFormatTrait
             }
             $results[] = $this->getCachedEncapsulatedRecordDriver($p);
         }
+        $this->loadNeededRecords($results);
         return $results;
     }
 
@@ -122,15 +147,28 @@ trait ContainerFormatTrait
      *
      * @param string $id Encapsulated record ID
      *
-     * @return ?AbstractBase
+     * @return ?RecordInterface
      * @throws \RuntimeException If the format is not supported
      */
-    public function getEncapsulatedRecord(string $id): ?AbstractBase
+    public function getEncapsulatedRecord(string $id): ?RecordInterface
     {
         $cache = $this->getEncapsulatedRecordCache();
         foreach ($cache as $position => $record) {
             if ($id === $record['id']) {
-                return $this->getCachedEncapsulatedRecordDriver($position);
+                $driver = $this->getCachedEncapsulatedRecordDriver($position);
+                if (
+                    $driver instanceof EncapsulatedRecordInterface
+                    && $needed = $driver->needsRecordLoaded()
+                ) {
+                    $loadedRecord = $this->recordLoader->load(
+                        $needed['id'],
+                        $needed['source'],
+                        true,
+                        new ParamBag(['finna.ignore_source_filter' => 1])
+                    );
+                    $driver->setLoadedRecord($loadedRecord);
+                }
+                return $driver;
             }
         }
         return null;
@@ -147,32 +185,32 @@ trait ContainerFormatTrait
     }
 
     /**
+     * Returns the tag name of XML elements containing an encapsulated record.
+     *
+     * @return string
+     */
+    protected function getEncapsulatedRecordElementTagName(): string
+    {
+        return "{{$this->aipaNs}}item";
+    }
+
+    /**
      * Return all encapsulated record items.
      *
      * @return array
      */
     protected function getEncapsulatedRecordItems(): array
     {
-        // Implementation for XML items in 'item' elements
+        // Implementation for XML items
         $items = [];
-        $xml = $this->getXmlRecord();
-        foreach ($xml->item as $item) {
+        $xml = $this->getXmlReader();
+        $tagName = $this->getEncapsulatedRecordElementTagName();
+        foreach ($xml->all(path: $tagName) as $node) {
+            $item = new XmlDoc();
+            $item->import($xml->export($node));
             $items[] = $item;
         }
         return $items;
-    }
-
-    /**
-     * Return ID for an encapsulated record.
-     *
-     * @param mixed $item Encapsulated record item.
-     *
-     * @return string
-     */
-    protected function getEncapsulatedRecordId($item): string
-    {
-        // Implementation for XML items with ID specified in an 'id' element
-        return (string)$item->id;
     }
 
     /**
@@ -185,15 +223,15 @@ trait ContainerFormatTrait
      */
     protected function getEncapsulatedRecordFormat($item): string
     {
-        // Implementation for XML items with format specified in a 'format' element
-        if (isset($item->format)) {
-            return ucfirst(strtolower((string)$item->format));
+        // Implementation for XmlDoc items with format specified in a 'format' attribute
+        if (null !== ($format = $item->attr($item->root(), 'format'))) {
+            return ucfirst(strtolower((string)$format));
         }
         throw new \RuntimeException('Unable to determine format');
     }
 
     /**
-     * Return position for an encapsulated record, or null for unspecified position
+     * Return position for an encapsulated record, or null for unspecified position.
      *
      * @param mixed $item Encapsulated record item
      *
@@ -201,12 +239,30 @@ trait ContainerFormatTrait
      */
     protected function getEncapsulatedRecordPosition($item): ?int
     {
-        // Implementation for XML items with position optionally specified in a
-        // 'position' element
-        if (isset($item->position)) {
-            return (int)$item->position;
-        }
-        return null;
+        // Implementation for XmlDoc items with position optionally specified in a
+        // 'position' attribute or element
+        $position = $item->attr($item->root(), "{{$this->aipaNs}}position")
+            ?? $item->firstValue(path: "{{$this->lrmiNs}}position")
+            ?? null;
+        return null !== $position
+            ? (int)$position
+            : null;
+    }
+
+    /**
+     * Return encapsulated record view type.
+     *
+     * @return string
+     */
+    public function getEncapsulatedRecordViewType(): string
+    {
+        // Implementation for XML records with view type optionally specified in a
+        // 'display' attribute or element
+        $xml = $this->getXmlRecord();
+        $display = $xml->attributes()->{'display'}
+            ?? $xml->display
+            ?? 'grid';
+        return (string)($display);
     }
 
     /**
@@ -233,9 +289,6 @@ trait ContainerFormatTrait
      * The cache is an array of arrays with the following keys:
      * - id: Record ID
      * - item: Record item
-     *
-     * and if the driver has been loaded using
-     * ContainerFormatTrait::getCachedEncapsulatedRecordDriver():
      * - driver: VuFind record driver
      *
      * @return array
@@ -248,12 +301,14 @@ trait ContainerFormatTrait
 
         $records = [];
         foreach ($this->getEncapsulatedRecordItems() as $item) {
+            $driver = $this->getEncapsulatedRecordDriver($item);
             $record = [
-                'id' => $this->getEncapsulatedRecordId($item),
+                'id' => $driver->getUniqueId(),
                 'item' => $item,
+                'driver' => $driver,
             ];
             // Position is optional
-            if ($position = $this->getEncapsulatedRecordPosition($item)) {
+            if (null !== ($position = $this->getEncapsulatedRecordPosition($item))) {
                 $records[$position] = $record;
             } else {
                 $records[] = $record;
@@ -279,20 +334,173 @@ trait ContainerFormatTrait
      */
     protected function getCachedEncapsulatedRecordDriver(
         int $position
-    ): ?AbstractBase {
+    ): ?EncapsulatedRecordInterface {
         // Ensure cache is warm
         $cache = $this->getEncapsulatedRecordCache();
-        // Ensure position is valid
-        if (!isset($cache[$position])) {
-            return null;
+        return $cache[$position]['driver'] ?? null;
+    }
+
+    /**
+     * Loads any records needed by encapsulated record drivers to be loaded.
+     *
+     * @param array $records Record drivers
+     *
+     * @return void
+     */
+    protected function loadNeededRecords(array $records): void
+    {
+        // Maps records that need to be loaded to the provided record drivers in case
+        // multiple provided record drivers need the same record to be loaded.
+        $neededMap = [];
+        // Deduplicated list of records that need to be loaded so that the same
+        // record won't be loaded more than once.
+        $ids = [];
+        foreach ($records as $i => $record) {
+            if (
+                $record instanceof EncapsulatedRecordInterface
+                && $needed = $record->needsRecordLoaded()
+            ) {
+                $source = $needed['source'];
+                if (!isset($neededMap[$source][$needed['id']])) {
+                    $neededMap[$source][$needed['id']] = [];
+                }
+                $neededMap[$source][$needed['id']][] = $i;
+                $alreadyAdded = false;
+                foreach ($ids as $existing) {
+                    if ($existing === $needed) {
+                        $alreadyAdded = true;
+                        break;
+                    }
+                }
+                if (!$alreadyAdded) {
+                    $ids[] = $needed;
+                }
+            }
         }
-        // Try to get driver from cache
-        if (!$driver = $cache[$position]['driver'] ?? null) {
-            // Not in cache so get driver and add it to cache
-            $driver
-                = $this->encapsulatedRecordCache[$position]['driver']
-                    = $this->getEncapsulatedRecordDriver($cache[$position]['item']);
+        if (!empty($ids)) {
+            // Load needed records and call the setLoadedRecord() method of the
+            // respective record driver in the provided array.
+            $loadedRecords = $this->recordLoader->loadBatchIgnoringSourceFilter($ids);
+            foreach ($loadedRecords as $loadedRecord) {
+                $loadedSource = $loadedRecord->getSourceIdentifier();
+                $loadedId = $loadedRecord->getUniqueID();
+                foreach ($neededMap[$loadedSource][$loadedId] ?? [] as $i) {
+                    $records[$i]->setLoadedRecord($loadedRecord);
+                }
+                if ($previousId = $loadedRecord->tryMethod('getPreviousUniqueID')) {
+                    foreach ($neededMap[$loadedSource][$previousId] ?? [] as $i) {
+                        $records[$i]->setLoadedRecord($loadedRecord);
+                    }
+                }
+            }
         }
+    }
+
+    /**
+     * Filter encapsulated records of this format for public APIs.
+     *
+     * @param XmlDoc $record Container record XML.
+     *
+     * @return XmlDoc
+     */
+    protected function filterEncapsulatedRecords(XmlDoc $record): XmlDoc
+    {
+        // Update encapsulated record data with their filtered documents:
+        $encapsulatedTagLocalName = $record->localName($this->getEncapsulatedRecordElementTagName());
+        $record->modify(
+            function (&$node) use ($record, $encapsulatedTagLocalName): void {
+                if ($record->localName($node) === $encapsulatedTagLocalName) {
+                    $childDoc = new XmlDoc();
+                    $childDoc->import($record->export($node));
+                    $encapsulatedRecord = $this->getEncapsulatedRecord(
+                        $this->getEncapsulatedRecordDriver($childDoc)->getUniqueID()
+                    );
+                    if (is_callable([$encapsulatedRecord, 'getFilteredXMLElement'])) {
+                        $filtered = $encapsulatedRecord->getFilteredXMLElement();
+                        $record->replaceChildren($node, $filtered);
+                    }
+                }
+            }
+        );
+        return $record;
+    }
+
+    /**
+     * Return full record as a filtered XmlDoc for public APIs.
+     *
+     * @return XmlDoc
+     */
+    public function getFilteredXMLElement(): XmlDoc
+    {
+        $record = clone $this->getXmlReader();
+        return $this->filterEncapsulatedRecords($record);
+    }
+
+    /**
+     * Return full record as filtered XML for public APIs.
+     *
+     * @return string
+     */
+    public function getFilteredXML()
+    {
+        return $this->getFilteredXMLElement()->toXML();
+    }
+
+    /**
+     * Return record driver instance for an encapsulated curated record.
+     *
+     * @param XmlDoc $item Curated record item XML
+     *
+     * @return CuratedRecord
+     *
+     * @see ContainerFormatTrait::getEncapsulatedRecordDriver()
+     */
+    protected function getCuratedRecordDriver(XmlDoc $item): CuratedRecord
+    {
+        /* @var CuratedRecord $driver */
+        $driver = $this->recordDriverManager->get('CuratedRecord');
+
+        $driver->setContainerRecord($this);
+
+        $data = [
+            'id' => $item->firstValue(path: "{{$this->aipaNs}}identifier"),
+            'notes' => $item->firstValue(path: "{{$this->aipaNs}}comment"),
+            'fullrecord' => $item->toXML(),
+        ];
+
+        $driver->setRawData($data);
+
+        return $driver;
+    }
+
+    /**
+     * Return record driver instance for an encapsulated curated record list.
+     *
+     * @param XmlDoc $item Curated record list item XML
+     *
+     * @return CuratedRecordList
+     *
+     * @see ContainerFormatTrait::getEncapsulatedRecordDriver()
+     */
+    protected function getCuratedRecordListDriver(XmlDoc $item): CuratedRecordList
+    {
+        /* @var CuratedRecordList $driver */
+        $driver = $this->recordDriverManager->get('CuratedRecordList');
+
+        $driver->setContainerRecord($this);
+
+        $data = [
+            'id' => $this->getUniqueID()
+                . ContainerFormatInterface::ENCAPSULATED_RECORD_ID_SEPARATOR
+                . $item->firstValue(path: "{{$this->aipaNs}}identifier"),
+            'title' => $item->firstValue(path: "{{$this->aipaNs}}name"),
+            'description' => $item->firstValue(path: "{{$this->aipaNs}}description"),
+            'additionalType' => $item->firstValue(path: "{{$this->aipaNs}}additionalType"),
+            'fullrecord' => $item->toXML(),
+        ];
+
+        $driver->setRawData($data);
+
         return $driver;
     }
 }

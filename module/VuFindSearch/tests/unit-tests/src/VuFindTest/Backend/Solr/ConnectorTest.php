@@ -3,7 +3,7 @@
 /**
  * Unit tests for SOLR connector.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -27,6 +27,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindTest\Backend\Solr;
 
 use InvalidArgumentException;
@@ -49,6 +50,7 @@ use VuFindSearch\Backend\Solr\HandlerMap;
 class ConnectorTest extends TestCase
 {
     use \VuFindTest\Feature\FixtureTrait;
+    use \VuFindTest\Feature\WithConsecutiveTrait;
 
     /**
      * Current response.
@@ -68,7 +70,7 @@ class ConnectorTest extends TestCase
         $resp = $conn->retrieve('id');
         $this->assertIsString($resp);
         json_decode($resp, true);
-        $this->assertEquals(\JSON_ERROR_NONE, json_last_error());
+        $this->assertSame(\JSON_ERROR_NONE, json_last_error());
     }
 
     /**
@@ -94,7 +96,7 @@ class ConnectorTest extends TestCase
         $this->expectExceptionCode(500);
 
         $conn = $this->createConnector('internal-server-error');
-        $resp = $conn->retrieve('id');
+        $conn->retrieve('id');
     }
 
     /**
@@ -108,7 +110,7 @@ class ConnectorTest extends TestCase
         $this->expectExceptionCode(400);
 
         $conn = $this->createConnector('bad-request');
-        $resp = $conn->retrieve('id');
+        $conn->retrieve('id');
     }
 
     /**
@@ -124,13 +126,12 @@ class ConnectorTest extends TestCase
             ->onlyMethods(['setEncType', 'setRawBody'])
             ->getMock();
         // The client will be reset before it is given the expected mime type:
-        $client->expects($this->exactly(2))->method('setEncType')
-            ->withConsecutive(['application/x-www-form-urlencoded'], ['text/csv']);
+        $this->expectConsecutiveCalls($client, 'setEncType', [['application/x-www-form-urlencoded'], ['text/csv']]);
         $client->expects($this->once())->method('setRawBody')
-            ->with($this->equalTo($csvData));
+            ->with($csvData);
         $conn = $this->getConnectorMock(['send'], $client);
         $conn->expects($this->once())->method('send')
-            ->with($this->equalTo($client));
+            ->with($client);
         $csv = new \VuFindSearch\Backend\Solr\Document\RawCSVDocument($csvData);
         $conn->write($csv, 'csv');
     }
@@ -148,15 +149,19 @@ class ConnectorTest extends TestCase
             ->onlyMethods(['setEncType', 'setRawBody'])
             ->getMock();
         // The client will be reset before it is given the expected mime type:
-        $client->expects($this->exactly(2))->method('setEncType')->withConsecutive(
-            ['application/x-www-form-urlencoded'],
-            ['application/json']
+        $this->expectConsecutiveCalls(
+            $client,
+            'setEncType',
+            [
+                ['application/x-www-form-urlencoded'],
+                ['application/json'],
+            ]
         );
         $client->expects($this->once())->method('setRawBody')
-            ->with($this->equalTo($jsonData));
+            ->with($jsonData);
         $conn = $this->getConnectorMock(['send'], $client);
         $conn->expects($this->once())->method('send')
-            ->with($this->equalTo($client));
+            ->with($client);
         $json = new \VuFindSearch\Backend\Solr\Document\RawJSONDocument($jsonData);
         $conn->write($json, 'json');
     }
@@ -181,7 +186,7 @@ class ConnectorTest extends TestCase
         $cache->expects($this->exactly(1))
             ->method('setItem')
             ->with($keyConstraint, $expectedBody)
-            ->will($this->returnValue(true));
+            ->willReturn(true);
 
         $conn->setCache($cache);
 
@@ -248,13 +253,13 @@ class ConnectorTest extends TestCase
         $resp = $conn->callWithHttpOptions([], 'retrieve', 'id');
         $this->assertIsString($resp);
         json_decode($resp, true);
-        $this->assertEquals(\JSON_ERROR_NONE, json_last_error());
+        $this->assertSame(\JSON_ERROR_NONE, json_last_error());
 
         // Normal request with options:
         $resp = $conn->callWithHttpOptions(['timeout' => 60], 'retrieve', 'id');
         $this->assertIsString($resp);
         json_decode($resp, true);
-        $this->assertEquals(\JSON_ERROR_NONE, json_last_error());
+        $this->assertSame(\JSON_ERROR_NONE, json_last_error());
 
         // Try to call a protected method:
         $this->expectException(
@@ -264,7 +269,7 @@ class ConnectorTest extends TestCase
     }
 
     /**
-     * Test that making a request calls the HTTP client factory
+     * Test that making a request calls the HTTP client factory.
      *
      * @return void
      */
@@ -273,8 +278,7 @@ class ConnectorTest extends TestCase
         $this->response
             = $this->getFixture('solr/response/single-record', 'VuFindSearch');
 
-        $httpService = $this->getMockBuilder(\VuFindHttp\HttpService::class)
-            ->getMock();
+        $httpService = $this->createMock(\VuFindHttp\HttpService::class);
         $httpService->expects($this->once())
             ->method('createClient')
             ->with('http://localhost/select?q=id%3A%221%22')
@@ -338,7 +342,7 @@ class ConnectorTest extends TestCase
                         // If client is provided, return it since it may have test
                         // expectations:
                         return $client ?? new \Laminas\Http\Client();
-                    }
+                    },
                 ]
             )
             ->getMock();

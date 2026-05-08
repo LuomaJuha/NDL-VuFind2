@@ -2,14 +2,20 @@
 <?php
   // Set page title.
   $this->headTitle($this->translate('Search History'));
+  $this->layout()->finnaUserAccountHeading = 'useraccount-content-heading';
 
   $saveSupported = $this->accountCapabilities()->getSavedSearchSetting() === 'enabled';
+  $loggedInUser = $this->auth()->getUserObject();
 
-  $layoutLoggedIn = $saveSupported && $this->auth()->isLoggedIn();
-  // Set up myresearch menu
-  // Set up breadcrumbs:
-  $this->layout()->breadcrumbs = '<li><a href="' . $this->url('myresearch-home') . '">' . $this->transEsc('Your Account') . '</a></li>'
-    . '<li class="active">' . $this->transEsc('History') . '</li>';
+  $layoutLoggedIn = $saveSupported && $loggedInUser;
+
+  // Set up breadcrumbs; hide the account breadcrumb when login is disabled:
+  $account = $this->auth()->getManager();
+  $this->breadcrumbs()->reset();
+  if (is_object($account) && $account->loginEnabled()) {
+    $this->breadcrumbs()->add($this->translate('Your Account'), $this->url('myresearch-home'));
+  }
+  $this->breadcrumbs()->add($this->translate('Search History'), active: true);
 
   // Check for scheduled searches
   $scheduledSearches = false;
@@ -23,7 +29,7 @@
 
 <?php if ($layoutLoggedIn): ?>
   <!-- Leftside navigationbar -->
-  <?= $this->context($this)->renderInContext("myresearch/menu.phtml", ['active' => 'history']); ?>
+  <?= $this->context($this)->renderInContext('myresearch/menu.phtml', ['active' => 'history']); ?>
 <?php endif; ?>
 
 <div class="<?=$layoutLoggedIn ? $this->layoutClass('mainbody-myresearch') : $this->layoutClass('mainbody-myresearch-no-menu')?>">
@@ -31,27 +37,49 @@
     <?php if ($scheduledSearches): ?>
       <?php if ($this->alertemail): ?>
         <div class="alert alert-info alert-email-notification">
-          <?=$this->transEsc("alert_email_address") . ': ' . $this->escapeHtml($this->alertemail) . ' (';?><a href="<?=$this->url('myresearch-profile', [], ['fragment' => 'profile-settings']);?>"><?=$this->transEsc("edit");?></a>)
+          <?=$this->transEsc('alert_email_address') . ': ' . $this->escapeHtml($this->alertemail) . ' (';?><a href="<?=$this->url('myresearch-profile', [], ['fragment' => 'profile-settings']);?>"><?=$this->transEsc('edit');?></a>)
         </div>
-      <?php elseif ($this->auth()->isLoggedIn()): ?>
+      <?php elseif ($loggedInUser): ?>
         <div class="alert alert-danger alert-email-notification">
-          <?=$this->transEsc("no_email_address") . ' ';?><a href="<?=$this->url('myresearch-profile', [], ['fragment' => 'profile-settings']);?>"><?=$this->transEsc("check_profile");?></a>
+          <?=$this->transEsc('no_email_address') . ' ';?><a href="<?=$this->url('myresearch-profile', [], ['fragment' => 'profile-settings']);?>"><?=$this->transEsc('check_profile');?></a>
         </div>
       <?php endif; ?>
     <?php endif; ?>
     <?=$this->flashmessages();?>
-    <?php if ($saveSupported && !empty($this->saved)): ?>
-      <h2><?=$this->transEsc("history_saved_searches")?></h2>
-      <?=$this->context()->renderInContext('search/history-table.phtml', ['showSaved' => true]);?>
+    <?php if ($saveSupported): ?>
+      <div id="useraccount-content-heading" class="useraccount-header" tabindex="0">
+        <h2><?=$this->transEsc('history_saved_searches')?></h2>
+        <?php if (!$this->translationEmpty('tooltip_myaccount_search_history_saved_html')): ?>
+          <button class="tooltip-myaccount" aria-label="<?=$this->transEsc('Tips')?>" data-bs-toggle="tooltip" data-bs-placement="bottom" data-html="true" data-original-title="<?=$this->transEsc('tooltip_myaccount_search_history_saved_html')?>"><?=$this->icon('help')?></button>
+        <?php endif; ?>
+      </div>
+      <?=$this->component('finna-addition-template', ['template' => 'search-history-saved-pre-list'])?>
+      <?php if (!empty($this->saved)): ?>
+        <?=$this->context()->renderInContext('search/history-table.phtml', ['showSaved' => true]);?>
+        <?=$this->component('finna-addition-template', ['template' => 'search-history-saved-post-list'])?>
+      <?php else: ?>
+        <?=
+          $loggedInUser
+            ? $this->transEsc('history_no_saved_searches')
+            : $this->translate('history_login_html', ['%%url%%' => '?require_login'])
+        ?>
+      <?php endif; ?>
     <?php endif; ?>
 
-    <h2><?=$this->transEsc("history_recent_searches")?></h2>
+    <div class="useraccount-header" tabindex="0">
+      <h2><?=$this->transEsc('history_recent_searches')?></h2>
+      <?php if (!$this->translationEmpty('tooltip_myaccount_search_history_recent_html')): ?>
+        <button class="tooltip-myaccount" aria-label="<?=$this->transEsc('Tips')?>" data-bs-toggle="tooltip" data-bs-placement="bottom" data-html="true" data-original-title="<?=$this->transEsc('tooltip_myaccount_search_history_recent_html')?>"><?=$this->icon('help')?></button>
+      <?php endif; ?>
+    </div>
+    <?=$this->component('finna-addition-template', ['class' => 'search-history-recent-pre-list', 'template' => 'search-history-recent-pre-list'])?>
     <?php if (!empty($this->unsaved)): ?>
       <?=$this->context()->renderInContext('search/history-table.phtml', ['showSaved' => false]);?>
-      <p class="text-right"><a href="?purge=true"><i class="fa fa-button fa-remove" aria-hidden="true"></i> <?=$this->transEsc("history_purge")?></a></p>
-      <br/>
+      <p class="text-right"><a href="?purge=true"><?=$this->icon('remove') ?> <?=$this->transEsc('history_purge')?></a></p>
+      <br>
+      <?=$this->component('finna-addition-template', ['class' => 'search-history-recent-post-list', 'template' => 'search-history-recent-post-list'])?>
     <?php else: ?>
-      <h4><?=$this->transEsc("history_no_searches")?></h4>
+      <h4><?=$this->transEsc('history_no_searches')?></h4>
       <br>
     <?php endif; ?>
   </div>

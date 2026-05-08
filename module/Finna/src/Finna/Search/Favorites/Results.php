@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Favorites aspect of the Search Multi-class (Results)
+ * Favorites aspect of the Search Multi-class (Results).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Favorites
@@ -25,16 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Favorites;
 
-use VuFind\Db\Table\Resource as ResourceTable;
-use VuFind\Db\Table\UserList as ListTable;
-use VuFind\Db\Table\UserResource as UserResourceTable;
-use VuFind\Record\Loader;
-use VuFindSearch\Service as SearchService;
+use Finna\Db\Service\UserListServiceInterface;
+use VuFind\Db\Entity\UserListEntityInterface;
+
+use function assert;
+use function intval;
 
 /**
- * Search Favorites Results
+ * Search Favorites Results.
  *
  * @category VuFind
  * @package  Search_Favorites
@@ -44,42 +46,6 @@ use VuFindSearch\Service as SearchService;
  */
 class Results extends \VuFind\Search\Favorites\Results
 {
-    /**
-     * UserResource table
-     *
-     * @var UserResourceTable
-     */
-    protected $userResourceTable;
-
-    /**
-     * Constructor
-     *
-     * @param \VuFind\Search\Base\Params $params            Object representing user
-     * search parameters.
-     * @param SearchService              $searchService     Search service
-     * @param Loader                     $recordLoader      Record loader
-     * @param ResourceTable              $resourceTable     Resource table
-     * @param ListTable                  $listTable         UserList table
-     * @param UserResourceTable          $userResourceTable UserResource table
-     */
-    public function __construct(
-        \VuFind\Search\Base\Params $params,
-        SearchService $searchService,
-        Loader $recordLoader,
-        ResourceTable $resourceTable,
-        ListTable $listTable,
-        UserResourceTable $userResourceTable
-    ) {
-        parent::__construct(
-            $params,
-            $searchService,
-            $recordLoader,
-            $resourceTable,
-            $listTable
-        );
-        $this->userResourceTable = $userResourceTable;
-    }
-
     /**
      * Support method for performAndProcessSearch -- perform a search based on the
      * parameters passed to the object.
@@ -91,9 +57,12 @@ class Results extends \VuFind\Search\Favorites\Results
         $list = $this->getListObject();
         $sort = $this->getParams()->getSort();
 
-        if ($sort == 'custom_order'
+        assert($this->userListService instanceof UserListServiceInterface);
+
+        if (
+            $sort == 'custom_order'
             && (empty($list)
-            || !$this->userResourceTable->isCustomOrderAvailable($list->id))
+            || !$this->userListService->isCustomOrderAvailable($list))
         ) {
             $sort = 'id desc';
         }
@@ -133,9 +102,9 @@ class Results extends \VuFind\Search\Favorites\Results
      * Get the list object associated with the current search (null if no list
      * selected).
      *
-     * @return \VuFind\Db\Row\UserList|null
+     * @return ?UserListEntityInterface
      */
-    public function getListObject()
+    public function getListObject(): ?UserListEntityInterface
     {
         $filters = $this->getParams()->getRawFilters();
         $listId = $filters['lists'][0] ?? null;
@@ -146,16 +115,13 @@ class Results extends \VuFind\Search\Favorites\Results
         // Load a list when
         //   a. if we haven't previously tried to load a list ($this->list = false)
         //   b. the requested list is not the same as previously loaded list
-        if ($this->list === false
-            || ($listId && ($this->list['id'] ?? null) !== $listId)
+        if (
+            $this->list === false
+            || ($listId && $this->list?->getId() !== $listId)
         ) {
             // Check the filters for a list ID, and load the corresponding object
             // if one is found:
-            if (null === $listId) {
-                $this->list = null;
-            } else {
-                $this->list = $this->listTable->getExisting($listId);
-            }
+            $this->list = (null === $listId) ? null : $this->userListService->getUserListById($listId);
         }
         return $this->list;
     }

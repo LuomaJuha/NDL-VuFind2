@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Get Record Data" AJAX handler
+ * "Get Record Data" AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  * Copyright (C) The National Library of Finland 2021.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -26,6 +27,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Laminas\Http\PhpEnvironment\Request;
@@ -34,7 +36,7 @@ use Laminas\View\Renderer\RendererInterface;
 use VuFind\Record\Loader;
 
 /**
- * "Get Record Data" AJAX handler
+ * "Get Record Data" AJAX handler.
  *
  * Get record data elements.
  *
@@ -48,35 +50,35 @@ use VuFind\Record\Loader;
 class GetRecordData extends \VuFind\AjaxHandler\AbstractBase
 {
     /**
-     * Framework configuration
+     * Framework configuration.
      *
      * @var array
      */
     protected $config;
 
     /**
-     * Request
+     * Request.
      *
      * @var Request
      */
     protected $request;
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var Loader
      */
     protected $recordLoader;
 
     /**
-     * View renderer
+     * View renderer.
      *
      * @var RendererInterface
      */
     protected $renderer;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array             $config   Framework configuration
      * @param Request           $request  HTTP request

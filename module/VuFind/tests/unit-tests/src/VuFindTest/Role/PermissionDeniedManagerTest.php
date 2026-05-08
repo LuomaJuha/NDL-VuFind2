@@ -1,8 +1,9 @@
 <?php
+
 /**
- * PermissionManager Test Class
+ * PermissionManager Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\Role;
 
 use VuFind\Role\PermissionDeniedManager;
 
 /**
- * PermissionManager Test Class
+ * PermissionManager Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -41,38 +43,38 @@ use VuFind\Role\PermissionDeniedManager;
 class PermissionDeniedManagerTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * Sample configuration with varios config options.
+     * Sample configuration with various config options.
      *
      * @var array
      */
     protected $permissionDeniedConfig = [
         'permissionDeniedTemplate' => [
-            'deniedTemplateBehavior' => "showTemplate:record/displayLogicTest:param1=noValue",
-            'deniedControllerBehavior' => "showTemplate:record/ActionTest:param1=noValue"
+            'deniedTemplateBehavior' => 'showTemplate:record/displayLogicTest:param1=noValue',
+            'deniedControllerBehavior' => 'showTemplate:record/ActionTest:param1=noValue',
         ],
         'permissionDeniedTemplateNoParams' => [
-            'deniedTemplateBehavior' => "showTemplate:record/displayLogicTest",
-            'deniedControllerBehavior' => "showTemplate:record/ActionTest"
+            'deniedTemplateBehavior' => 'showTemplate:record/displayLogicTest',
+            'deniedControllerBehavior' => 'showTemplate:record/ActionTest',
         ],
         'permissionDeniedMessage' => [
-            'deniedTemplateBehavior' => "showMessage:dl_translatable_test",
-            'deniedControllerBehavior' => "showTemplate:action_translatable_test"
+            'deniedTemplateBehavior' => 'showMessage:dl_translatable_test',
+            'deniedControllerBehavior' => 'showTemplate:action_translatable_test',
         ],
         'permissionDeniedLogin' => [
-            'deniedControllerBehavior' => "promptLogin"
+            'deniedControllerBehavior' => 'promptLogin',
         ],
         'permissionDeniedException' => [
-            'deniedControllerBehavior' => "exception:ForbiddenException:exception_message"
+            'deniedControllerBehavior' => 'exception:ForbiddenException:exception_message',
         ],
         'permissionDeniedNonExistentException' => [
-            'deniedControllerBehavior' => "exception:NonExistentException:exception_message"
+            'deniedControllerBehavior' => 'exception:NonExistentException:exception_message',
         ],
         'permissionDeniedNothing' => [
         ],
     ];
 
     /**
-     * Test a correctly configured template
+     * Test a correctly configured template.
      *
      * @return void
      */
@@ -97,7 +99,7 @@ class PermissionDeniedManagerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test a correctly configured exception
+     * Test a correctly configured exception.
      *
      * @return void
      */
@@ -117,7 +119,7 @@ class PermissionDeniedManagerTest extends \PHPUnit\Framework\TestCase
     /**
      * Test an empty permission section
      * getDeniedControllerBehavior should return false as the PermissionDeniedManager
-     * has nothing to do
+     * has nothing to do.
      *
      * @return void
      */
@@ -136,7 +138,7 @@ class PermissionDeniedManagerTest extends \PHPUnit\Framework\TestCase
     /**
      * Test a non existent permission section
      * getDeniedControllerBehavior should return false as the PermissionDeniedManager
-     * has nothing to do
+     * has nothing to do.
      *
      * @return void
      */

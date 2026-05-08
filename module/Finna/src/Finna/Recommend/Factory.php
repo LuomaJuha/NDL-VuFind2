@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Recommendation Module Factory Class
+ * Recommendation Module Factory Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2014.
  * Copyright (C) The National Library of Finland 2015.
@@ -17,29 +18,30 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:recommendation_modules Wiki
+ * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\Recommend;
 
 use Laminas\ServiceManager\ServiceManager;
 
 /**
- * Recommendation Module Factory Class
+ * Recommendation Module Factory Class.
  *
  * @category VuFind
  * @package  Recommendations
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:recommendation_modules Wiki
+ * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  *
  * @codeCoverageIgnore
  */
@@ -55,7 +57,7 @@ class Factory
     public static function getCollectionSideFacets(ServiceManager $sm)
     {
         return new CollectionSideFacets(
-            $sm->get(\VuFind\Config\PluginManager::class),
+            $sm->get(\VuFind\Config\ConfigManagerInterface::class),
             $sm->get(\VuFind\Search\Solr\HierarchicalFacetHelper::class)
         );
     }
@@ -70,7 +72,7 @@ class Factory
     public static function getSideFacets(ServiceManager $sm)
     {
         return new SideFacets(
-            $sm->get(\VuFind\Config\PluginManager::class),
+            $sm->get(\VuFind\Config\ConfigManagerInterface::class),
             $sm->get(\Finna\Search\Solr\AuthorityHelper::class),
             $sm->get(\VuFind\Search\Solr\HierarchicalFacetHelper::class)
         );
@@ -86,7 +88,7 @@ class Factory
     public static function getSideFacetsDeferred(ServiceManager $sm)
     {
         return new SideFacetsDeferred(
-            $sm->get(\VuFind\Config\PluginManager::class),
+            $sm->get(\VuFind\Config\ConfigManagerInterface::class),
             $sm->get(\Finna\Search\Solr\AuthorityHelper::class)
         );
     }

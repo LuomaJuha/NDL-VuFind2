@@ -24,11 +24,11 @@
   }
 
   $script = <<<JS
-$('.preproduction-warning-dismiss').on('click', function dismissWarning() {
-  finna.common.setCookie('hidePreProductionWarning', 1, { expires: 1/24 });
-  $('.pre-production-warning').addClass('hidden');
-});
-JS;
+      $('.preproduction-warning-dismiss').on('click', function dismissWarning() {
+        VuFind.cookie.set('hidePreProductionWarning', 1, { expires: 1/24 });
+        $('.pre-production-warning').addClass('hidden');
+      });
+      JS;
 ?>
 
 <div class="container-fluid pre-production-warning">
@@ -37,6 +37,6 @@ JS;
   </div>
   <div class="nav navbar-nav nav-absolute cookie-consent-button">
     <button class="btn btn-primary preproduction-warning-dismiss" aria-label="<?=$this->transEscAttr('close')?>"><?=$this->transEsc('OK')?></button>
-    <?=$this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET')?>
+    <?=$this->assetManager()->outputInlineScriptString($script)?>
   </div>
 </div>

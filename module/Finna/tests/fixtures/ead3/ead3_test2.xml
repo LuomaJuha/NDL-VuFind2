@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<c02 level="file">
+  <did>
+    <didnote encodinganalog="ahaa:AI46">Yksityisaineisto</didnote>
+    <unitdate label="Ajallinen kattavuus" normal="16uu-01-01/17uu-01-01">01.01.16uu-01.01.17uu</unitdate>
+    <unittitle label="Reinius Theodor S 3:b) 1" normal="Reinius Theodor S 3:b) 1" lang="fin">Reinius Theodor S 3:b) 1</unittitle>
+
+    <didnote encodinganalog="ahaa:AI46">Yksityisaineisto</didnote>
+    <unitdate label="Ajallinen kattavuus" normal="1661-uu-u/1661-uu-uu"></unitdate>
+    <unittitle label="Reinius Theodor S 3:b) 1" normal="Reinius Theodor S 3:b) 1" lang="fin">Reinius Theodor S 3:b) 1</unittitle>
+
+    <didnote encodinganalog="ahaa:AI46">Yksityisaineisto</didnote>
+    <unitdate label="Ajallinen kattavuus" normal="166u"></unitdate>
+    <unittitle label="Reinius Theodor S 3:b) 1" normal="Reinius Theodor S 3:b) 1" lang="fin">Reinius Theodor S 3:b) 1</unittitle>
+
+    <didnote encodinganalog="ahaa:AI46">Yksityisaineisto</didnote>
+    <unitdate label="Ajallinen kattavuus" normal="1600-01-01/1610-01-01"></unitdate>
+    <unittitle label="Reinius Theodor S 3:b) 1" normal="Reinius Theodor S 3:b) 1" lang="fin">Reinius Theodor S 3:b) 1</unittitle>
+
+    <physdesc lang="fi">9 koteloa (ei näytetä)</physdesc>
+    <physdescstructured coverage="whole" physdescstructuredtype="materialtype" lang="fi">
+      <quantity>9</quantity>
+      <unittype>Koteloa</unittype>
+      <descriptivenote>
+        <p>kuva</p>
+        <p>luetteloitu ja kuvailtu</p>
+      </descriptivenote>
+    </physdescstructured>
+
+    <physdescstructured coverage="whole" physdescstructuredtype="materialtype" lang="sv">
+      <quantity>9</quantity>
+      <unittype>Mappar</unittype>
+      <descriptivenote>
+        <p>bild</p>
+        <p>listad och beskriven</p>
+      </descriptivenote>
+    </physdescstructured>
+
+  </did>
+  <relatedmaterial>
+    <p lang="fi">
+      <ref href="https://fi.wikipedia.org/">Wikipedia-artikkeli</ref>
+      <ref>Joku muu liittyvä aineisto</ref>
+    </p>
+    <p lang="en">Some related material</p>
+    <p>
+      <ref lang="sv" href="https://sv.wikipedia.org/">   </ref>
+    </p>
+  </relatedmaterial>
+  <relations>
+    <relation arcrole="Tuntematon rooli" relationtype="cpfrelation" href="EAC_76543">
+      <relationentry localtype="Ensisijainen nimi">Tuukka Tuntematon</relationentry>
+    </relation>
+    <relation relationtype="cpfrelation">
+      <relationentry>Roope Rooliton</relationentry>
+    </relation>
+    <relation arcrole="aihe" relationtype="cpfrelation">
+      <relationentry localtype="Ensisijainen nimi">Aino Aihe</relationentry>
+    </relation>
+  </relations>
+  <controlaccess>
+    <subject relator="asiasana" source="KOKO" identifier="http://www.yso.fi/onto/koko/p9492" lang="eng">
+      <part>writing contests</part>
+    </subject>
+    <subject relator="asiasana" source="KOKO" identifier="http://www.yso.fi/onto/koko/p9492" lang="fin">
+      <part>kirjoituskilpailut</part>
+    </subject>
+    <subject relator="asiasana" source="KOKO" identifier="http://www.yso.fi/onto/koko/p9492" lang="swe">
+      <part>skrivartävlingar</part>
+    </subject>
+  </controlaccess>
+</c02>

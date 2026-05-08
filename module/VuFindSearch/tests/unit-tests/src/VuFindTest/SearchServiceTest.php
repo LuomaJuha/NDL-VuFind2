@@ -3,7 +3,7 @@
 /**
  * Unit tests for search service.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010, 2022.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindTest;
 
 use PHPUnit\Framework\TestCase;
@@ -44,8 +45,10 @@ use VuFindSearch\Service;
  */
 class SearchServiceTest extends TestCase
 {
+    use \VuFindTest\Feature\WithConsecutiveTrait;
+
     /**
-     * Mock backend
+     * Mock backend.
      *
      * @var BackendInterface
      */
@@ -62,10 +65,13 @@ class SearchServiceTest extends TestCase
         $backend = $this->getBackend();
         $command = $this->createMock(\VuFindSearch\Command\RetrieveCommand::class);
         $command->expects($this->once())->method('execute')
-            ->with($this->equalTo($backend));
+            ->with($backend);
         $em = $service->getEventManager();
-        $em->expects($this->exactly(2))->method('trigger')
-            ->withConsecutive(['pre', $service], ['post', $service]);
+        $this->expectConsecutiveCalls(
+            $em,
+            'trigger',
+            [['pre', $service], ['post', $service]]
+        );
         $this->assertEquals($command, $service->invoke($command));
     }
 
@@ -83,11 +89,14 @@ class SearchServiceTest extends TestCase
         $backend = $this->getBackend();
         $command = $this->createMock(\VuFindSearch\Command\RetrieveCommand::class);
         $command->expects($this->once())->method('execute')
-            ->with($this->equalTo($backend))
-            ->will($this->throwException(new BackendException("test")));
+            ->with($backend)
+            ->willThrowException(new BackendException('test'));
         $em = $service->getEventManager();
-        $em->expects($this->exactly(2))->method('trigger')
-            ->withConsecutive(['pre', $service], ['error', $service]);
+        $this->expectConsecutiveCalls(
+            $em,
+            'trigger',
+            [['pre', $service], ['error', $service]]
+        );
         $this->assertEquals($command, $service->invoke($command));
     }
 
@@ -102,15 +111,15 @@ class SearchServiceTest extends TestCase
         $this->expectExceptionMessage('Unable to resolve backend: getInfo, EDS');
 
         $mockResponse = $this->createMock(\Laminas\EventManager\ResponseCollection::class);
-        $mockResponse->expects($this->any())->method('stopped')->will($this->returnValue(false));
+        $mockResponse->method('stopped')->willReturn(false);
         $em = $this->createMock(\Laminas\EventManager\EventManagerInterface::class);
         $service = new Service();
-        $em->expects($this->any())->method('triggerUntil')
+        $em->method('triggerUntil')
             ->with(
                 $this->anything(),
-                $this->equalTo('resolve'),
-                $this->equalTo($service)
-            )->will($this->returnValue($mockResponse));
+                'resolve',
+                $service
+            )->willReturn($mockResponse);
         $service->setEventManager($em);
         $service->invoke(new \VuFindSearch\Backend\EDS\Command\GetInfoCommand());
     }
@@ -119,13 +128,18 @@ class SearchServiceTest extends TestCase
 
     /**
      * Create a mock backend.
+     *
+     * @param string $class      Class to build
+     * @param string $identifier Backend ID to use
+     *
+     * @return object
      */
     protected function createMockBackend(
         $class = \VuFindSearch\Backend\BackendInterface::class,
         $identifier = 'foo'
     ) {
         $backend = $this->createMock($class);
-        $backend->method('getIdentifier')->will($this->returnValue($identifier));
+        $backend->method('getIdentifier')->willReturn($identifier);
         return $backend;
     }
 
@@ -154,8 +168,7 @@ class SearchServiceTest extends TestCase
             ->disableOriginalConstructor()
             ->onlyMethods(['resolve'])
             ->getMock();
-        $service->expects($this->any())->method('resolve')
-            ->will($this->returnValue($this->getBackend()));
+        $service->method('resolve')->willReturn($this->getBackend());
         $service->setEventManager($em);
         return $service;
     }

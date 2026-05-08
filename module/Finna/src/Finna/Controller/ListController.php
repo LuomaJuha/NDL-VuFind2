@@ -1,8 +1,9 @@
 <?php
+
 /**
- * List Controller
+ * List Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,11 +27,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
 use Laminas\Stdlib\Parameters;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Db\Service\TagServiceInterface;
+use VuFind\Db\Service\UserListService;
+use VuFind\Db\Service\UserListServiceInterface;
 use VuFind\Exception\ListPermission as ListPermissionException;
 use VuFind\Exception\RecordMissing as RecordMissingException;
+
+use function assert;
+use function is_object;
 
 /**
  * Controller for the public favorite lists.
@@ -42,10 +51,12 @@ use VuFind\Exception\RecordMissing as RecordMissingException;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
-class ListController extends \Finna\Controller\MyResearchController
+class ListController extends \VuFind\Controller\AbstractBase
 {
+    use Feature\FinnaUserListTrait;
+
     /**
-     * Send user's saved favorites from a particular list to the view
+     * Send user's saved favorites from a particular list to the view.
      *
      * @return mixed
      */
@@ -56,7 +67,7 @@ class ListController extends \Finna\Controller\MyResearchController
             return $this->notFoundAction();
         }
         try {
-            $list = $this->getTable('UserList')->getExisting($lid);
+            $list = $this->getDbService(UserListServiceInterface::class)->getUserListById($lid);
             if (!$list->isPublic()) {
                 return $this->createNoAccessView();
             }
@@ -94,8 +105,8 @@ class ListController extends \Finna\Controller\MyResearchController
                 $feed = $this->getViewRenderer()->plugin('resultfeed');
                 $feed->setList($listObj);
                 $feed = $feed($results);
-                $feed->setTitle($listObj->title);
-                if ($desc = $listObj->description) {
+                $feed->setTitle($listObj->getTitle());
+                if ($desc = $listObj->getDescription()) {
                     $feed->setDescription($desc);
                 }
                 $feed->setLink($this->getServerUrl('home') . "List/$lid");
@@ -107,8 +118,7 @@ class ListController extends \Finna\Controller\MyResearchController
 
             $listTags = null;
             if ($this->listTagsEnabled()) {
-                $listTags = $this->getTable('Tags')
-                    ->getForList($listObj->id, $listObj->user_id);
+                $listTags = $this->getDbService(TagServiceInterface::class)->getListTags($listObj, $listObj->getUser());
             }
 
             $view = $this->createViewModel(
@@ -116,7 +126,7 @@ class ListController extends \Finna\Controller\MyResearchController
                     'params' => $params,
                     'results' => $results,
                     'sortList' => $this->createSortList($listObj),
-                    'listTags' => $listTags
+                    'listTags' => $listTags,
                 ]
             );
             return $view;
@@ -127,7 +137,7 @@ class ListController extends \Finna\Controller\MyResearchController
 
     /**
      * Save action - Allows the save template to appear,
-     *   passes containingLists & nonContainingLists
+     *   passes containingLists & nonContainingLists.
      *
      * @return mixed
      */
@@ -149,7 +159,7 @@ class ListController extends \Finna\Controller\MyResearchController
             return $this->notFoundAction();
         }
         try {
-            $list = $this->getTable('UserList')->getExisting($sourceListId);
+            $list = $this->getDbService(UserListService::class)->getUserListById($sourceListId);
             if (!$list->isPublic()) {
                 return $this->createNoAccessView();
             }
@@ -163,7 +173,7 @@ class ListController extends \Finna\Controller\MyResearchController
         }
 
         // Process form submission:
-        if ($this->formWasSubmitted('submit')) {
+        if ($this->formWasSubmitted()) {
             $this->processSave($user, $sourceListId, $targetListId);
 
             // Display a success status message:
@@ -172,15 +182,16 @@ class ListController extends \Finna\Controller\MyResearchController
                 'html' => true,
                 'msg' => $this->translate('bulk_save_success') . '. '
                 . '<a href="' . $listUrl . '" class="gotolist">'
-                . $this->translate('go_to_list') . '</a>.'
+                . $this->translate('go_to_list') . '</a>.',
             ];
-            $this->flashMessenger()->addMessage($message, 'success');
+            $this->flashMessenger()->addSuccessMessage($message);
             return $this->redirect()->toRoute('list-page', ['lid' => $sourceListId]);
         }
+        $userListService = $this->getDbService(\VuFind\Db\Service\UserListServiceInterface::class);
         $view = $this->createViewModel(
             [
                 'listId' => $sourceListId,
-                'lists' => $user->getLists()
+                'lists' => $userListService->getUserListsByUser($user),
             ]
         );
         $view->setTemplate('list/save');
@@ -190,9 +201,9 @@ class ListController extends \Finna\Controller\MyResearchController
     /**
      * ProcessSave -- store the results of the Save action.
      *
-     * @param VuFind\Db\Row\User $user         User
-     * @param int                $sourceListId Source list id
-     * @param int                $targetListId Target list id
+     * @param UserEntityInterface $user         User
+     * @param int                 $sourceListId Source list id
+     * @param int                 $targetListId Target list id
      *
      * @return void
      */
@@ -202,7 +213,7 @@ class ListController extends \Finna\Controller\MyResearchController
             return;
         }
         $runner = $this->serviceLocator->get(\VuFind\Search\SearchRunner::class);
-        $callback = function ($callback, $params, $runningSearchId) {
+        $callback = function ($callback, $params, $runningSearchId): void {
             $params->setLimit(100000);
         };
         $records = $runner->run(
@@ -212,9 +223,9 @@ class ListController extends \Finna\Controller\MyResearchController
         )->getResults();
 
         // Perform the save operation:
-        $favorites = $this->serviceLocator
-            ->get(\VuFind\Favorites\FavoritesService::class);
-        $results = $favorites->saveMany(['list' => $targetListId], $user, $records);
+        $favorites = $this->serviceLocator->get(\VuFind\Favorites\FavoritesService::class);
+        assert($favorites instanceof \Finna\Favorites\FavoritesService);
+        $favorites->saveMany(['list' => $targetListId], $user, $records);
     }
 
     /**
@@ -224,11 +235,8 @@ class ListController extends \Finna\Controller\MyResearchController
      */
     protected function createNoAccessView()
     {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class)
-            ->get('config');
         $view = $this->createViewModel();
         $view->setTemplate('list/no_access');
-        $view->email = $config->Site->email;
         return $view;
     }
 }

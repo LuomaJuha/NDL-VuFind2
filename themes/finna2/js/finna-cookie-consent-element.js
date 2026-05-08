@@ -3,8 +3,7 @@ class FinnaCookieConsentElement extends HTMLElement {
 
   /**
    * Get consent categories
-   *
-   * @return {string}
+   * @returns {string} Consent categories
    */
   get consentCategories() {
     return this.getAttribute('consent-categories') || '';
@@ -12,7 +11,6 @@ class FinnaCookieConsentElement extends HTMLElement {
 
   /**
    * Set consent categories
-   *
    * @param {string} newValue Value to set
    */
   set consentCategories(newValue) {
@@ -20,16 +18,16 @@ class FinnaCookieConsentElement extends HTMLElement {
   }
 
   /**
-   * Get service base url
-   *
-   * @return {string}
+   * Get service base URL
+   * @returns {string} Service base URL
    */
   get serviceBaseUrl() {
     const url = this.getAttribute('service-url');
     if (url) {
       try {
         return new URL(url).host;
-      } catch (_) {
+      } catch (e) {
+        console.warn(e);
         return url;
       }
     }
@@ -37,23 +35,21 @@ class FinnaCookieConsentElement extends HTMLElement {
   }
 
   /**
-   * Get service url
-   *
-   * @return {string}
+   * Get service URL
+   * @returns {string} Service URL
    */
   get serviceUrl() {
     return this.getAttribute('service-url') || '';
   }
 
   /**
-   * Set service url
-   *
+   * Set service URL
    * @param {string} newValue Value to set
    */
   set serviceUrl(newValue) {
     this.setAttribute('service-url', newValue);
   }
-  
+
   /**
    * Constructor
    */
@@ -91,14 +87,14 @@ class FinnaCookieConsentElement extends HTMLElement {
     aOuterLink.href = this.serviceUrl || '';
     aOuterLink.target = '_blank';
     aOuterLink.append(VuFind.translate('embedded_content_external_link'));
-  
+
     const linkIcon = document.createElement('i');
     linkIcon.classList.add('fa', 'fa-new-window');
     linkIcon.setAttribute('aria-hidden', true);
     aOuterLink.append(' ', linkIcon);
 
     const linkSpan = document.createElement('span');
-    linkSpan.classList.add('sr-only');
+    linkSpan.classList.add('visually-hidden');
     linkSpan.append(VuFind.translate('Open in a new window'));
     aOuterLink.append(linkSpan);
     divActions.append(aOuterLink);

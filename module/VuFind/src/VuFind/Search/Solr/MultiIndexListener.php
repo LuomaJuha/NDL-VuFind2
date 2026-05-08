@@ -3,7 +3,7 @@
 /**
  * MultiIndex listener class file.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2013.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,13 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Solr;
 
 use Laminas\EventManager\EventInterface;
-
 use Laminas\EventManager\SharedEventManagerInterface;
 use VuFindSearch\Backend\BackendInterface;
 use VuFindSearch\Service;
+
+use function in_array;
+use function is_array;
 
 /**
  * MultiIndex listener class file.
@@ -105,14 +108,14 @@ class MultiIndexListener
     public function attach(SharedEventManagerInterface $manager)
     {
         $manager->attach(
-            'VuFind\Search',
+            Service::class,
             Service::EVENT_PRE,
             [$this, 'onSearchPre']
         );
     }
 
     /**
-     * VuFindSearch.pre()
+     * VuFindSearch.pre().
      *
      * @param EventInterface $event Event
      *
@@ -196,13 +199,13 @@ class MultiIndexListener
             $specs[$handler] = [];
             foreach ($spec as $component => $settings) {
                 switch ($component) {
-                case 'QueryFields':
-                    $specs[$handler][$component]
-                        = $this->stripSpecsQueryFields($settings, $fields);
-                    break;
-                default:
-                    $specs[$handler][$component] = $settings;
-                    break;
+                    case 'QueryFields':
+                        $specs[$handler][$component]
+                            = $this->stripSpecsQueryFields($settings, $fields);
+                        break;
+                    default:
+                        $specs[$handler][$component] = $settings;
+                        break;
                 }
             }
         }

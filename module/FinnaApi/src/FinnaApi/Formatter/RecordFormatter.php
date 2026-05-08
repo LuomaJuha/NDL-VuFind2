@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Record formatter for API responses
+ * Record formatter for API responses.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2021.
+ * Copyright (C) The National Library of Finland 2015-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -22,33 +23,48 @@
  * @category VuFind
  * @package  API_Formatter
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
+ * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace FinnaApi\Formatter;
 
+use Finna\RecordDriver\RenderContext;
 use Laminas\View\HelperPluginManager;
 
+use function count;
+use function in_array;
+use function is_array;
+
 /**
- * Record formatter for API responses
+ * Record formatter for API responses.
  *
  * @category VuFind
  * @package  API_Formatter
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
+ * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
 class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
 {
     /**
-     * User locale
+     * User locale.
      *
      * @var string
      */
     protected $locale;
 
     /**
-     * Constructor
+     * Current record render context.
+     *
+     * @var RenderContext
+     */
+    protected RenderContext $renderContext = RenderContext::RECORD;
+
+    /**
+     * Constructor.
      *
      * @param array               $recordFields  Record field definitions
      * @param HelperPluginManager $helperManager View helper plugin manager
@@ -64,7 +80,19 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get extended image information
+     * Set current record render context.
+     *
+     * @param string $context Render context
+     *
+     * @return void
+     */
+    public function setRecordRenderContext(string $context): void
+    {
+        $this->renderContext = RenderContext::tryFrom($context);
+    }
+
+    /**
+     * Get extended image information.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -73,9 +101,8 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     protected function getExtendedImages($record)
     {
         $imageHelper = $this->helperManager->get('recordImage');
-        $recordHelper = $this->helperManager->get('record');
         $translate = $this->helperManager->get('translate');
-        $images = $imageHelper($recordHelper($record))->getAllImagesAsCoverLinks(
+        $images = $imageHelper(($this->helperManager->get('record'))($record))->getAllImagesAsCoverLinks(
             $this->locale,
             [],
             false,
@@ -90,7 +117,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get record identifier
+     * Get record identifier.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -108,7 +135,37 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get image rights
+     * Get amount of current images rendered if result does not contain all the results.
+     * This result will be added to the search result if any field related to images is being
+     * requested in search context.
+     *
+     * @param \VuFind\RecordDriver\SolrDefault $record Record driver
+     *
+     * @return string
+     */
+    public function getRecordImagesCountNotice($record): string
+    {
+        $imageRenderLimit = $record->tryMethod('getImagesRenderLimit');
+        $translate = $this->helperManager->get('translate');
+        $totalAmountOfImages = $record->tryMethod('getTotalAmountOfImages');
+        if (in_array($imageRenderLimit, [null, -1])) {
+            return '';
+        }
+        if ($imageRenderLimit < $totalAmountOfImages) {
+            return $translate(
+                'component_parts_entries_on_page',
+                [
+                        '_START_' => 1,
+                        '_END_' => $imageRenderLimit,
+                        '_TOTAL_' => $totalAmountOfImages,
+                    ]
+            );
+        }
+        return '';
+    }
+
+    /**
+     * Get image rights.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -121,7 +178,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get images
+     * Get images.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -129,35 +186,15 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
      */
     protected function getImages($record)
     {
-        $images = [];
-        $imageHelper = $this->helperManager->get('recordImage');
-        $recordHelper = $this->helperManager->get('record');
-        $serverUrlHelper = $this->helperManager->get('serverUrl');
-        for ($i = 0;
-             $i < $recordHelper($record)->getNumOfRecordImages('large', false);
-             $i++
-        ) {
-            $images[] = $serverUrlHelper()
-                . $imageHelper($recordHelper($record))
-                    ->getLargeImage($i, [], false, false);
-        }
-        if (empty($images) && $record->getCleanISBN()) {
-            $url = $imageHelper($recordHelper($record))
-                ->getLargeImage(0, [], true, false);
-            if ($url) {
-                $images[] = $url;
-            }
-        }
-        // Output relative Cover generator urls
-        foreach ($images as &$image) {
-            $parts = parse_url($image);
-            $image = $parts['path'] . '?' . $parts['query'];
-        }
-        return $images;
+        $images = $this->getExtendedImages($record);
+        return array_map(
+            fn ($url) => $url['urls']['large'],
+            $images
+        );
     }
 
     /**
-     * Get institutions
+     * Get institutions.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -175,7 +212,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
                         "0/$institution/",
                         null,
                         $institution
-                    )
+                    ),
                 ];
             }
             return $result;
@@ -184,7 +221,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get online URLs for a record as an array
+     * Get online URLs for a record as an array.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -214,7 +251,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
                     }
                     $url['source'] = [
                         'value' => $url['source'],
-                        'translated' => $translated
+                        'translated' => $translated,
                     ];
                 }
             }
@@ -223,7 +260,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get raw data for a record as an array
+     * Get raw data for a record as an array.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -238,7 +275,8 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
 
         // description in MARC and QDC records may contain non-CC0 text, so leave
         // it out
-        if ($record instanceof \VuFind\RecordDriver\SolrMarc
+        if (
+            $record instanceof \VuFind\RecordDriver\SolrMarc
             || $record instanceof \Finna\RecordDriver\SolrQdc
         ) {
             unset($rawData['description']);
@@ -251,7 +289,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get record links for a record as an array
+     * Get record links for a record as an array.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -264,7 +302,8 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
             $translate = $this->helperManager->get('translate');
             $translationEmpty = $this->helperManager->get('translationEmpty');
             foreach ($links as &$link) {
-                if (isset($link['title'])
+                if (
+                    isset($link['title'])
                     && !$translationEmpty($link['title'])
                 ) {
                     $link['translated'] = $translate($link['title']);
@@ -275,7 +314,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get sectors
+     * Get sectors.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -292,14 +331,14 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
         foreach ($rawData['sector_str_mv'] as $sector) {
             $result[] = [
                'value' => (string)$sector,
-               'translated' => $translate($sector)
+               'translated' => $translate($sector),
             ];
         }
         return $result;
     }
 
     /**
-     * Get sources
+     * Get sources.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -312,7 +351,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get sources
+     * Get sources.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -326,7 +365,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
             foreach ($sources as $source) {
                 $result[] = [
                     'value' => $source,
-                    'translated' => $translate("source_$source", null, $source)
+                    'translated' => $translate("source_$source", null, $source),
                 ];
             }
             return $result;
@@ -335,7 +374,7 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
     }
 
     /**
-     * Get URLs for a record as an array
+     * Get URLs for a record as an array.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -350,7 +389,8 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
         $translate = $this->helperManager->get('translate');
         if ($urls) {
             foreach ($urls as &$url) {
-                if (isset($url['desc'])
+                if (
+                    isset($url['desc'])
                     && !$translationEmpty('link_' . $url['desc'])
                 ) {
                     $url['translated'] = $translate('link_' . $url['desc']);
@@ -362,7 +402,8 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
         if ($serviceUrls) {
             $source = $record->tryMethod('getDataSource');
             foreach ($serviceUrls as &$url) {
-                if (isset($url['desc'])
+                if (
+                    isset($url['desc'])
                     && !$translationEmpty($source . '_' . $url['desc'])
                 ) {
                     $url['translated']
@@ -373,5 +414,65 @@ class RecordFormatter extends \VuFindApi\Formatter\RecordFormatter
             $urls += $serviceUrls;
         }
         return $urls ? $urls : null;
+    }
+
+    /**
+     * Get record index.
+     *
+     * Returns '__primary__' for the default search backend.
+     *
+     * @param \VuFind\RecordDriver\SolrDefault $record Record driver
+     *
+     * @return string
+     */
+    protected function getIndex($record)
+    {
+        $backend = $record->getSearchBackendIdentifier();
+        if (DEFAULT_SEARCH_BACKEND === $backend) {
+            $backend = '__primary__';
+        }
+        return $backend;
+    }
+
+    /**
+     * Format the results.
+     *
+     * @param array $results         Results to process (array of record drivers)
+     * @param array $requestedFields Fields to include in response
+     *
+     * @return array
+     */
+    public function format($results, $requestedFields)
+    {
+        if (
+            isset($this->recordFields['recordImagesCountNotice'])
+            && array_intersect($requestedFields, ['images', 'imagesExtended', 'imageRights'])
+            && !in_array('recordImagesCountNotice', $requestedFields)
+        ) {
+            $requestedFields[] = 'recordImagesCountNotice';
+        }
+        $results = array_map(
+            function ($record) {
+                $record->tryMethod('setRenderContext', [$this->renderContext->value]);
+                return $record;
+            },
+            $results
+        );
+        return parent::format($results, $requestedFields);
+    }
+
+    /**
+     * Get full record for a record as XML.
+     *
+     * @param \VuFind\RecordDriver\AbstractBase $record Record driver
+     *
+     * @return string|null
+     */
+    protected function getFullRecordLegacy($record)
+    {
+        if ($legacy = $record->tryMethod('getFilteredXMLLegacy')) {
+            return $legacy;
+        }
+        return parent::getFullRecord($record);
     }
 }

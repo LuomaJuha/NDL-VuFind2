@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Model for curated VuFind records.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2022.
+ * Copyright (C) The National Library of Finland 2022-2024.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -25,10 +26,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
 
 use Finna\RecordDriver\Feature\ContainerFormatInterface;
+use Finna\RecordDriver\Feature\ContainerFormatTrait;
+use Finna\RecordDriver\Feature\EncapsulatedRecordInterface;
+use Finna\RecordDriver\Feature\EncapsulatedRecordTrait;
+use Finna\RecordDriver\Feature\FinnaXmlReaderTrait;
+use FinnaXml\XmlDoc;
 use VuFind\RecordDriver\AbstractBase;
+use VuFindSearch\Response\RecordInterface;
+
+use function count;
 
 /**
  * Model for curated VuFind records.
@@ -42,32 +52,13 @@ use VuFind\RecordDriver\AbstractBase;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
-class CuratedRecord extends AbstractBase implements ContainerFormatInterface
+class CuratedRecord extends SolrDefault implements
+    ContainerFormatInterface,
+    EncapsulatedRecordInterface
 {
-    /**
-     * Get text that can be displayed to represent this record in breadcrumbs.
-     *
-     * @return string Breadcrumb text to represent this record.
-     */
-    public function getBreadcrumb()
-    {
-        return $this->getTitle();
-    }
-
-    /**
-     * Return the unique identifier of this record for retrieving additional
-     * information (like tags and user comments) from the external MySQL database.
-     *
-     * @return string Unique identifier.
-     * @throws \Exception
-     */
-    public function getUniqueID()
-    {
-        if (!isset($this->fields['id'])) {
-            throw new \Exception('ID not set!');
-        }
-        return $this->fields['id'];
-    }
+    use ContainerFormatTrait;
+    use EncapsulatedRecordTrait;
+    use FinnaXmlReaderTrait;
 
     /**
      * Get records encapsulated in this container record.
@@ -75,7 +66,7 @@ class CuratedRecord extends AbstractBase implements ContainerFormatInterface
      * @param int  $offset Offset for results
      * @param ?int $limit  Limit for results (null for none)
      *
-     * @return AbstractBase[]
+     * @return RecordInterface[]
      * @throws \RuntimeException If the format of an encapsulated record is not
      * supported
      */
@@ -91,10 +82,10 @@ class CuratedRecord extends AbstractBase implements ContainerFormatInterface
      *
      * @param string $id Encapsulated record ID
      *
-     * @return ?AbstractBase
+     * @return ?RecordInterface
      * @throws \RuntimeException If the format is not supported
      */
-    public function getEncapsulatedRecord(string $id): ?AbstractBase
+    public function getEncapsulatedRecord(string $id): ?RecordInterface
     {
         if ($id !== $this->getUniqueID() || !isset($this->fields['record'])) {
             return null;
@@ -113,23 +104,35 @@ class CuratedRecord extends AbstractBase implements ContainerFormatInterface
     }
 
     /**
-     * Get the full title of the record.
+     * Does the encapsulated record need a record to be loaded?
      *
-     * @return string
+     * @return array|false Associative array specifying the record that needs loading
+     * (contains 'id' and 'source' keys), or false
      */
-    public function getTitle(): string
+    public function needsRecordLoaded(): array|false
     {
-        return $this->fields['title'] ?? '';
+        if (!isset($this->fields['record'])) {
+            return [
+                'id' => $this->getUniqueID(),
+                'source' => $this->getSourceIdentifier(),
+            ];
+        }
+        return false;
     }
 
     /**
-     * Get the position of the record.
+     * Set the loaded record specified by needsRecordLoaded().
      *
-     * @return int
+     * @param AbstractBase $record Loaded record
+     *
+     * @return void
+     * @throws \LogicException If the record should not be set
      */
-    public function getPosition(): int
+    public function setLoadedRecord(AbstractBase $record): void
     {
-        return $this->fields['position'] ?? 0;
+        $this->checkSetLoadedRecord($record);
+        $this->fields['record'] = $record;
+        $this->fields['title'] = $record->getTitle();
     }
 
     /**
@@ -140,5 +143,23 @@ class CuratedRecord extends AbstractBase implements ContainerFormatInterface
     public function getNotes(): string
     {
         return $this->fields['notes'] ?? '';
+    }
+
+    /**
+     * Return full record as a filtered SimpleXMLElement for public APIs.
+     *
+     * @return XmlDoc
+     */
+    public function getFilteredXMLElement(): XmlDoc
+    {
+        $record = clone $this->getXmlDoc();
+        $record->filter(
+            function (array $node) use ($record): bool {
+                return 'comment' === $record->localName($node);
+            }
+        );
+        // Only the URL of the single encapsulated record is in the XML record, so
+        // there is no need to call filterEncapsulatedRecords().
+        return $record;
     }
 }

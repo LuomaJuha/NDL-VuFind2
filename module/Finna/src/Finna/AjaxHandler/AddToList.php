@@ -1,8 +1,9 @@
 <?php
+
 /**
  * AJAX handler for adding a record to a list.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,14 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
-use VuFind\Db\Row\User;
-use VuFind\Db\Table\UserList;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Db\Service\UserListServiceInterface;
 use VuFind\Favorites\FavoritesService;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\Record\Loader;
+use VuFind\View\Helper\Root\Record as RecordHelper;
 
 /**
  * AJAX handler for editing a list.
@@ -43,67 +46,28 @@ use VuFind\Record\Loader;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class AddToList extends \VuFind\AjaxHandler\AbstractBase
-    implements TranslatorAwareInterface
+class AddToList extends \VuFind\AjaxHandler\AbstractBase implements TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * UserList database table
+     * Constructor.
      *
-     * @var UserList
-     */
-    protected $userList;
-
-    /**
-     * Favorites service
-     *
-     * @var FavoritesService
-     */
-    protected $favorites;
-
-    /**
-     * Record loader
-     *
-     * @var Loader
-     */
-    protected $recordLoader;
-
-    /**
-     * Logged in user (or false)
-     *
-     * @var User|bool
-     */
-    protected $user;
-
-    /**
-     * Are lists enabled?
-     *
-     * @var bool
-     */
-    protected $enabled;
-
-    /**
-     * Constructor
-     *
-     * @param UserList         $userList  UserList database table
-     * @param FavoritesService $favorites Favorites service
-     * @param Loader           $loader    Record loader
-     * @param User|bool        $user      Logged in user (or false)
-     * @param bool             $enabled   Are lists enabled?
+     * @param ?UserEntityInterface     $user            Logged in user (or null)
+     * @param UserListServiceInterface $userListService User list database service
+     * @param FavoritesService         $favorites       Favorites service
+     * @param Loader                   $recordLoader    Record loader
+     * @param RecordHelper             $recordHelper    Record helper
+     * @param bool                     $enabled         Are lists enabled?
      */
     public function __construct(
-        UserList $userList,
-        FavoritesService $favorites,
-        Loader $loader,
-        $user,
-        $enabled = true
+        protected ?UserEntityInterface $user,
+        protected UserListServiceInterface $userListService,
+        protected FavoritesService $favorites,
+        protected Loader $recordLoader,
+        protected RecordHelper $recordHelper,
+        protected $enabled = true
     ) {
-        $this->userList = $userList;
-        $this->favorites = $favorites;
-        $this->recordLoader = $loader;
-        $this->user = $user;
-        $this->enabled = $enabled;
     }
 
     /**
@@ -123,7 +87,7 @@ class AddToList extends \VuFind\AjaxHandler\AbstractBase
             );
         }
 
-        if ($this->user === false) {
+        if (null === $this->user) {
             return $this->formatResponse(
                 $this->translate('You must be logged in first'),
                 self::STATUS_HTTP_NEED_AUTH
@@ -138,10 +102,11 @@ class AddToList extends \VuFind\AjaxHandler\AbstractBase
             );
         }
         $listId = $listParams['listId'];
+        $currentListId = $listParams['currentListId'];
         $ids = (array)$listParams['ids'];
 
-        $list = $this->userList->getExisting($listId);
-        if ($list->user_id !== $this->user->id) {
+        $list = $this->userListService->getUserListById($listId);
+        if ($list->getUser()?->getId() !== $this->user->getId()) {
             return $this->formatResponse(
                 $this->translate('Invalid list id'),
                 self::STATUS_HTTP_BAD_REQUEST
@@ -153,7 +118,12 @@ class AddToList extends \VuFind\AjaxHandler\AbstractBase
             $recId = $id[1];
             try {
                 $driver = $this->recordLoader->load($recId, $source, true);
-                $this->favorites->save(['list' => $listId], $this->user, $driver);
+                $notes = implode(
+                    PHP_EOL,
+                    ($this->recordHelper)($driver)->getListNotes($currentListId ?: null, $this->user)
+                );
+
+                $this->favorites->saveRecordToFavorites(['list' => $listId, 'notes' => $notes], $this->user, $driver);
             } catch (\Exception $e) {
                 return $this->formatResponse(
                     $this->translate('Failed'),

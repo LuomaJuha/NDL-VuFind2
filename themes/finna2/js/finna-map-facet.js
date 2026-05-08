@@ -4,6 +4,11 @@ finna.MapFacet = (function finnaStreetMap() {
   var searchRadius = 0.1; // Radius of the search area in KM
   var progressContainer;
 
+  /**
+   * Set map progress info
+   * @param {string} message Message to set
+   * @param {boolean} stopped Should the progress container spinner be hidden
+   */
   function info(message, stopped) {
     if (typeof stopped !== 'undefined' && stopped) {
       progressContainer.find('.fa-spinner').addClass('hidden');
@@ -12,6 +17,10 @@ finna.MapFacet = (function finnaStreetMap() {
     progressContainer.find('.info').empty().append(div);
   }
 
+  /**
+   * Search for location
+   * @param {object} position Object containing coords and accuracy
+   */
   function locationSearch(position) {
     if (position.coords.accuracy >= geolocationAccuracyThreshold) {
       info(VuFind.translate('street_search_coordinates_found_accuracy_bad'));
@@ -28,19 +37,23 @@ finna.MapFacet = (function finnaStreetMap() {
     window.location.href = url;
   }
 
+  /**
+   * Handle geo location error
+   * @param {string} error Error to handle
+   */
   function geoLocationError(error) {
-    var errorString = 'street_search_geolocation_other_error';
+    var errorString = 'geolocation_other_error';
     var additionalInfo = '';
     if (error) {
       switch (error.code) {
       case error.POSITION_UNAVAILABLE:
-        errorString = 'street_search_geolocation_position_unavailable';
+        errorString = 'geolocation_position_unavailable';
         break;
       case error.PERMISSION_DENIED:
-        errorString = 'street_search_geolocation_inactive';
+        errorString = 'geolocation_inactive';
         break;
       case error.TIMEOUT:
-        errorString = 'street_search_timeout';
+        errorString = 'geolocation_timeout';
         break;
       default:
         additionalInfo = error.message;
@@ -54,7 +67,15 @@ finna.MapFacet = (function finnaStreetMap() {
     info(errorString, true);
   }
 
+  /**
+   * Initialize modal for the map
+   * @param {object} _options Options for the map
+   */
   function initMapModal(_options) {
+    /**
+     * Close modal callback handler
+     * @param {jQuery} modal Modal as jQuery
+     */
     function closeModalCallback(modal) {
       modal.removeClass('location-service location-service-qrcode');
       modal.find('.modal-dialog').removeClass('modal-lg');
@@ -112,12 +133,16 @@ finna.MapFacet = (function finnaStreetMap() {
         window.location.href = url;
       }
       else if (geoFilters) {
-        var field = $('<input type="hidden" name="filter[]"/>').val(geoFilters);
+        var field = $('<input type="hidden" name="filter[]">').val(geoFilters);
         mapCanvas.closest('form').append(field);
       }
     });
   }
 
+  /**
+   * Initialize the map facet
+   * @param {object} _options Options for the map
+   */
   function initMapFacet(_options){
     progressContainer = $('.location-search-info');
     $(".user-location-filter").on('click', function onLocationFilterClick(e){

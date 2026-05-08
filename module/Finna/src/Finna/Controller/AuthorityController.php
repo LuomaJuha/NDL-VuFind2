@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Authority Controller
+ * Authority Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2019-2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
 /**
- * Authority Record Controller
+ * Authority Record Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -44,7 +46,18 @@ class AuthorityController extends \Finna\Controller\SearchController
     protected $searchClassId = 'SolrAuth';
 
     /**
-     * Record action -- display a record
+     * Home action.
+     *
+     * @return mixed
+     */
+    public function homeAction()
+    {
+        $this->layout()->searchClassId = $this->searchClassId;
+        return parent::homeAction();
+    }
+
+    /**
+     * Record action -- display a record.
      *
      * @return \Laminas\View\Model\ViewModel
      */
@@ -57,7 +70,7 @@ class AuthorityController extends \Finna\Controller\SearchController
     }
 
     /**
-     * Search action -- call standard results action
+     * Search action -- call standard results action.
      *
      * @return mixed
      */

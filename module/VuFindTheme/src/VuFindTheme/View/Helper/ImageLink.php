@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Image link view helper (extended for VuFind's theme system)
+ * Image link view helper (extended for VuFind's theme system).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTheme\View\Helper;
 
 /**
- * Image link view helper (extended for VuFind's theme system)
+ * Image link view helper (extended for VuFind's theme system).
  *
  * @category VuFind
  * @package  View_Helpers
@@ -38,15 +40,17 @@ namespace VuFindTheme\View\Helper;
  */
 class ImageLink extends \Laminas\View\Helper\AbstractHelper
 {
+    use RelativePathTrait;
+
     /**
-     * Theme information service
+     * Theme information service.
      *
      * @var \VuFindTheme\ThemeInfo
      */
     protected $themeInfo;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \VuFindTheme\ThemeInfo $themeInfo Theme information service
      */
@@ -56,7 +60,7 @@ class ImageLink extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Returns an image path according the configured theme
+     * Returns an image path according the configured theme.
      *
      * @param string $image image name/path
      *
@@ -64,7 +68,11 @@ class ImageLink extends \Laminas\View\Helper\AbstractHelper
      */
     public function __invoke($image)
     {
-        // Normalize href to account for themes:
+        // If this is an absolute path, return it as-is:
+        if (!$this->isRelativePath($image)) {
+            return $image;
+        }
+        // Otherwise, normalize href to account for themes:
         $relPath = 'images/' . $image;
         $details = $this->themeInfo->findContainingTheme(
             $relPath,
@@ -76,7 +84,9 @@ class ImageLink extends \Laminas\View\Helper\AbstractHelper
         }
 
         $urlHelper = $this->getView()->plugin('url');
-        $url = $urlHelper('home') . "themes/{$details['theme']}/" . $relPath;
+        $parts = explode('/', $relPath);
+        $encodedRelPath = implode('/', array_map('rawurlencode', $parts));
+        $url = $urlHelper('home') . "themes/{$details['theme']}/" . $encodedRelPath;
         $url .= strstr($url, '?') ? '&_=' : '?_=';
         $url .= filemtime($details['path']);
 

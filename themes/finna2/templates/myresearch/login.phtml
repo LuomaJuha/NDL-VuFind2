@@ -1,10 +1,8 @@
 <!-- START of: finna - Auth/myresearch/login.phtml -->
 <?php
-  // Set up page title:
-  $this->headTitle($this->translate('Login'));
-
   // Set up breadcrumbs:
-  $this->layout()->breadcrumbs = '<li><a href="' . $this->url('myresearch-home') . '">' . $this->transEsc('Your Account') . '</a></li> <li class="active">' . $this->transEsc('Login') . '</li>';
+  $this->breadcrumbs()->set($this->translate('Your Account'), $this->url('myresearch-home'))
+    ->add($this->translate('Login'), active: true);
 
   // Convenience variables:
   $account = $this->auth()->getManager();
@@ -12,13 +10,13 @@
   $offlineMode = $this->ils()->getOfflineMode();
 ?>
 
-<?php if ($offlineMode == "ils-offline"): ?>
+<?php if ($offlineMode == 'ils-offline'): ?>
   <?=$this->render('Helpers/ils-offline.phtml', ['offlineModeMsg' => 'ils_offline_login_message'])?>
 <?php endif; ?>
 
-<h2 class="lightbox-header"><?=$this->transEsc('Login')?></h2>
+<?=$this->component('page-title', ['title' => $this->translate('Login')]);?>
 <?=$this->flashmessages()?>
-<?php if ($template = $this->content()->findTemplateForLng("content/Additions/login-pre")): ?>
+<?php if ($template = $this->content()->findTemplateForLng('content/Additions/login-pre')): ?>
   <div>
     <?=$this->render($template)?>
   </div>
@@ -28,11 +26,11 @@
 <?php else: ?>
   <?php if ($this->fromTermsPage): ?>
     <?php // Force lightbox login to display ?>
-    <div class="flash-message alert-danger hidden"></div>
+    <div class="flash-message alert alert-danger hidden"></div>
   <?php endif; ?>
   <?=$this->auth()->getLogin()?>
 <?php endif; ?>
-<?php if ($template = $this->content()->findTemplateForLng("content/Additions/login-post")): ?>
+<?php if ($template = $this->content()->findTemplateForLng('content/Additions/login-post')): ?>
   <div>
     <?=$this->render($template)?>
   </div>

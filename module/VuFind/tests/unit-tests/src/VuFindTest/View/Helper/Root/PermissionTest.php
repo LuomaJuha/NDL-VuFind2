@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Permission view helper Test Class
+ * Permission view helper Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -26,12 +27,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\View\Helper\Root;
 
 use VuFind\View\Helper\Root\Permission;
 
 /**
- * Permission view helper Test Class
+ * Permission view helper Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -40,43 +42,43 @@ use VuFind\View\Helper\Root\Permission;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
-class PermissionTest  extends \PHPUnit\Framework\TestCase
+class PermissionTest extends \PHPUnit\Framework\TestCase
 {
     use \VuFindTest\Feature\ViewTrait;
 
     /**
-     * Sample configuration with varios config options.
+     * Sample configuration with various config options.
      *
      * @var array
      */
     protected $permissionDeniedConfig = [
         'permissionDeniedTemplate' => [
-            'deniedTemplateBehavior' => "showTemplate:record/displayLogicTest:param1=noValue",
-            'deniedControllerBehavior' => "showTemplate:record/ActionTest:param1=noValue"
+            'deniedTemplateBehavior' => 'showTemplate:record/displayLogicTest:param1=noValue',
+            'deniedControllerBehavior' => 'showTemplate:record/ActionTest:param1=noValue',
         ],
         'permissionDeniedTemplateNoParams' => [
-            'deniedTemplateBehavior' => "showTemplate:record/displayLogicTest",
-            'deniedControllerBehavior' => "showTemplate:record/ActionTest"
+            'deniedTemplateBehavior' => 'showTemplate:record/displayLogicTest',
+            'deniedControllerBehavior' => 'showTemplate:record/ActionTest',
         ],
         'permissionDeniedMessage' => [
-            'deniedTemplateBehavior' => "showMessage:dl_translatable_test",
-            'deniedControllerBehavior' => "showTemplate:action_translatable_test"
+            'deniedTemplateBehavior' => 'showMessage:dl_translatable_test',
+            'deniedControllerBehavior' => 'showTemplate:action_translatable_test',
         ],
         'permissionDeniedLogin' => [
-            'deniedControllerBehavior' => "promptLogin"
+            'deniedControllerBehavior' => 'promptLogin',
         ],
         'permissionDeniedException' => [
-            'deniedControllerBehavior' => "exception:ForbiddenException:exception_message"
+            'deniedControllerBehavior' => 'exception:ForbiddenException:exception_message',
         ],
         'permissionDeniedNonExistentException' => [
-            'deniedControllerBehavior' => "exception:NonExistentException:exception_message"
+            'deniedControllerBehavior' => 'exception:NonExistentException:exception_message',
         ],
         'permissionDeniedNothing' => [
         ],
     ];
 
     /**
-     * Test the message display
+     * Test the message display.
      *
      * @return void
      */
@@ -100,7 +102,7 @@ class PermissionTest  extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test the template display
+     * Test the template display.
      *
      * @return void
      */
@@ -126,7 +128,7 @@ class PermissionTest  extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test the template display with an existing template
+     * Test the template display with an existing template.
      *
      * @return void
      */
@@ -145,7 +147,7 @@ class PermissionTest  extends \PHPUnit\Framework\TestCase
         $helper = new Permission($this->getMockPm(false), $mockPmd);
         $helper->setView($this->getMockView());
 
-        $this->assertEquals(
+        $this->assertSame(
             '<span class="label label-success">Available</span>',
             trim($helper->getAlternateContent('permissionDeniedTemplate'))
         );
@@ -163,13 +165,12 @@ class PermissionTest  extends \PHPUnit\Framework\TestCase
         $mockPmd = $this->getMockBuilder(\VuFind\Role\PermissionDeniedManager::class)
             ->setConstructorArgs([$this->permissionDeniedConfig])
             ->getMock();
-        $mockPmd->expects($this->any())->method('getDeniedTemplateBehavior')
-            ->will($this->returnValue($config['deniedTemplateBehavior']));
+        $mockPmd->method('getDeniedTemplateBehavior')->willReturn($config['deniedTemplateBehavior']);
         return $mockPmd;
     }
 
     /**
-     * Get mock permission manager
+     * Get mock permission manager.
      *
      * @param array $isAuthorized isAuthorized value to return
      *
@@ -177,13 +178,9 @@ class PermissionTest  extends \PHPUnit\Framework\TestCase
      */
     protected function getMockPm($isAuthorized = false)
     {
-        $mockPm = $this->getMockBuilder(\VuFind\Role\PermissionManager::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $mockPm->expects($this->any())->method('isAuthorized')
-            ->will($this->returnValue($isAuthorized));
-        $mockPm->expects($this->any())->method('permissionRuleExists')
-            ->will($this->returnValue(true));
+        $mockPm = $this->createMock(\VuFind\Role\PermissionManager::class);
+        $mockPm->method('isAuthorized')->willReturn($isAuthorized);
+        $mockPm->method('permissionRuleExists')->willReturn(true);
 
         return $mockPm;
     }
@@ -195,8 +192,7 @@ class PermissionTest  extends \PHPUnit\Framework\TestCase
      */
     protected function getMockContext()
     {
-        return $this->getMockBuilder(\VuFind\View\Helper\Root\Context::class)
-            ->disableOriginalConstructor()->getMock();
+        return $this->createMock(\VuFind\View\Helper\Root\Context::class);
     }
 
     /**

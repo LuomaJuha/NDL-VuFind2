@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Channels Controller
+ * Channels Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/indexing:alphabetical_heading_browse Wiki
  */
+
 namespace VuFind\Controller;
 
+use Laminas\ServiceManager\ServiceLocatorInterface;
 use VuFind\ChannelProvider\ChannelLoader;
 
 /**
- * Channels Class
+ * Channels Class.
  *
  * Controls the alphabetical browsing feature
  *
@@ -43,20 +46,23 @@ use VuFind\ChannelProvider\ChannelLoader;
 class ChannelsController extends AbstractBase
 {
     /**
-     * Channel loader
+     * Channel loader.
      *
      * @var ChannelLoader
      */
     protected $loader;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param ChannelLoader $loader Channel loader
+     * @param ChannelLoader           $loader Channel loader
+     * @param ServiceLocatorInterface $sm     Top-level service manager (needed for
+     * some AbstractBase behavior)
      */
-    public function __construct(ChannelLoader $loader)
+    public function __construct(ChannelLoader $loader, ServiceLocatorInterface $sm)
     {
         $this->loader = $loader;
+        parent::__construct($sm);
     }
 
     /**
@@ -84,8 +90,7 @@ class ChannelsController extends AbstractBase
         $source = $this->params()->fromQuery('source', DEFAULT_SEARCH_BACKEND);
         $activeChannel = $this->params()->fromQuery('channelProvider');
         $token = $this->params()->fromQuery('channelToken');
-        $context = $this->loader
-            ->getRecordContext($recordId, $token, $activeChannel, $source);
+        $context = $this->loader->getRecordContext($recordId, $token, $activeChannel, $source);
         return $this->createViewModel($context);
     }
 

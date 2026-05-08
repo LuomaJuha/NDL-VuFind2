@@ -1,8 +1,9 @@
 <?php
+
 /**
- * RandomRecommend Recommendations Module
+ * RandomRecommend Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2012, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -25,12 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Recommend;
 
 use VuFindSearch\Command\RandomCommand;
 
+use function count;
+
 /**
- * RandomRecommend Module
+ * RandomRecommend Module.
  *
  * This class provides random recommendations based on the Solr random field
  *
@@ -45,79 +49,79 @@ use VuFindSearch\Command\RandomCommand;
 class RandomRecommend implements RecommendInterface
 {
     /**
-     * Results
+     * Results.
      *
      * @var array
      */
     protected $results;
 
     /**
-     * Backend to use
+     * Backend to use.
      *
      * @var string
      */
     protected $backend = 'Solr';
 
     /**
-     * Results Limit
+     * Results Limit.
      *
      * @var int
      */
     protected $limit = 10;
 
     /**
-     * Display Mode
+     * Display Mode.
      *
      * @var string
      */
     protected $displayMode = 'standard';
 
     /**
-     * Mode
+     * Mode.
      *
      * @var string
      */
     protected $mode = 'retain';
 
     /**
-     * Result Set Minimum
+     * Result Set Minimum.
      *
      * @var number
      */
     protected $minimum = 0;
 
     /**
-     * Filters
+     * Filters.
      *
      * @var array
      */
     protected $filters = [];
 
     /**
-     * Settings from configuration
+     * Settings from configuration.
      *
      * @var string
      */
     protected $settings;
 
     /**
-     * Search Service
+     * Search Service.
      *
      * @var \VuFindSearch\Service
      */
     protected $searchService;
 
     /**
-     * Params manager
+     * Params manager.
      *
      * @var \VuFind\Search\Params\PluginManager
      */
     protected $paramManager;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFindSearch\Service               $searchService VuFind Search Serive
+     * @param \VuFindSearch\Service               $searchService VuFind Search Service
      * @param \VuFind\Search\Params\PluginManager $paramManager  Params manager
      */
     public function __construct(
@@ -172,11 +176,9 @@ class RandomRecommend implements RecommendInterface
      */
     public function init($params, $request)
     {
-        if ("retain" !== $this->mode) {
-            $randomParams = $this->paramManager->get($params->getSearchClassId());
-        } else {
-            $randomParams = clone $params;
-        }
+        $randomParams = 'retain' !== $this->mode
+            ? $this->paramManager->get($params->getSearchClassId())
+            : clone $params;
         foreach ($this->filters as $filter) {
             $randomParams->addFilter($filter);
         }
@@ -193,7 +195,7 @@ class RandomRecommend implements RecommendInterface
     }
 
     /**
-     * Called after the Search Results object has performed its main search.  This
+     * Called after the Search Results object has performed its main search. This
      * may be used to extract necessary information from the Search Results object
      * or to perform completely unrelated processing.
      *
@@ -206,7 +208,7 @@ class RandomRecommend implements RecommendInterface
     }
 
     /**
-     * Get Results
+     * Get Results.
      *
      * @return array
      */
@@ -219,7 +221,7 @@ class RandomRecommend implements RecommendInterface
     }
 
     /**
-     * Get Display Mode
+     * Get Display Mode.
      *
      * @return string
      */

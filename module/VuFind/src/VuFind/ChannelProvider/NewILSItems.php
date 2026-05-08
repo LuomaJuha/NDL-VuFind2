@@ -1,8 +1,9 @@
 <?php
+
 /**
  * "New ILS items" channel provider.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Channels
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\ChannelProvider;
 
 /**
@@ -35,6 +37,8 @@ namespace VuFind\ChannelProvider;
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
+ *
+ * @deprecated Use NewSearchItems
  */
 class NewILSItems extends AbstractILSChannelProvider
 {
@@ -53,8 +57,7 @@ class NewILSItems extends AbstractILSChannelProvider
     protected function getIlsResponse()
     {
         if ($this->ils->checkCapability('getNewItems')) {
-            $response = $this->ils
-                ->getNewItems(1, $this->channelSize, $this->maxAge);
+            $response = $this->ils->getNewItems(1, $this->batchSize, $this->maxAge);
             return $response['results'] ?? [];
         }
         return [];

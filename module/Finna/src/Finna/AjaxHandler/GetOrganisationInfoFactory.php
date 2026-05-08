@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Factory for GetOrganisationInfo AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2018.
+ * Copyright (C) The National Library of Finland 2018-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -41,11 +43,10 @@ use Psr\Container\ContainerInterface;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetOrganisationInfoFactory
-    implements \Laminas\ServiceManager\Factory\FactoryInterface
+class GetOrganisationInfoFactory implements \Laminas\ServiceManager\Factory\FactoryInterface
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -63,16 +64,19 @@ class GetOrganisationInfoFactory
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
         if (!empty($options)) {
             throw new \Exception('Unexpected options passed to factory.');
         }
+        $facetConfig = $container->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('facets');
         $result = new $requestedName(
             $container->get(\VuFind\Session\Settings::class),
-            $container->get(\VuFind\Cookie\CookieManager::class),
             $container->get(\Finna\OrganisationInfo\OrganisationInfo::class),
-            $container->get(\VuFind\Cache\Manager::class)
+            $container->get(\VuFind\Cache\Manager::class),
+            $container->get('ViewRenderer'),
+            $container->get(\VuFind\I18n\Sorter::class),
+            $facetConfig ? $facetConfig->toArray() : []
         );
         $result->setLogger($container->get(\VuFind\Log\Logger::class));
         return $result;

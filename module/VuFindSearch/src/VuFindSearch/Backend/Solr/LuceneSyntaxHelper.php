@@ -3,7 +3,7 @@
 /**
  * Lucene query syntax helper class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2016.
@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -30,7 +30,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindSearch\Backend\Solr;
+
+use function count;
+use function in_array;
 
 /**
  * Lucene query syntax helper class.
@@ -111,7 +115,7 @@ class LuceneSyntaxHelper
         $lookahead = self::$insideQuotes;
         $boolReg = '/((\s+(AND|OR|NOT)\s+)|^NOT\s+)' . $lookahead . '/';
         $checkString = $this->capitalizeCaseInsensitiveBooleans($searchString);
-        return preg_match($boolReg, $checkString) ? true : false;
+        return (bool)preg_match($boolReg, $checkString);
     }
 
     /**
@@ -125,9 +129,9 @@ class LuceneSyntaxHelper
     {
         $rangeReg = self::SOLR_RANGE_RE;
         if (!$this->caseSensitiveRanges) {
-            $rangeReg .= "i";
+            $rangeReg .= 'i';
         }
-        return preg_match($rangeReg, $searchString) ? true : false;
+        return (bool)preg_match($rangeReg, $searchString);
     }
 
     /**
@@ -146,7 +150,7 @@ class LuceneSyntaxHelper
 
         // The following conditions do not apply to text inside quoted strings,
         // so let's just strip all quoted strings out of the query to simplify
-        // detection.  We'll replace quoted phrases with a dummy keyword so quote
+        // detection. We'll replace quoted phrases with a dummy keyword so quote
         // removal doesn't interfere with the field specifier check below.
         $searchString = preg_replace('/"[^"]*"/', 'quoted', $searchString);
 
@@ -162,20 +166,16 @@ class LuceneSyntaxHelper
         }
 
         // Check for ranges, booleans, wildcards and fuzzy matches:
-        if ($this->containsRanges($searchString)
+        if (
+            $this->containsRanges($searchString)
             || $this->containsBooleans($searchString)
             || strstr($searchString, '*') || strstr($searchString, '?')
             || strstr($searchString, '~')
         ) {
             return true;
         }
-
         // Check for boosts:
-        if (preg_match('/[\^][0-9]+/', $searchString)) {
-            return true;
-        }
-
-        return false;
+        return (bool)preg_match('/[\^][0-9]+/', $searchString);
     }
 
     /**
@@ -295,7 +295,11 @@ class LuceneSyntaxHelper
                 string $ch,
                 bool $quoted,
                 bool $esc
-            ) use (&$result, &$collected, &$discardParens) {
+            ) use (
+                &$result,
+                &$collected,
+                &$discardParens
+            ): void {
                 if (!$quoted) {
                     // Discard closing parenthesis for previously discarded opening
                     // ones to keep balance
@@ -362,33 +366,6 @@ class LuceneSyntaxHelper
     /// Internal API
 
     /**
-     * Normalize fancy quotes in a query.
-     *
-     * @param string $input String to normalize
-     *
-     * @return string
-     */
-    protected function normalizeFancyQuotes($input)
-    {
-        // Normalize fancy quotes:
-        $quotes = [
-            "\xC2\xAB"     => '"', // « (U+00AB) in UTF-8
-            "\xC2\xBB"     => '"', // » (U+00BB) in UTF-8
-            "\xE2\x80\x98" => "'", // ‘ (U+2018) in UTF-8
-            "\xE2\x80\x99" => "'", // ’ (U+2019) in UTF-8
-            "\xE2\x80\x9A" => "'", // ‚ (U+201A) in UTF-8
-            "\xE2\x80\x9B" => "'", // ? (U+201B) in UTF-8
-            "\xE2\x80\x9C" => '"', // “ (U+201C) in UTF-8
-            "\xE2\x80\x9D" => '"', // ” (U+201D) in UTF-8
-            "\xE2\x80\x9E" => '"', // „ (U+201E) in UTF-8
-            "\xE2\x80\x9F" => '"', // ? (U+201F) in UTF-8
-            "\xE2\x80\xB9" => "'", // ‹ (U+2039) in UTF-8
-            "\xE2\x80\xBA" => "'", // › (U+203A) in UTF-8
-        ];
-        return strtr($input, $quotes);
-    }
-
-    /**
      * Normalize wildcards in a query.
      *
      * @param string $input String to normalize
@@ -398,7 +375,7 @@ class LuceneSyntaxHelper
     protected function normalizeWildcards($input)
     {
         // Ensure wildcards are not at beginning of input
-        return ((substr($input, 0, 1) == '*') || (substr($input, 0, 1) == '?'))
+        return str_starts_with($input, '*') || str_starts_with($input, '?')
             ? substr($input, 1) : $input;
     }
 
@@ -451,7 +428,7 @@ class LuceneSyntaxHelper
         // Remove unwanted brackets/braces that are not part of range queries.
         // This is a bit of a shell game -- first we replace valid brackets and
         // braces with tokens that cannot possibly already be in the query (due
-        // to the work of normalizeBoosts()).  Next, we escape all remaining
+        // to the work of normalizeBoosts()). Next, we escape all remaining
         // invalid brackets/braces, and transform our tokens back into valid ones.
         // Obviously, the order of the patterns/merges array is critically
         // important to get this right!!
@@ -549,22 +526,20 @@ class LuceneSyntaxHelper
      */
     protected function prepareForLuceneSyntax($input)
     {
-        $input = $this->normalizeFancyQuotes($input);
-
         // If the user has entered a lone BOOLEAN operator, convert it to lowercase
         // so it is treated as a word (otherwise it will trigger a fatal error):
         switch (trim($input)) {
-        case 'OR':
-            return 'or';
-        case 'AND':
-            return 'and';
-        case 'NOT':
-            return 'not';
+            case 'OR':
+                return 'or';
+            case 'AND':
+                return 'and';
+            case 'NOT':
+                return 'not';
         }
 
         // If the string consists only of control characters and/or BOOLEANs with no
         // other input, wipe it out entirely to prevent weird errors:
-        $operators = ['AND', 'OR', 'NOT', '+', '-', '"', '&', '|'];
+        $operators = ['AND', 'OR', 'NOT', '+', '-', '"', '&&', '||'];
         if (trim(str_replace($operators, '', $input)) == '') {
             return '';
         }
@@ -597,15 +572,9 @@ class LuceneSyntaxHelper
      */
     protected function getBoolsToCap()
     {
-        if ($this->caseSensitiveBooleans === false
-            || $this->caseSensitiveBooleans === 0
-            || $this->caseSensitiveBooleans === "0"
-        ) {
+        if (in_array($this->caseSensitiveBooleans, [false, 0, '0'], true)) {
             return $this->allBools;
-        } elseif ($this->caseSensitiveBooleans === true
-            || $this->caseSensitiveBooleans === 1
-            || $this->caseSensitiveBooleans === "1"
-        ) {
+        } elseif (in_array($this->caseSensitiveBooleans, [true, 1, '1'], true)) {
             return [];
         }
 
@@ -643,7 +612,8 @@ class LuceneSyntaxHelper
         $end = $match[3];          // end of range
 
         // Is this a case-sensitive range?
-        if (strtoupper($start) != strtolower($start)
+        if (
+            strtoupper($start) != strtolower($start)
             || strtoupper($end) != strtolower($end)
         ) {
             // Build a lowercase version of the range:
@@ -668,7 +638,7 @@ class LuceneSyntaxHelper
     }
 
     /**
-     * Count occurrences of a character in non-quoted parts of the string
+     * Count occurrences of a character in non-quoted parts of the string.
      *
      * @param string $needle   Character to look for (non-escaped)
      * @param string $haystack String to process
@@ -679,7 +649,7 @@ class LuceneSyntaxHelper
     {
         $count = 0;
         $this->processQueryString(
-            function (string $ch, bool $quoted, bool $esc) use ($needle, &$count) {
+            function (string $ch, bool $quoted, bool $esc) use ($needle, &$count): void {
                 if (!$quoted && !$esc && $ch === $needle) {
                     ++$count;
                 }
@@ -691,7 +661,7 @@ class LuceneSyntaxHelper
     }
 
     /**
-     * Remove occurrences of given characters in non-quoted parts of the string
+     * Remove occurrences of given characters in non-quoted parts of the string.
      *
      * @param array  $needles  Characters to remove (non-escaped)
      * @param string $haystack String to process
@@ -702,7 +672,7 @@ class LuceneSyntaxHelper
     {
         $result = '';
         $this->processQueryString(
-            function (string $ch, bool $quoted, bool $esc) use ($needles, &$result) {
+            function (string $ch, bool $quoted, bool $esc) use ($needles, &$result): void {
                 if ($quoted || $esc || !in_array($ch, $needles)) {
                     $result .= $ch;
                 }
@@ -713,7 +683,7 @@ class LuceneSyntaxHelper
     }
 
     /**
-     * Process a Lucene query string with a callback
+     * Process a Lucene query string with a callback.
      *
      * @param callable $callback Callback that gets called for each character
      * @param string   $str      String to process

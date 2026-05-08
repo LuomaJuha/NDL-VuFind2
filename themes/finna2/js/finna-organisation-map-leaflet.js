@@ -9,6 +9,9 @@ finna.organisationMap = (function finnaOrganisationMap() {
   var markers = [];
   var selectedMarker = null;
 
+  /**
+   * Reset the map leaflet
+   */
   function reset() {
     var group = new L.featureGroup(markers);
     var bounds = group.getBounds().pad(0.2);
@@ -18,12 +21,16 @@ finna.organisationMap = (function finnaOrganisationMap() {
     selectedMarker = null;
   }
 
-  function draw(organisationList/*, id*/) {
+  /**
+   * Draw map object and markers
+   * @param {object} organisationList Object containing organisation and map data
+   */
+  function draw(organisationList) {
     var me = $(this);
     var organisations = organisationList;
 
     var layer = L.tileLayer(mapTileUrl, {
-      attribution: attribution,
+      attribution: attribution + ' Map data &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC-BY</a>',
       tileSize: 256
     });
 
@@ -32,7 +39,6 @@ finna.organisationMap = (function finnaOrganisationMap() {
       layers: layer,
       minZoom: zoomLevel.far,
       maxZoom: 18,
-      zoomDelta: 0.1,
       zoomSnap: 0.1,
       closePopupOnClick: false
     });
@@ -60,7 +66,7 @@ finna.organisationMap = (function finnaOrganisationMap() {
       icons[obj] = L.divIcon({
         className: 'mapMarker',
         iconSize: null,
-        html: '<div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive"><i class="fa fa-map-marker ' + obj + '" style="position: relative; font-size: 35px;"></i></div>',
+        html: '<div class="leaflet-marker-icon leaflet-zoom-animated leaflet-interactive">' + VuFind.icon('map-marker', 'map-marker-icon ' + obj) + '</div>',
         iconAnchor: [10, 35],
         popupAnchor: [0, -36],
         labelAnchor: [-5, -86]
@@ -69,67 +75,71 @@ finna.organisationMap = (function finnaOrganisationMap() {
 
     // Map points
     $.each(organisations, function mapOrganisation(ind, obj) {
-      if (obj.address != null && obj.address.coordinates !== null) {
-        if (typeof obj.address.coordinates === 'undefined') {
-          return true;
-        }
-        var infoWindowContent = obj.map.info;
-        var point = obj.address.coordinates;
+      var infoWindowContent = obj.map.info;
 
-        var icon = icons['no-schedule'];
-        var openTimes = finna.common.getField(obj, 'openTimes');
-        if (openTimes) {
-          var schedules = finna.common.getField(openTimes, 'schedules');
-          var openNow = finna.common.getField(openTimes, 'openNow');
-          icon = schedules && schedules.length > 0 ? (openNow ? icons.open : icons.closed) : icon;
-        }
-
-        var marker = L.marker(
-          [point.lat, point.lon],
-          {icon: icon}
-        ).addTo(map);
-        marker.on('mouseover', function onMouseOverMarker(ev) {
-          if (marker === selectedMarker) {
-            return;
-          }
-          var holderOffset = $(holder).offset();
-          var offset = $(ev.originalEvent.target).offset();
-          var x = offset.left - holderOffset.left;
-          var y = offset.top - holderOffset.top;
-
-          me.trigger('marker-mouseover', {id: obj.id, x: x, y: y});
-        });
-
-        marker.on('mouseout', function onMouseOutMarker(/*ev*/) {
-          me.trigger('marker-mouseout');
-        });
-
-        marker.on('click', function onClickMarker(/*ev*/) {
-          me.trigger('marker-click', obj.id);
-        });
-
-        marker
-          .bindPopup(infoWindowContent, {zoomAnimation: true, autoPan: false})
-          .addTo(map);
-
-        mapMarkers[obj.id] = marker;
-        markers.push(marker);
+      var icon = icons['no-schedule'];
+      if (obj.hasSchedules) {
+        icon = obj.openNow ? icons.open : icons.closed;
       }
+
+      var marker = L.marker(
+        [obj.lat, obj.lon],
+        {
+          icon: icon,
+          keyboard: false
+        }
+      ).addTo(map);
+      marker.on('mouseover', function onMouseOverMarker(ev) {
+        if (marker === selectedMarker) {
+          return;
+        }
+        var holderOffset = $(holder).offset();
+        var offset = $(ev.originalEvent.target).offset();
+        var x = offset.left - holderOffset.left;
+        var y = offset.top - holderOffset.top;
+
+        me.trigger('marker-mouseover', {id: obj.id, x: x, y: y});
+      });
+
+      marker.on('mouseout', function onMouseOutMarker(/*ev*/) {
+        me.trigger('marker-mouseout');
+      });
+
+      marker.on('click', function onClickMarker(/*ev*/) {
+        me.trigger('marker-click', obj.id);
+      });
+
+      marker
+        .bindPopup(infoWindowContent, {zoomAnimation: true, autoPan: false})
+        .addTo(map);
+
+      mapMarkers[obj.id] = marker;
+      markers.push(marker);
     });
 
     reset();
   }
 
+  /**
+   * Resize handler for map
+   */
   function resize() {
     map.invalidateSize(true);
   }
 
+  /**
+   * Hide marker
+   */
   function hideMarker() {
     if (selectedMarker) {
       selectedMarker.closePopup();
     }
   }
 
+  /**
+   * Select a marker handler
+   * @param {string} id Marker id to select
+   */
   function selectMarker(id) {
     var marker = null;
     if (id in mapMarkers) {
@@ -144,10 +154,18 @@ finna.organisationMap = (function finnaOrganisationMap() {
       }
     }
 
-    marker.openPopup();
+    if (marker) {
+      marker.openPopup();
+    }
     selectedMarker = marker;
   }
 
+  /**
+   * Init organisation map
+   * @param {jQuery} _holder Container of the map elements
+   * @param {string} _mapTileUrl Url to fetch map tiles from
+   * @param {string} _attribution Map data attribution prefix
+   */
   function init(_holder, _mapTileUrl, _attribution) {
     holder = _holder;
     mapTileUrl = _mapTileUrl;

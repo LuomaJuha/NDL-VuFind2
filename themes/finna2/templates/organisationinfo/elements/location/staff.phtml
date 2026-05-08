@@ -1,0 +1,46 @@
+<?php // Do not add start and end comments ?>
+<?php
+  if (!$orgInfo['personnel']) {
+    return;
+  }
+?>
+<table class="table table-striped table-responsive" tabindex="0">
+  <thead>
+    <tr>
+      <th scope="col"><?= $this->transEsc('organisation_info_name') ?></th>
+      <th scope="col"><?= $this->transEsc('organisation_info_job_title') ?></th>
+      <th scope="col"><?= $this->transEsc('organisation_info_contact') ?></th>
+    </tr>
+  </thead>
+  <tbody class="personnel-container">
+    <?php foreach ($orgInfo['personnel'] as $member): ?>
+      <tr>
+        <td data-label="<?= $this->transEsc('organisation_info_name') ?>" scope="row">
+          <?=$this->escapeHtml($member['firstName'])?>
+          <?=$this->escapeHtml($member['lastName'])?>
+        </td>
+        <td data-label="<?= $this->transEsc('organisation_info_job_title') ?>" scope="row">
+          <?=$this->escapeHtml($member['jobTitle'])?>
+        </td>
+        <td data-label="<?= $this->transEsc('organisation_info_contact')?>" scope="row">
+          <!-- noindex -->
+          <!-- googleoff: all -->
+          <div>
+            <?php if ($member['email']): ?>
+              <div>
+                <?=$this->escapeHtml($member['email'])?>
+              </div>
+            <?php endif; ?>
+            <?php if ($member['phone']): ?>
+              <div>
+                <?=$this->escapeHtml($member['phone'])?>
+              </div>
+            <?php endif; ?>
+          </div>
+          <!-- googleon: all -->
+          <!-- /noindex -->
+        </td>
+      </tr>
+    <?php endforeach; ?>
+  </tbody>
+</table>

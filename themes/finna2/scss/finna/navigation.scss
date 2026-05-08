@@ -1,0 +1,277 @@
+header {
+  position: relative;
+  z-index: $zindex-header;
+  box-shadow : 0 1px 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.finna-navbar {
+  .nav-item > .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    --#{$prefix}nav-link-color: #{$header-text-color};
+    --#{$prefix}nav-link-hover-color: #{$header-text-hover-color};
+    --#{$prefix}navbar-active-color: #{$header-text-active-color};
+  }
+}
+/* Mobile navbar */
+@include media-breakpoint-down(md) {
+  .finna-navbar {
+    position: fixed;
+    top: 0px;
+    right: 0px;
+    left: 0px;
+    z-index: $zindex-mobile-navbar;
+    min-height: 64px;
+    background-color: $header-background-color;
+    border-width: 0 0 1px;
+    box-shadow: 0 0 3px 3px rgba(0,0,0,0.1);
+
+    .nav > li > a {
+      padding-right: 6px;
+      padding-left: 6px;
+    }
+    .navbar-collapse {
+      &.show {
+        max-height: calc(100vh - #{#{$navbar-height}});
+        overflow: auto;
+        box-shadow: 0 3px 5px $gray;
+      }
+      .dropdown-toggle {
+        width: 100%;
+      }
+      .navbar-nav .nav-item {
+        border-bottom: 1px solid $gray-lighter;
+        &:last-child,
+        .dropdown-menu li {
+          border-bottom: none;
+        }
+      }
+      .dropdown-menu {
+        box-shadow: none;
+        .dropdown-item {
+          padding-right: 16px;
+          padding-left: 16px;
+        }
+      }
+    }
+  }
+}
+
+.header-navbar-right {
+  // This is required for proper positioning of dropdown menus:
+  position: relative;
+
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+
+  // Counter the responsive menu behavior for non-expandable items:
+  .dropdown-menu {
+    position: absolute;
+  }
+
+  .logoutOptions,
+  #loginOptions {
+    position: relative;
+    padding-right: 12px;
+  }
+}
+@include media-breakpoint-down(md) {
+  .header-navbar-right {
+    position: absolute;
+    top: 0px;
+    right: $navbar-right;
+    display: flex;
+    align-items: center;
+    height: $navbar-height;
+  }
+}
+
+#language_menu {
+  #language_menu_dropdown_button {
+    &:active {
+      box-shadow: none;
+    }
+  }
+  .lang-icon {
+    font-size: 1.2em;
+    line-height: 1.1em;
+    color: $action-link-color;
+  }
+  .active {
+    font-weight: bold;
+  }
+}
+
+.finna-navbar .navbar-nav {
+  .logoutOptions,
+  #loginOptions {
+    .my-account-icon {
+      font-size: 1.2em;
+      color: $action-link-color;
+    }
+    .login-icon {
+      font-size: 1.2em;
+    }
+  }
+  // fix navbar for .logoutOptions
+  .logoutOptions {
+    .dropdown-menu {
+      left: auto;
+      > li > a {
+        width: 250px;
+        .icon {
+          padding-top: 3px;
+        }
+      }
+    }
+    .username {
+      display: inline-block;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: top;
+    }
+  }
+}
+@include media-breakpoint-down(xs) {
+  .finna-navbar .navbar-nav {
+    .login-text {
+      display: inherit;
+    }
+    #loginOptions .login-text,
+    .logoutOptions .login-text {
+      display: none;
+    }
+    .logoutOptions {
+      .dropdown-menu {
+        right: -30px;
+      }
+      .username {
+        @include visually-hidden();
+      }
+    }
+  }
+}
+@include media-breakpoint-down(md) {
+  .finna-navbar .navbar-nav .logoutOptions .username {
+    max-width: 80px;
+  }
+}
+
+.finna-navbar {
+  // #loginOptions .btn-uppercase included for back-compatibility
+  .login-button,
+  #loginOptions .btn-uppercase {
+    display: block;
+    text-transform: uppercase;
+  }
+}
+
+#my-info-dropdown-menu {
+  width: 280px;
+  > li a {
+    width: 100%;
+    .sign-out-icon {
+      font-size: 1.2em;
+      line-height: 1em;
+    }
+  }
+  > li:last-child > a,
+  li:last-child {
+    border-bottom: none;
+  }
+  .card-selection {
+    .library-card {
+      display: flex;
+      flex-direction: row;
+      min-height: 35px;
+      padding: 0 15px;
+      word-wrap: anywhere;
+      white-space: wrap;
+      .selected-icon {
+        width: 10px;
+        align-self: center;
+        padding-right: 15px;
+        color: $primary;
+      }
+      .card-name span {
+        display: inline-flex;
+        align-items: center;
+        line-height: 1.5;
+      }
+      > a,
+      .barcode-container {
+        border-bottom: 1px solid $gray-lighter;
+        color: $text-color;
+        span {
+          padding: 3px 0px;
+        }
+      }
+      .barcode-container {
+        display: flex;
+        align-items: center;
+        height: auto;
+        width: 20%;
+        a {
+          justify-content: center;
+        }
+        .barcode-icon {
+          margin-left: 0;
+          color: $text-color;
+          font-size: $font-size-icon-large;
+        }
+      }
+    }
+    > :last-child a,
+    > :last-child .barcode-container {
+      border-bottom: none;
+    }
+    > a {
+      justify-content: left;
+    }
+  }
+}
+@include media-breakpoint-down(md) {
+  .card-selection {
+    height: 100%;
+    max-height: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+/* Finna breadcrumbs */
+
+.breadcrumbs {
+  display: none;
+  background-color: $breadcrumb-bg;
+}
+.breadcrumb {
+  margin-bottom: 0px;
+  background-color: transparent;
+  border-radius: 0;
+}
+.template-name-cites,
+.template-name-citedby {
+  .breadcrumbs {
+    display: block;
+    font-weight: 600;
+  }
+}
+/* #SCSS> */
+@if ($breadcrumbs == true) {
+  .breadcrumbs {
+    display: block;
+  }
+}
+/* <#SCSS */
+
+/* End of Finna breadcrumbs */
+
+// content-navigation-menu
+.main.template-dir-content.template-name-content .content-navigation-menu {
+  margin: 1.3em 0em;
+}

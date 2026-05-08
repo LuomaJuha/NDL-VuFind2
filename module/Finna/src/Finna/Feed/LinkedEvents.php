@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Linked events service
+ * Linked events service.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020-2023.
  *
@@ -16,83 +17,90 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
  * @author   Jaro Ravila <jaro.ravila@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Feed;
 
-use Finna\View\Helper\Root\CleanHtml;
-use Laminas\Config\Config;
 use Laminas\Mvc\Controller\Plugin\Url;
 use VuFind\Cache\Manager as CacheManager;
+use VuFind\Config\Config;
+use VuFind\View\Helper\Root\CleanHtml;
+
+use function is_array;
+use function strlen;
 
 /**
- * Linked events service
+ * Linked events service.
  *
  * @category VuFind
  * @package  Content
  * @author   Jaro Ravila <jaro.ravila@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
-    \Laminas\Log\LoggerAwareInterface
+class LinkedEvents implements
+    \VuFindHttp\HttpServiceAwareInterface,
+    \Psr\Log\LoggerAwareInterface,
+    \VuFind\I18n\Translator\TranslatorAwareInterface
 {
     use \VuFindHttp\HttpServiceAwareTrait;
     use \VuFind\Log\LoggerAwareTrait;
+    use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Api url
+     * Api url.
      *
      * @var string
      */
     protected $apiUrl = '';
 
     /**
-     * Publisher ID
+     * Publisher ID.
+     *
+     * @var ?string
+     */
+    protected $publisherId = null;
+
+    /**
+     * Language.
      *
      * @var string
      */
-    protected $publisherId = '';
+    protected $language = null;
 
     /**
-     * Language
-     *
-     * @var string
-     */
-    protected $language;
-
-    /**
-     * Date converter
+     * Date converter.
      *
      * @var \VuFind\Date\Converter
      */
     protected $dateConverter;
 
     /**
-     * Url helper
+     * Url helper.
      *
      * @var Url
      */
     protected $url;
 
     /**
-     * CleanHtml helper
+     * CleanHtml helper.
      *
      * @var CleanHtml
      */
     protected $cleanHtml;
 
     /**
-     * Cache manager
+     * Cache manager.
      *
      * @var CacheManager
      */
@@ -106,17 +114,32 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
     protected $mainConfig;
 
     /**
+     * Include super events in response?
+     * Legacy compatibility.
+     *
+     * @var bool
+     */
+    protected $includeSuperEvents;
+
+    /**
+     * Default parameters used in search.
+     *
+     * @var array
+     */
+    protected $defaultParams = [];
+
+    /**
      * How many related events (if available) are displayed on
-     * the events content page
+     * the events content page.
      *
      * @var int
      */
     protected $relatedEventsAmount = 5;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config $config        OrganisationInfo config
+     * @param \VuFind\Config\Config  $config        OrganisationInfo config
      * @param \VuFind\Date\Converter $dateConverter Date converter
      * @param Url                    $url           Url helper
      * @param CleanHtml              $cleanHtml     cleanHtml helper
@@ -124,7 +147,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
      * @param Config                 $mainConfig    Main configuration
      */
     public function __construct(
-        \Laminas\Config\Config $config,
+        \VuFind\Config\Config $config,
         \VuFind\Date\Converter $dateConverter,
         Url $url,
         CleanHtml $cleanHtml,
@@ -132,8 +155,18 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
         Config $mainConfig
     ) {
         $this->apiUrl = $config->LinkedEvents->api_url ?? '';
-        $this->publisherId = $config->LinkedEvents->publisher_id ?? '';
-        $this->language = $config->General->language ?? '';
+        if (!str_ends_with($this->apiUrl, '/')) {
+            $this->apiUrl .= '/';
+        }
+        $this->publisherId = $config->LinkedEvents->publisher_id ?? null;
+        // Exclude super events from results by default
+        $this->includeSuperEvents
+            = $config->LinkedEvents->include_super_events ?? false;
+
+        $this->defaultParams = $config->LinkedEvents?->default_params?->toArray() ?? [
+            'include' => 'location',
+            'sort' => 'start_time',
+        ];
         $this->dateConverter = $dateConverter;
         $this->url = $url;
         $this->cleanHtml = $cleanHtml;
@@ -142,7 +175,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
     }
 
     /**
-     * Return events from the LinkedEvents API
+     * Return events from the LinkedEvents API.
      *
      * @param array $params array of parameters. Key 'query' has API query
      *                      parameters as value, key 'url' has full URL as value.
@@ -152,12 +185,13 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
      */
     public function getEvents($params)
     {
-        if (empty($this->apiUrl) || empty($this->publisherId)) {
+        if (empty($this->apiUrl)) {
             $this->logError('Missing LinkedEvents configuration');
             return false;
         }
         $paramArray = [];
-        if (!empty($params['url'])
+        if (
+            !empty($params['url'])
             && strncmp($params['url'], $this->apiUrl, strlen($this->apiUrl)) === 0
         ) {
             $url = $params['url'];
@@ -170,7 +204,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
                     $paramArray['start']
                 );
             } elseif (empty($paramArray['end'])) {
-                $paramArray['start'] = date('Y-m-d');
+                $paramArray['start'] = 'today';
             }
             if (isset($paramArray['end'])) {
                 $paramArray['end'] = $this->dateConverter->convert(
@@ -179,33 +213,34 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
                     $paramArray['end']
                 );
             }
-            if (isset($paramArray['language'])) {
-                $map = ['en-gb' => 'en'];
-                $this->language
-                    = $map[$paramArray['language']] ?? $paramArray['language'];
-            }
-
             $url = $this->apiUrl . 'event/';
+
             if (!empty($paramArray['id'])) {
                 $url .= $paramArray['id'] . '/?include=location,audience,keywords,' .
                  'sub_events,super_event';
             } else {
-                $url .= '?'
-                . 'publisher=' . $this->publisherId . '&'
-                . http_build_query($paramArray)
-                . '&sort=start_time'
-                . '&include=location';
+                $paramArray['language'] = $this->getLanguage();
+                if ($this->publisherId) {
+                    $paramArray['publisher'] = $this->publisherId;
+                }
+                if ($this->defaultParams) {
+                    $paramArray = array_merge($this->defaultParams, $paramArray);
+                }
+                if (!$this->includeSuperEvents && empty($paramArray['super_event_type'])) {
+                    $paramArray['super_event_type'] = 'none';
+                }
+                $url .= '?' . http_build_query($paramArray);
             }
         }
 
         // Check for cached version
-        $cacheDir
-            = $this->cacheManager->getCache('feed')->getOptions()->getCacheDir();
-        $localFile = "$cacheDir/" . md5(var_export($params, true)) . '.json';
+        $cacheDir = $this->cacheManager->getCache('feed')->getOptions()->getCacheDir();
+        $localFile = "$cacheDir/" . md5($url . '||' . var_export($params, true)) . '.json';
         $maxAge = isset($this->mainConfig->Content->feedcachetime)
             && '' !== $this->mainConfig->Content->feedcachetime
             ? $this->mainConfig->Content->feedcachetime : 10;
-        if ($maxAge && is_readable($localFile)
+        if (
+            $maxAge && is_readable($localFile)
             && time() - filemtime($localFile) < $maxAge * 60
         ) {
             $response = json_decode(file_get_contents($localFile), true);
@@ -228,11 +263,28 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
                 ? [$response]
                 : $response['data'];
             foreach ($responseData ?: [] as $eventData) {
+                $locationInfo = [];
+                if ($name = $this->getField($eventData['location'] ?? [], 'name')) {
+                    $locationInfo[] = $name;
+                }
+                if ($extra = $this->getField($eventData, 'location_extra_info')) {
+                    $locationInfo[] = $extra;
+                }
+
+                $address = [];
+                if ($street = $this->getField($eventData['location'] ?? [], 'street_address')) {
+                    $address[] = $street;
+                }
+                if ($locality = $this->getField($eventData['location'] ?? [], 'address_locality')) {
+                    $address[] = $locality;
+                }
+
                 $link = $this->url->fromRoute('linked-events-content')
                     . '?id=' . $eventData['id'];
 
                 $providerLink = $this->getField($eventData, 'provider_link');
-                if ($providerLink
+                if (
+                    $providerLink
                     && !preg_match('/^https?:\/\//', $providerLink)
                 ) {
                     $providerLink = 'http://' . $providerLink;
@@ -250,7 +302,8 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
                         'url' => $this->proxifyImageUrl(
                             $eventData['images'][0]['url'] ?? '',
                             $params
-                        )
+                        ),
+                        'photographer' => $eventData['images'][0]['photographer_name'] ?? '',
                     ],
                     'short_description' =>
                         $this->getField($eventData, 'short_description'),
@@ -260,20 +313,14 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
                         'startDate' => $startDate,
                         'endDate' => $endDate,
                         'singleDay' => $startDate === $endDate,
-                        'location' =>
-                            $this->getField($eventData, 'location_extra_info'),
+                        'location' => $this->getField($eventData['location'] ?? [], 'name'),
                     ],
                     'info_url' => $this->getField($eventData, 'info_url'),
-                    'location-info' =>
-                        $this->getField($eventData, 'location_extra_info'),
                     'location' => $this->getField($eventData, 'location'),
+                    'location-info' => implode(', ', $locationInfo),
                     'phone' => $this->getField($eventData, 'provider_phone'),
                     'email' => $this->getField($eventData, 'provider_email'),
-                    'address' =>
-                        $this->getField(
-                            $eventData['location'],
-                            'street_address'
-                        ),
+                    'address' => implode(', ', $address),
                     'price' => $this->getField($eventData, 'offers'),
                     'audience' => $this->getField($eventData, 'audience'),
                     'provider' => $this->getField($eventData, 'provider_name'),
@@ -281,11 +328,12 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
                     'link' => $link,
                     'keywords' => $this->getField($eventData, 'keywords'),
                     'superEvent' => $eventData['super_event'],
-                    'subEvents' => $eventData['sub_events']
+                    'subEvents' => $eventData['sub_events'],
                 ];
 
                 $events[] = $event;
-                if (($eventData['super_event'] !== null
+                if (
+                    ($eventData['super_event'] !== null
                     || !empty($eventData['sub_events']))
                     && !empty($paramArray['id'])
                 ) {
@@ -309,7 +357,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
     }
 
     /**
-     * Return the value of the field in the configured language
+     * Return the value of the field in the configured language.
      *
      * @param array  $object object
      * @param string $field  field
@@ -338,7 +386,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
             if (isset($data['position']['coordinates'])) {
                 $coordinates = [
                     'lng' => $data['position']['coordinates'][0],
-                    'lat' => $data['position']['coordinates'][1]
+                    'lat' => $data['position']['coordinates'][1],
                 ];
             }
             return $coordinates;
@@ -351,15 +399,15 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
             return $keywords;
         }
         if (is_array($data)) {
-            $data = !empty($data[$this->language])
-                ? $data[$this->language]
+            $data = !empty($data[$this->getLanguage()])
+                ? $data[$this->getLanguage()]
                 : ($data['fi'] ?? '');
         }
         return $data;
     }
 
     /**
-     * Format date
+     * Format date.
      *
      * @param string $date Date to format
      *
@@ -374,7 +422,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
     }
 
     /**
-     * Format time
+     * Format time.
      *
      * @param string $time Time to format
      *
@@ -389,7 +437,7 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
     }
 
     /**
-     * Proxify an image url for loading via the FeedContent controller
+     * Proxify an image url for loading via the FeedContent controller.
      *
      * @param string $url    Image URL
      * @param array  $params Array of parameters
@@ -412,8 +460,23 @@ class LinkedEvents implements \VuFindHttp\HttpServiceAwareInterface,
             'linked-events-image',
             [],
             [
-                'query' => $params
+                'query' => $params,
             ]
         );
+    }
+
+    /**
+     * Get language.
+     *
+     * @return string
+     */
+    public function getLanguage(): string
+    {
+        if (null === $this->language) {
+            $lang = $this->getTranslatorLocale();
+            $map = ['en-gb' => 'en'];
+            $this->language = $map[$lang] ?? $lang;
+        }
+        return $this->language;
     }
 }

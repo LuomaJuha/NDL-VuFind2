@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Model for Forward authority records in Solr.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2019.
  *
@@ -16,15 +17,16 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
 
 /**
@@ -34,10 +36,9 @@ namespace Finna\RecordDriver;
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
-class SolrAuthForward extends SolrAuthDefault
-    implements \Laminas\Log\LoggerAwareInterface
+class SolrAuthForward extends SolrAuthDefault implements \Psr\Log\LoggerAwareInterface
 {
     use Feature\SolrAuthFinnaTrait;
     use Feature\SolrForwardTrait {
@@ -49,21 +50,28 @@ class SolrAuthForward extends SolrAuthDefault
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
+     * Runtime cache for method results to avoid duplicate processing.
+     *
+     * @var array
+     */
+    protected $cache = [];
+
+    /**
      * Get an array of alternative titles for the record.
      *
      * @return array
      */
     public function getAlternativeTitles()
     {
-        $doc = $this->getMainElement();
+        $xml = $this->getAllRecordsXmlDoc();
+        $recordNode = $this->getMainRecordNode($xml);
 
         $names = [];
-        foreach ($doc->CAgentName as $name) {
-            if ((string)$name->AgentNameType === '00') {
-                $attr = $name->AgentNameType->attributes();
-                $name = (string)$name->PersonName;
-                if (isset($attr->{'henkilo-muu_nimi-tyyppi'})) {
-                    $type = (string)$attr->{'henkilo-muu_nimi-tyyppi'};
+        foreach ($xml->all($recordNode, 'CAgentName') as $name) {
+            $agentNameType = $xml->first($name, 'AgentNameType');
+            if ($agentNameType && $xml->value($agentNameType) === '00') {
+                $name = $xml->firstValue($name, 'PersonName');
+                if ($type = $xml->attr($agentNameType, 'henkilo-muu_nimi-tyyppi')) {
                     $name .= " ($type)";
                 }
                 $names[] = $name;
@@ -73,7 +81,7 @@ class SolrAuthForward extends SolrAuthDefault
     }
 
     /**
-     * Return description
+     * Return description.
      *
      * @return string|null
      */
@@ -186,10 +194,8 @@ class SolrAuthForward extends SolrAuthDefault
      */
     public function getAwards()
     {
-        return explode(
-            PHP_EOL,
-            $this->getBiographicalNote('henkilo-biografia-tyyppi', 'palkinnot')
-        );
+        $awards = trim($this->getBiographicalNote('henkilo-biografia-tyyppi', 'palkinnot'));
+        return $awards ? array_map('trim', explode(PHP_EOL, $awards)) : [];
     }
 
     /**
@@ -197,7 +203,7 @@ class SolrAuthForward extends SolrAuthDefault
      *
      * @param array $image Image to check
      *
-     * @return boolean
+     * @return bool
      */
     public function allowRecordImageDownload(array $image = []): bool
     {
@@ -207,37 +213,21 @@ class SolrAuthForward extends SolrAuthDefault
     /**
      * Return biographical note.
      *
-     * @param string $type    Note type
-     * @param string $typeVal Note type value
+     * @param ?string $type    Note type
+     * @param ?string $typeVal Note type value
      *
      * @return string
      */
-    protected function getBiographicalNote($type = null, $typeVal = null)
+    protected function getBiographicalNote(?string $type = null, ?string $typeVal = null)
     {
-        $doc = $this->getMainElement();
-        if (isset($doc->BiographicalNote)) {
-            foreach ($doc->BiographicalNote as $bio) {
-                $attr = $bio->attributes();
-                if (!$type || isset($attr->{$type})
-                    && (string)$attr->{$type} === $typeVal
-                ) {
-                    return (string)$bio;
-                }
+        $xml = $this->getAllRecordsXmlDoc();
+        $recordNode = $this->getMainRecordNode($xml);
+        foreach ($xml->all($recordNode, 'BiographicalNote') as $bio) {
+            if (!$type || ($xml->attr($bio, $type) === $typeVal)) {
+                return $xml->value($bio);
             }
         }
-        return null;
-    }
-
-    /**
-     * Get the main metadata element
-     *
-     * @return SimpleXMLElement
-     */
-    protected function getMainElement()
-    {
-        $nodes = (array)$this->getXmlRecord()->children();
-        $node = reset($nodes);
-        return is_array($node) ? reset($node) : $node;
+        return '';
     }
 
     /**
@@ -249,32 +239,22 @@ class SolrAuthForward extends SolrAuthDefault
      */
     protected function getAgentDate($type)
     {
-        $doc = $this->getMainElement();
-        if (isset($doc->AgentDate)) {
-            foreach ($doc->AgentDate as $d) {
-                if (isset($d->AgentDateEventType)) {
-                    $dateType = (int)$d->AgentDateEventType;
-                    $date = (string)$d->DateText;
-                    $place =  (string)$d->LocationName;
-                    if (($type === 'birth' && $dateType === 51)
-                        || ($type == 'death' && $dateType === 52)
-                    ) {
-                        return ['date' => $date, 'place' => $place];
-                    }
+        $xml = $this->getAllRecordsXmlDoc();
+        $recordNode = $this->getMainRecordNode($xml);
+        foreach ($xml->all($recordNode, 'AgentDate') as $d) {
+            if ($agentDateEventType = $xml->first($d, 'AgentDateEventType')) {
+                $dateType = (int)$xml->value($agentDateEventType);
+                $date = $xml->firstValue($d, 'DateText');
+                $place = $xml->firstValue($d, 'LocationName');
+                if (
+                    ($type === 'birth' && $dateType === 51)
+                    || ($type == 'death' && $dateType === 52)
+                ) {
+                    return ['date' => $date, 'place' => $place];
                 }
             }
         }
 
         return null;
-    }
-
-    /**
-     * Get all original records as a SimpleXML object
-     *
-     * @return SimpleXMLElement The record as SimpleXML
-     */
-    protected function getAllRecordsXML()
-    {
-        return $this->getXmlRecord()->children();
     }
 }

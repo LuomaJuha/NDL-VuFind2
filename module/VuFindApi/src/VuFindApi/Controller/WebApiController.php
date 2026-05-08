@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Class WebApiController
+ * Class WebApiController.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2020.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  VuFindApi\Controller
@@ -26,10 +26,11 @@
  * @license  https://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://knihovny.cz Main Page
  */
+
 namespace VuFindApi\Controller;
 
 /**
- * Web API Controller
+ * Web API Controller.
  *
  * Controls the Search API functionality on website index
  *
@@ -49,28 +50,28 @@ class WebApiController extends SearchApiController
     protected $searchClassId = 'SolrWeb';
 
     /**
-     * Record route uri
+     * Record route uri.
      *
      * @var string
      */
     protected $recordRoute = 'web/record';
 
     /**
-     * Search route uri
+     * Search route uri.
      *
      * @var string
      */
     protected $searchRoute = 'web/search';
 
     /**
-     * Descriptive label for the index managed by this controller
+     * Descriptive label for the index managed by this controller.
      *
      * @var string
      */
     protected $indexLabel = 'website';
 
     /**
-     * Prefix for use in model names used by API
+     * Prefix for use in model names used by API.
      *
      * @var string
      */

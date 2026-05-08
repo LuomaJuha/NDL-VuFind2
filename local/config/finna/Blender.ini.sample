@@ -57,7 +57,7 @@ highlighting = true
 ; Solr parameter); default = '*' for all fields:
 highlighting_fields = "author,author2,author_additional,author_fuller,container_title,contents,culture,description,dewey-full,edition,era,genre,geographic,institution,isbn,issn,language,lccn,material,measurements,publication_place_txt_mv,publisher,series,series2,title,title_alt,title_full,title_new,title_old,topic"
 snippets = true
-retain_filters_by_default = true
+retain_filters_by_default = false
 
 [Records]
 ; Boolean value indicating if deduplication is enabled. Defaults to false.
@@ -66,12 +66,29 @@ deduplication = true
 ; from the actual record by period, e.g. testsrc.12345)
 ;sources = alli,testsrc
 
-; This section controls the search handler options displayed in blended mode.
+; This section controls the search handler options displayed in simple search.
+; The name of each setting below corresponds with a Search/Fields mapping in
+; BlenderMappings.yaml.
 [Basic_Searches]
 AllFields = "All Fields"
 Title = Title
 Author = Author
 Subject = Subject
+
+; This section defines which search options will be included on the advanced
+; search screen.
+; The name of each setting below corresponds with a Search/Fields mapping in
+; BlenderMappings.yaml.
+; Note that you will need to ensure that all enabled backends support advanced
+; searches (Solr, SolrAuth, EDS and Primo do). You can comment out or delete all
+; of the options in this section to disable advanced search in situations where
+; all backends cannot support it.
+[Advanced_Searches]
+AllFields = adv_search_all
+Title = adv_search_title
+Author = adv_search_author
+Subject = adv_search_subject
+Abstract = Abstract
 
 [Sorting]
 relevance,id asc = sort_relevance
@@ -149,6 +166,7 @@ hierarchicalFacetSortOptions[building] = top
 hierarchicalFacetSeparators[format] = " > "
 ; Any fields listed below will be treated as new items facets
 newItems[] = first_indexed
+newItems[] = catalog_date
 ; Date visualisations
 dateVis[] = main_date_str
 dateRangeVis = search_daterange_mv:main_date_str
@@ -254,3 +272,17 @@ facet_translation_prefix = "facet_"
 ;delimited_facets[] = author_id_str
 ;delimited_facets[] = "author_id_str|:::"
 delimited_facets[] = "blender_backend|{{{_:::_}}}"
+
+; Settings specific to a facet field. Each section is named [Facet_<field_name>].
+; The example section is used for publish_date. Additional sections can be added for
+; other fields as needed.
+[Facet_publish_date]
+; Minimum value for date range sliders in search forms (default is 1400). Value
+; must be a number or a string that PHP's strtotime can parse. Only the year part
+; is used.
+;slider_min_value = "1400"
+
+; Maximum value for date range sliders in search forms (default is current
+; year + 1). Value must be a number or a string that PHP's strtotime can parse.
+; Only the year part is used.
+;slider_max_value = "+1 year"

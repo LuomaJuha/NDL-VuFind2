@@ -1,0 +1,72 @@
+<?php
+/**
+ * Responsive multi-level navigation: tabbed navigation bar for large screens and a
+ * navbar for small screens.
+ *
+ * Uses the following components:
+ * - finna-nav
+ * - finna-navbar
+ * - finna-tabs-nav
+ *
+ * @param string    ariaLabel         See finna-navbar and finna-tabs-nav
+ * @param ?iterable attributes        Additional attributes
+ * @param array     items             See finna-nav and finna-tabs-nav
+ * @param ?iterable navbarAttributes  Additional finna-navbar attributes
+ * @param ?iterable tabsNavAttributes Additional finna-tabs-nav attributes
+ *
+ * Additionally, all finna-navbar parameters except attributes (use navbarAttributes)
+ * and collapseContent.
+ *
+ * If either navbarAttributes or tabsNavAttributes is provided with a class
+ * attribute, the caller is responsible for setting a visibility class for the
+ * respective component.
+ *
+ * Supported variations using CSS classes:
+ * - finna-multi-level-nav-lg
+ *     Larger variation
+ * - finna-multi-level-nav-content
+ *     Content navigation variation
+ */
+?>
+<?php $__attributes = $this->htmlAttributes($attributes ?? []); ?>
+<div<?= $__attributes->add('class', 'finna-multi-level-nav') ?>>
+  <?php
+    $__tabsNavAttributes = $this->htmlAttributes($tabsNavAttributes ?? []);
+    if (!isset($__tabsNavAttributes['class'])) {
+      $__tabsNavAttributes['class'] = 'hidden-xs';
+    }
+    if ($__attributes->hasValue('class', 'finna-multi-level-nav-lg')) {
+      $__tabsNavAttributes->add('class', 'finna-tabs-nav-lg');
+    }
+  ?>
+  <?= $this->component('finna-tabs-nav', [
+      'ariaCurrent' => 'page',
+      'ariaLabel' => $ariaLabel ?? null,
+      'attributes' => $__tabsNavAttributes,
+      'items' => $items ?? [],
+    ]); ?>
+  <?php
+    $__navbarAttributes = $this->htmlAttributes($navbarAttributes ?? []);
+    if (!isset($__navbarAttributes['class'])) {
+      $__navbarAttributes['class'] = 'visible-xs';
+    }
+    if ($__attributes->hasValue('class', 'finna-multi-level-nav-content')) {
+      $__navbarAttributes->add('class', 'finna-navbar-content');
+    }
+  ?>
+  <?= $this->component('finna-navbar', [
+      'ariaLabel' => $ariaLabel ?? null,
+      'attributes' => $__navbarAttributes,
+      'brandContent' => $brandContent ?? null,
+      'brandLink' => $brandLink ?? null,
+      'brandSrOnly' => $brandSrOnly ?? null,
+      'collapseContent' => $this->component('finna-nav', [
+          'attributes' => ['class' => ['finna-nav-navbar']],
+          'items' => $items ?? [],
+        ]),
+      'collapseId' => $collapseId ?? null,
+      'toggleBtnIconClass' => $toggleBtnIconClass ?? 'finna-navbar-icon-caret',
+      'toggleBtnLabel' => $toggleBtnLabel ?? null,
+      'toggleBtnSrOnly' => $toggleBtnSrOnly ?? null,
+    ]); ?>
+</div>

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Abstract base class for fetching information about user requests.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,9 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
+use VuFind\Account\AccountStatusLevelType;
 
 /**
  * Abstract base class for fetching information about user requests.
@@ -38,8 +41,10 @@ use Laminas\Mvc\Controller\Plugin\Params;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-abstract class AbstractUserRequestAction extends AbstractIlsAndUserAction
+abstract class AbstractUserRequestAction extends AbstractIlsUserAndRendererAction
 {
+    use \VuFind\ILS\Logic\SummaryTrait;
+
     /**
      * ILS driver method for data retrieval.
      *
@@ -61,24 +66,29 @@ abstract class AbstractUserRequestAction extends AbstractIlsAndUserAction
         if (!$patron) {
             return $this->formatResponse('', self::STATUS_HTTP_NEED_AUTH);
         }
-        if (!$this->ils->checkCapability($this->lookupMethod)) {
+        if (!$this->ils->checkCapability($this->lookupMethod, [$patron])) {
             return $this->formatResponse('', self::STATUS_HTTP_ERROR);
         }
         $requests = $this->ils->{$this->lookupMethod}($patron);
-        $status = [
-            'available' => 0,
-            'in_transit' => 0,
-            'other' => 0
-        ];
-        foreach ($requests as $request) {
-            if (!empty($request['available'])) {
-                $status['available'] ++;
-            } elseif (!empty($request['in_transit'])) {
-                $status['in_transit'] ++;
-            } else {
-                $status['other'] ++;
-            }
+        $result = $this->getRequestSummary($requests);
+        $result['level'] = $this->getAccountStatusLevel($result);
+        $result['html'] = $this->renderer->render('ajax/account/requests.phtml', $result);
+        return $this->formatResponse($result);
+    }
+
+    /**
+     * Get account status level for notification icon.
+     *
+     * @param array $status Status information
+     *
+     * @return AccountStatusLevelType
+     */
+    protected function getAccountStatusLevel(array $status): AccountStatusLevelType
+    {
+        if ($status['available']) {
+            // This is equivalent to the GOOD level in account_ajax.js, though e.g. ActionRequired could also make sense
+            return AccountStatusLevelType::Good;
         }
-        return $this->formatResponse($status);
+        return AccountStatusLevelType::Normal;
     }
 }

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * SideFacets Recommendations Module
+ * SideFacets Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -26,15 +27,18 @@
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:recommendation_modules Wiki
+ * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\Recommend;
 
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\I18n\Translator\TranslatorAwareTrait;
 
+use function in_array;
+
 /**
- * SideFacets Recommendations Module
+ * SideFacets Recommendations Module.
  *
  * This class provides recommendations displaying facets beside search results
  *
@@ -44,23 +48,15 @@ use VuFind\I18n\Translator\TranslatorAwareTrait;
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:recommendation_modules Wiki
+ * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
-class SideFacets extends \VuFind\Recommend\SideFacets
-    implements TranslatorAwareInterface
+class SideFacets extends \VuFind\Recommend\SideFacets implements TranslatorAwareInterface
 {
     use TranslatorAwareTrait;
     use SideFacetsTrait;
 
     /**
-     * Authority helper
-     *
-     * @var \Finna\Search\Solr\AuthorityHelper
-     */
-    protected $authorityHelper;
-
-    /**
-     * Display the map under region facet
+     * Display the map under region facet.
      *
      * @var array
      */
@@ -69,22 +65,18 @@ class SideFacets extends \VuFind\Recommend\SideFacets
     ];
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFind\Config\PluginManager                $configLoader    Configu-
-     * ration loader
-     * @param \Finna\Search\Solr\AuthorityHelper          $authorityHelper Authority
-     * helper
-     * @param \VuFind\Search\Solr\HierarchicalFacetHelper $facetHelper     Helper for
-     * handling hierarchical facets
+     * @param \VuFind\Config\configManagerInterface        $configManager   Configuration loader
+     * @param \Finna\Search\Solr\AuthorityHelper           $authorityHelper Authority helper
+     * @param ?\VuFind\Search\Solr\HierarchicalFacetHelper $facetHelper     Helper for handling hierarchical facets
      */
     public function __construct(
-        \VuFind\Config\PluginManager $configLoader,
-        \Finna\Search\Solr\AuthorityHelper $authorityHelper,
-        \VuFind\Search\Solr\HierarchicalFacetHelper $facetHelper = null
+        \VuFind\Config\configManagerInterface $configManager,
+        protected \Finna\Search\Solr\AuthorityHelper $authorityHelper,
+        ?\VuFind\Search\Solr\HierarchicalFacetHelper $facetHelper = null
     ) {
-        parent::__construct($configLoader, $facetHelper);
-        $this->authorityHelper = $authorityHelper;
+        parent::__construct($configManager, $facetHelper);
     }
 
     /**
@@ -103,23 +95,21 @@ class SideFacets extends \VuFind\Recommend\SideFacets
         $iniName = $settings[2] ?? 'facets';
 
         // Load the desired facet information...
-        $config = $this->configLoader->get($iniName);
+        $config = $this->configManager->getConfigArray($iniName);
 
         // New items facets
-        if (isset($config->SpecialFacets->newItems)) {
-            $this->newItemsFacets = $config->SpecialFacets->newItems->toArray();
+        if (null !== ($facets = $config['SpecialFacets']['newItems'] ?? null)) {
+            $this->newItemsFacets = $facets;
         }
 
-        //Fallback check for older style of enabling the map in facets
-        if (isset($config->SpecialFacets->finna_geographic)) {
-            $finna_geographic = $config->SpecialFacets->finna_geographic->toArray();
+        // Fallback check for older style of enabling the map in facets
+        if (null !== ($finnaGeographic = $config['SpecialFacets']['finna_geographic'] ?? null)) {
             $this->geographicFacet['map_selection']
-                = in_array('geographic_facet:location_geo', $finna_geographic);
+                = in_array('geographic_facet:location_geo', $finnaGeographic);
         }
 
-        if (isset($config->Geographical->map_selection)) {
-            $this->geographicFacet['map_selection']
-                = (bool)$config->Geographical->map_selection;
+        if (null !== ($mapSelection = $config['Geographical']['map_selection'] ?? null)) {
+            $this->geographicFacet['map_selection'] = (bool)$mapSelection;
         }
     }
 

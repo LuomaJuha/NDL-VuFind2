@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AbstractBase for Resolver Driver
+ * AbstractBase for Resolver Driver.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2015.
  *
@@ -18,8 +19,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Resolver_Drivers
@@ -27,10 +28,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:link_resolver_drivers Wiki
  */
+
 namespace VuFind\Resolver\Driver;
 
 /**
- * AbstractBase for Resolver Driver
+ * AbstractBase for Resolver Driver.
  *
  * @category VuFind
  * @package  Resolver_Drivers
@@ -41,14 +43,14 @@ namespace VuFind\Resolver\Driver;
 abstract class AbstractBase implements DriverInterface
 {
     /**
-     * Base URL for link resolver
+     * Base URL for link resolver.
      *
      * @var string
      */
     protected $baseUrl;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param string $baseUrl Base URL for link resolver
      */
@@ -58,7 +60,7 @@ abstract class AbstractBase implements DriverInterface
     }
 
     /**
-     * Get Resolver Url
+     * Get Resolver Url.
      *
      * Transform the OpenURL as needed to get a working link to the resolver.
      *
@@ -69,9 +71,23 @@ abstract class AbstractBase implements DriverInterface
     public function getResolverUrl($openURL)
     {
         $url = $this->baseUrl;
-        $url .= strpos($url, '?') === false ? '?' : '&';
+        $url .= !str_contains($url, '?') ? '?' : '&';
         $url .= $openURL;
         return $url;
+    }
+
+    /**
+     * Get Resolver Url for more options link.
+     *
+     * Transform the OpenURL as needed to get a working link to the resolver.
+     *
+     * @param string $openURL openURL (url-encoded)
+     *
+     * @return string Returns resolver specific url
+     */
+    public function getResolverUrlForMoreOptions(string $openURL): string
+    {
+        return $this->getResolverUrl($openURL);
     }
 
     /**

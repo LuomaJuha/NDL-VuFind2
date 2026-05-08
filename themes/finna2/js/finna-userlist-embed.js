@@ -1,13 +1,13 @@
-/*global VuFind, finna, checkSaveStatuses */
+/*global VuFind, finna */
 finna.userListEmbed = (function userListEmbed() {
   var my = {
     init: function init() {
-      $('.public-list-embed.show-all').not(':data(inited)').each(function initEmbed() {
+      $('.public-list-embed.show-all').not('[data-inited="1"]').each(function initEmbed() {
         var embed = $(this);
-        embed.data('inited', '1');
+        embed.attr('data-inited', '1');
 
         var showMore = embed.find('.show-more');
-        var spinner = embed.find('.fa-spinner');
+        var spinner = embed.find('.spinner-icon');
         embed.find('.btn.load-more').on('click', function initLoadMore() {
           spinner.removeClass('hide').show();
 
@@ -44,16 +44,6 @@ finna.userListEmbed = (function userListEmbed() {
 
               finna.myList.init();
               finna.layout.initCondensedList(resultsContainer);
-              finna.layout.initTruncate();
-              finna.layout.initImagePaginators();
-              finna.openUrl.initLinks(resultsContainer);
-              VuFind.itemStatuses.check(resultsContainer);
-              finna.itemStatus.initDedupRecordSelection(resultsContainer);
-              VuFind.recordVersions.init(resultsContainer);
-              VuFind.lightbox.bind(resultsContainer);
-              VuFind.cart.init(resultsContainer);
-              $.fn.finnaPopup.reIndex();
-              checkSaveStatuses(resultsContainer);
             })
             .fail(function onLoadListFail() {
               btn.show();

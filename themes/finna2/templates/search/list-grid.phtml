@@ -1,11 +1,13 @@
 
 <!-- START of: finna - search/list-grid.phtml -->
-<?php if (!isset($this->indexStart)) $this->indexStart = 0; ?>
-<div class="<?=$this->escapeHtmlAttr(trim('search-grid ' . ($this->resultsClass ?? '')))?>">
+<?php if (!isset($this->indexStart)) {
+  $this->indexStart = 0;
+} ?>
+<div class="<?=$this->escapeHtmlAttr(trim('search-grid ' . ($this->resultsClass ?? '')))?>"<?=isset($this->resultsAttrs) ? ' ' . $this->resultsAttrs : ''?>>
   <?php $i = $this->indexStart; ?>
   <?php foreach ($this->results->getResults() as $current): ?>
     <div id="result<?=$i++ ?>" class="result grid">
-      <?=$this->record($current)->getSearchResult('grid')?>
+      <?=$this->record($current)->getSearchResult('grid', $this->results)?>
     </div>
   <?php endforeach; ?>
 </div>

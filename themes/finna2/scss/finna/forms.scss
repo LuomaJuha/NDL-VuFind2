@@ -1,0 +1,236 @@
+form {
+  .required-notice,
+  .remember-me-info {
+    font-size: $small-font-size;
+    color: $text-muted;
+  }
+}
+input, input.form-control {
+  font-size: 16px; // avoid the automatic zoom-in on input fields
+}
+
+.form-control, .form-select {
+  width: initial;
+  max-width: 100%; // make sure dropdowns don't overflow elements
+  padding: 0px 5px;
+  vertical-align: middle !important;
+
+  &::placeholder {
+    color: $gray-light;
+  }
+  &[disabled],
+  &[readonly],
+  fieldset[disabled] {
+    background-color: transparent;
+  }
+
+  &:invalid {
+    box-shadow: 0 0 2px 1px rgba(255, 0, 0, 0.9);
+  }
+  // This is for IE. Keep separate from :invalid so that IE does not drop it
+  &.invalid {
+    box-shadow: 0 0 2px 1px rgba(255, 0, 0, 0.9);
+  }
+}
+
+.form-inline {
+  display: inline-block;
+  .btn {
+    margin-left: 1px;
+  }
+}
+@include media-breakpoint-up(sm) {
+  .form-inline {
+    .form-control {
+      width: auto;
+    }
+    .radio,
+    .checkbox {
+      padding-left: 0px;
+    }
+  }
+}
+
+// Alternate buttons
+// --------------------------------------------------
+.navbar-form .btn[type="submit"],
+.searchForm .btn[type="submit"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 6px 0px;
+  margin: 0px;
+  color: $btn-primary-color;
+  background: $btn-primary-bg;
+  border: none;
+  border-radius: 0px;
+  transition: background 0.1s ease-in-out;
+  &:not(:focus-visible) {
+    box-shadow: 0px 0px 5px rgba(100, 100, 100, 0.3);
+  }
+  &:hover {
+    background: darken($btn-primary-bg, 5%);
+  }
+  .icon {
+    font-size: 28px;
+    color: $btn-primary-color;
+    vertical-align: inherit;
+    cursor: pointer;
+  }
+}
+.searchHomeContent .btn-link {
+  margin-top: 5px;
+  font-size: 1.2em;
+}
+
+.navbar-form,
+.searchForm {
+  display: flex;
+  width: 100%;
+  padding: 0px;
+  margin: 0px;
+  background-color: $search-input-bg;
+  border-top: 0px;
+  border-bottom: 0px;
+  border-radius: 0px;
+  box-shadow: 0px 0px 3px rgba(100, 100, 100, 0.5);
+  .form-control.search-query {
+    display: inline-block !important;
+    flex: 1 1 auto;
+    height: 48px;
+    padding-left: 10px;
+    color: $gray;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    &:focus-visible {
+      box-shadow: $focus-ring-box-shadow;
+      outline: 0;
+    }
+  }
+  /* --- Autocomplete and form adjust accordingly --- */
+  &.input-field-only .form-control.search-query {
+    width: 85%;
+  }
+  #searchForm-reset {
+    margin: auto 5px;
+    color: $gray-light;
+    background: transparent;
+    border: none;
+    &:hover {
+      cursor: pointer;
+    }
+  }
+  .btn {
+    border-radius: 0;
+  }
+}
+@include media-breakpoint-down(sm) {
+  .navbar-form,
+  .searchForm {
+    .form-control.search-query {
+      width: percentage(($finna-search-input-width - 0.06));
+      font-size: 1.1em;
+    }
+    &.input-field-only .form-control.search-query {
+      width: 80%;
+    }
+  }
+}
+
+.navbar-form .form-control.search-query {
+  font-size: $font-size-large;
+}
+
+.dropdown.form-control.type-dropdown {
+  display: inline-block;
+  height: 48px;
+  margin: auto;
+  color: $gray;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  a {
+    color: #000;
+  }
+  .dropdown-toggle {
+    display: inline-flex;
+    align-content: center;
+    justify-content: end;
+    height: inherit;
+    min-width: 110px;
+    padding: 6px 0px;
+  }
+  li {
+    min-width: 110px;
+    color: $text-color;
+    text-align: left;
+  }
+}
+
+.multiselect-container {
+  @extend .dropdown-menu;
+  z-index: 1030;
+}
+
+button.multiselect {
+  height: auto;
+  min-height: 33px;
+  text-align: left;
+}
+
+.radio,
+.checkbox {
+  position: inherit;
+  padding-left: 10px;
+}
+
+.template-dir-feedback .template-name-form form,
+.modal-dialog .feedback-content form,
+.modal-dialog form.dynamic-form {
+  .group-url {
+    margin-bottom: 2rem;
+  }
+  .form-info {
+    margin: 1.5rem 0;
+    font-weight: initial;
+  }
+
+  .required-notice {
+    font-size: $small-font-size;
+    color: $text-muted;
+  }
+
+  input[type=radio] {
+    position: absolute;
+    height: 1em;
+    margin-left: -20px;
+  }
+
+  .form-group {
+    &.checkbox,
+    &.radio {
+      padding-left: 0;
+      label.form-label, label.control-label {
+        padding-left: 0;
+        margin-bottom: 5px;
+        font-weight: 700;
+      }
+      label {
+        display: table;
+        margin: 7px 0;
+        input {
+          margin-top: 3px;
+          margin-right: 10px;
+        }
+      }
+    }
+    &.checkbox label input {
+      display: inline-block;
+      height: 1em;
+      margin-top: -1px;
+    }
+  }
+}

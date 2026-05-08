@@ -10,11 +10,12 @@
           [
               ['lines' => ['Published in']],
               ['lines' => ['Format']],
+              ['lines' => ['Format and Labels']],
               ['lines' => ['Organisation']],
               ['lines' => ['Collection']],
               [
                 'label' => 'Context',
-                'lines' => ['Parent Archive', 'Parent Collection', 'Parent Purchase Batch', 'Parent Series', 'Parent Work']
+                'lines' => ['Parent Archive', 'Parent Collection', 'Parent Series', 'Parent Work'],
               ],
               ['lines' => ['Identifiers']],
               ['lines' => ['Inventory ID']],
@@ -22,19 +23,20 @@
               ['lines' => ['Extent']],
               ['lines' => ['original_work_language']],
               ['lines' => ['Other ID']],
+              ['lines' => ['Location LIDO']],
+              ['lines' => ['Events']],
               ['lines' => ['Measurements']],
               ['lines' => ['Inscriptions']],
-              ['lines' => ['Events']],
               ['lines' => ['Edition']],
               ['lines' => ['lido_editions']],
               ['lines' => ['Subject Detail']],
               ['lines' => ['Subject Place']],
               ['lines' => ['Subject Date']],
               ['lines' => ['Subject Actor']],
-              ['lines' => ['SubjectsWithoutPlaces']],
-              ['lines' => ['Publications']],
+              ['lines' => ['SubjectDisplayTerms']],
               ['lines' => ['Other Classifications']],
               ['lines' => ['Other Classification']],
+              ['lines' => ['Publications']],
               ['lines' => ['Introduction']],
               ['lines' => ['child_records']],
               ['lines' => ['ISBN']],
@@ -49,7 +51,7 @@
   );
 ?>
 <?php if (!empty($coreFieldGroups)): ?>
-  <table class="table table-finna-record record-details record-field-groups" role="presentation">
+  <table class="table table-finna-record record-details record-field-groups" role="presentation" tabindex="-1">
     <?=$this->record($this->driver)->renderTemplate('core-field-groups.phtml', ['data' => $coreFieldGroups]);?>
   </table>
 <?php endif; ?>

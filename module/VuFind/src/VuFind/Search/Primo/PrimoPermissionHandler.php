@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Primo Permission Handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2013.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,9 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Primo;
 
-use LmcRbacMvc\Service\AuthorizationServiceAwareTrait;
+use Lmc\Rbac\Mvc\Service\AuthorizationServiceAwareTrait;
+
+use function in_array;
+use function is_array;
 
 /**
  * Primo Permission Handler.
@@ -50,7 +55,7 @@ class PrimoPermissionHandler
     protected $primoConfig;
 
     /**
-     * Institution code applicable for the user
+     * Institution code applicable for the user.
      *
      * @var string
      */
@@ -59,14 +64,14 @@ class PrimoPermissionHandler
     /**
      * Constructor.
      *
-     * @param Laminas\Config\Config|array $primoPermConfig Primo-Config for
+     * @param VuFind\Config\Config|array $primoPermConfig Primo-Config for
      * Institutions
      *
      * @return void
      */
     public function __construct($primoPermConfig)
     {
-        if ($primoPermConfig instanceof \Laminas\Config\Config) {
+        if ($primoPermConfig instanceof \VuFind\Config\Config) {
             $primoPermConfig = $primoPermConfig->toArray();
         }
         $this->primoConfig = is_array($primoPermConfig) ? $primoPermConfig : [];
@@ -75,7 +80,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Set the institution code (no autodetection)
+     * Set the institution code (no autodetection).
      *
      * @param string $code Institutioncode
      *
@@ -89,7 +94,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Determine if a institution code is set in config file
+     * Determine if a institution code is set in config file.
      *
      * @param string $code Code to approve against config file
      *
@@ -102,9 +107,9 @@ class PrimoPermissionHandler
 
     /**
      * Determine the institution code
-     * Returns false, if no institution can get set
+     * Returns false, if no institution can get set.
      *
-     * @return string|boolean
+     * @return string|bool
      */
     public function getInstCode()
     {
@@ -115,7 +120,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Check if the user has permission
+     * Check if the user has permission.
      *
      * @return bool
      */
@@ -126,13 +131,14 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Checks the config file section for validity
+     * Checks the config file section for validity.
      *
      * @return void
      */
     protected function checkConfig()
     {
-        if (isset($this->primoConfig['institutionCode'])
+        if (
+            isset($this->primoConfig['institutionCode'])
             || isset($this->primoConfig['onCampusRule'])
             || ($this->getDefaultCode() !== false)
         ) {
@@ -149,14 +155,15 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Legacy settings support
+     * Legacy settings support.
      *
      * @return void
      */
     protected function checkLegacySettings()
     {
         // if we already have settings, ignore the legacy ones
-        if (isset($this->primoConfig['defaultCode'])
+        if (
+            isset($this->primoConfig['defaultCode'])
             || isset($this->primoConfig['onCampusRule'])
         ) {
             return;
@@ -175,7 +182,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Gets all possible institution codes from config file
+     * Gets all possible institution codes from config file.
      *
      * @return array Array with valid Primo institution codes
      */
@@ -187,7 +194,8 @@ class PrimoPermissionHandler
 
         // Add additional keys from relevant config sections:
         foreach (['institutionCode', 'onCampusRule'] as $section) {
-            if (isset($this->primoConfig[$section])
+            if (
+                isset($this->primoConfig[$section])
                 && is_array($this->primoConfig[$section])
             ) {
                 $codes = array_merge(
@@ -201,7 +209,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Autodetects the permissions by configuration file
+     * Autodetects the permissions by configuration file.
      *
      * @return void
      */
@@ -217,7 +225,8 @@ class PrimoPermissionHandler
 
         // walk through the relevant config sections and check if one is granted
         foreach (['institutionCode', 'onCampusRule'] as $section) {
-            if (isset($this->primoConfig[$section])
+            if (
+                isset($this->primoConfig[$section])
                 && is_array($this->primoConfig[$section])
             ) {
                 foreach ($this->primoConfig[$section] as $code => $permRule) {
@@ -244,9 +253,9 @@ class PrimoPermissionHandler
 
     /**
      * Determine the default institution code
-     * Returns false, if no default code has been set
+     * Returns false, if no default code has been set.
      *
-     * @return string|boolean
+     * @return string|bool
      */
     protected function getDefaultCode()
     {
@@ -254,7 +263,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Determine the default onCampus Rule
+     * Determine the default onCampus Rule.
      *
      * @return string
      */
@@ -266,7 +275,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Determine a onCampus Rule for a certain code
+     * Determine a onCampus Rule for a certain code.
      *
      * @param string $code Code to determine the rule name for
      *
@@ -292,7 +301,7 @@ class PrimoPermissionHandler
     }
 
     /**
-     * Checks, if a rule is granted
+     * Checks, if a rule is granted.
      *
      * @param string $code Code to check the rule name for
      *
@@ -303,7 +312,7 @@ class PrimoPermissionHandler
         $onCampusRule = $this->getOnCampusRule($code);
         $authService = $this->getAuthorizationService();
 
-        // if no authorization service is available, the user can't get permission
-        return $authService && $authService->isGranted($onCampusRule);
+        // if no authorization service is available, or if no rule is defined, the user can't get permission
+        return $authService && $onCampusRule && $authService->isGranted($onCampusRule);
     }
 }

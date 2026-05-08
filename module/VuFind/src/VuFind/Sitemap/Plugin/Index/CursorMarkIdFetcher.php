@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Plugin to get IDs for a sitemap from a backend using cursor marks (if supported).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2021, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFind\Sitemap\Plugin\Index;
 
 use VuFindSearch\Backend\Solr\Response\Json\RecordCollectionFactory;
@@ -44,14 +46,14 @@ use VuFindSearch\Query\Query;
 class CursorMarkIdFetcher extends AbstractIdFetcher
 {
     /**
-     * Previous cursor mark
+     * Previous cursor mark.
      *
      * @var string
      */
     protected $prevCursorMark = '';
 
     /**
-     * Default parameters to send to Solr with each request
+     * Default parameters to send to Solr with each request.
      *
      * @var array
      */
@@ -65,7 +67,7 @@ class CursorMarkIdFetcher extends AbstractIdFetcher
     ];
 
     /**
-     * Get the initial offset to seed the search process
+     * Get the initial offset to seed the search process.
      *
      * @return string
      */
@@ -132,7 +134,8 @@ class CursorMarkIdFetcher extends AbstractIdFetcher
             $this->defaultParams + [
                 'rows' => $countPerPage,
                 'sort' => $key . ' asc',
-                'cursorMark' => $cursorMark
+                'cursorMark' => $cursorMark,
+                'fl' => 'last_indexed',
             ]
         );
         // Apply filters:
@@ -149,10 +152,12 @@ class CursorMarkIdFetcher extends AbstractIdFetcher
 
         $results = $this->searchService->invoke($command)->getResult();
         $ids = [];
+        $lastmods = [];
         foreach ($results->getRecords() as $doc) {
             $ids[] = $doc->get($key);
+            $lastmods[] = $doc->get('last_indexed');
         }
         $nextOffset = $results->getCursorMark();
-        return compact('ids', 'nextOffset');
+        return compact('ids', 'nextOffset', 'lastmods');
     }
 }

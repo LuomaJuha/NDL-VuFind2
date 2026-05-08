@@ -1,0 +1,99 @@
+<?php
+  /**
+   * Optionally collapsible panel component.
+   *
+   * @param ?iterable attributes   Additional attributes
+   * @param bool      collapsed    Is the panel initially collapsed? Defaults to
+   *                               true. Has no effect if the panel is not
+   *                               collapsible.
+   * @param string    collapseId   Id attribute value for collapsible content
+   * @param string    content      Panel content HTML
+   * @param string    heading      Heading
+   * @param string    headingId    Id attribute value for the heading
+   * @param int       headingLevel Heading level
+   * @param bool      headingTag   Use a h-tag for the heading? Defaults to true.
+   *
+   * Setting collapseId, heading and headingId will make the panel collapsible.
+   *
+   * ARIA role and aria-level attributes will be added to the heading div if a
+   * headingLevel is set and headingTag is set to false.
+   *
+   * Supported variations using CSS classes:
+   * - all Bootstrap's panel variation classes
+   * - finna-panel-default
+   *     Default variation
+   * - finna-panel-borderless
+   *     Borderless variation.
+   */
+  $collapsed ??= true;
+  $headingTag ??= true;
+?>
+<div<?= $this->htmlAttributes($attributes ?? [])->add('class', ['finna-panel', 'panel']) ?>>
+  <?php if (isset($heading)): ?>
+    <?php
+      $__headingAttributes = $this->htmlAttributes(isset($headingId) ? ['id' => $headingId] : []);
+      if (!$headingTag && isset($headingLevel)) {
+        $__headingAttributes->set([
+          'role' => 'heading',
+          'aria-level' => $headingLevel,
+        ]);
+      }
+    ?>
+    <div<?= $__headingAttributes->add('class', 'panel-heading') ?>>
+      <?php if ($headingTag && isset($headingLevel)): ?>
+        <h<?= $headingLevel ?> class="panel-title">
+      <?php endif; ?>
+      <?php
+        if (isset($collapseId)) {
+          $__headingInnerElement = 'a';
+          $__headingInnerAttributes = $this->htmlAttributes([
+            'href' => '#',
+            'role' => 'button',
+            'data-bs-toggle' => 'collapse',
+            'data-bs-target' => '#' . $collapseId,
+            'aria-expanded' => $collapsed ? 'false' : 'true',
+            'aria-controls' => $collapseId,
+          ]);
+          if ($collapsed) {
+            $__headingInnerAttributes->add('class', 'collapsed');
+          }
+        } else {
+          $__headingInnerElement = 'span';
+          $__headingInnerAttributes = $this->htmlAttributes();
+        }
+      ?>
+      <<?= $__headingInnerElement ?><?= $__headingInnerAttributes->add('class', 'finna-panel-heading-inner') ?>>
+        <?= $heading ?>
+      </<?= $__headingInnerElement ?>>
+      <?php if ($headingTag && isset($headingLevel)): ?>
+        </h<?= $headingLevel ?>>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+
+  <?php if (($__collapsible = isset($collapseId) && isset($heading) && isset($headingId))): ?>
+    <?php
+      $__collapseAttributes = $this->htmlAttributes([
+        'id' => $collapseId,
+        'class' => ['panel-collapse', 'collapse'],
+        'aria-labelledby' => $headingId,
+      ]);
+      if (!$collapsed) {
+        $__collapseAttributes->add('class', 'show');
+      }
+    ?>
+    <div<?= $__collapseAttributes ?>>
+  <?php endif; ?>
+  <div class="panel-body">
+    <?= $content ?? '' ?>
+  </div>
+  <?php if ($__collapsible): ?>
+    </div>
+  <?php endif; ?>
+
+  <?php if (isset($footer)): ?>
+    <div class="panel-footer">
+      <?= $footer ?>
+    </div>
+  <?php endif; ?>
+</div>

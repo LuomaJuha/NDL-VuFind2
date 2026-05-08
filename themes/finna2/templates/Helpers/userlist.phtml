@@ -6,13 +6,13 @@
       <?php if ($this->listTags): ?>
         <div class="public-list-tags">
           <?php foreach ($this->listTags as $tag): ?>
-            <div class="tag"><?= $this->escapeHtml($tag->tag) ?></div>
+            <div class="tag"><?= $this->escapeHtml($tag['tag']) ?></div>
           <?php endforeach ?>
         </div>
       <?php endif ?>
       <?php if ($this->date): ?>
         <div class="public-list-info">
-          <div><?= $this->transEsc("modified"); ?>: <?=$this->dateTime()->convertToDisplayDate('Y-m-d H:i:s', $this->date); ?></div>
+          <div><?= $this->transEsc('modified'); ?>: <?=$this->date->format($this->config()->dateFormat()); ?></div>
         </div>
       <?php endif ?>
     </div>
@@ -32,7 +32,7 @@
         'results' => $this->results,
         'params' => $this->params,
         'indexStart' => $this->indexStart,
-        'hideCartControls' => true
+        'hideCartControls' => true,
       ];
     ?>
     <?=$this->partial('search/list-' . $this->view . '.phtml', $viewParams)?>
@@ -44,23 +44,23 @@
             $transParams = [
               '%%start%%' => 1,
               '%%end%%' => $limit,
-              '%%total%%' => $this->localizedNumber($this->total)
+              '%%total%%' => $this->localizedNumber($this->total),
             ];
           ?>
           <?=$this->translate('showing_results_of_html', $transParams)?>
         </div>
         <button class="btn btn-outline-primary load-more" aria-label="<?= $this->transEscAttr('See all')?>" data-id="<?= $this->escapeHtmlAttr($this->id)?>" data-start-index="<?= $this->escapeHtmlAttr($this->indexStart + $limit)?>" data-offset="<?= $this->escapeHtmlAttr($limit + 1)?>" data-view="<?= $this->escapeHtmlAttr($this->view)?>"<?= $this->sort ? (' data-sort="' . $this->escapeHtmlAttr($this->sort) . '"') : ''?>><?= $this->transEsc('See all'); ?></button>
-        <i class="fa fa-spinner fa-spin hide"></i>
+        <?=$this->icon('spinner', 'spinner-icon hide') ?>
       </div>
     <?php endif; ?>
   </div>
 </div>
 <?php
-$this->headScript()->appendFile("finna-userlist-embed.js");
+$this->assetManager()->appendScriptLink('finna-userlist-embed.js');
 $js = <<<JS
-$(document).ready(function(){
-  finna.userListEmbed.init();
-});
-JS;
-$this->headScript()->appendScript($js);
+    $(document).ready(function(){
+      finna.userListEmbed.init();
+    });
+    JS;
+$this->assetManager()->appendScriptString($js);
 ?>

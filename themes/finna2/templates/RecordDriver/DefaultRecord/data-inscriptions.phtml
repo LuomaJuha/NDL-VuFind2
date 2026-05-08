@@ -1,12 +1,12 @@
 <?php //Don't add START and END comments ?>
-<?php if(!empty($data)): ?>
+<?php if (!empty($data)): ?>
   <div class="truncate-field" data-rows="5">
     <?php
     $i = 0;
     foreach ($data as $index => $inscriptions) {
       echo '<span class="record-inscription">';
       foreach ($inscriptions as $item) {
-        echo "<span>";
+        echo '<span>';
         if (!empty($item['type'])) {
           echo $this->transEsc('inscription_type_' . $item['type'], null, $item['type']) . ': ';
         }
@@ -14,9 +14,9 @@
         if (!empty($item['label'])) {
           echo ' (' . $this->translate($item['label']) . ')';
         }
-        echo "</span>";
+        echo '</span>';
       }
-      echo "</span>";
+      echo '</span>';
     }
     ?>
   </div>

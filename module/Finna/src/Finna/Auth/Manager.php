@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Wrapper class for handling logged-in user in session.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Authentication
@@ -25,10 +26,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Auth;
 
-use Finna\Db\Row\User;
 use VuFind\Auth\AbstractBase;
+
+use function is_callable;
 
 /**
  * Wrapper class for handling logged-in user in session.
@@ -52,7 +55,7 @@ class Manager extends \VuFind\Auth\Manager
     }
 
     /**
-     * Get secondary login field label (if any)
+     * Get secondary login field label (if any).
      *
      * This method only exists for back-compatibility
      *
@@ -66,23 +69,21 @@ class Manager extends \VuFind\Auth\Manager
     }
 
     /**
-     * Check if ILS supports password recovery
+     * Check if ILS supports password recovery.
      *
      * @param string $target Login target (only for MultiILS)
      *
      * @return string|false
+     *
+     * @deprecated Exists for back-compatibility with old implementation only
      */
     public function ilsSupportsPasswordRecovery($target = '')
     {
-        $auth = $this->getAuth();
-        if (is_callable([$auth, 'ilsSupportsPasswordRecovery'])) {
-            return $auth->ilsSupportsPasswordRecovery($target);
-        }
-        return false;
+        return $this->supportsRecovery('MultiILS', $target);
     }
 
     /**
-     * Check if ILS supports self-registration
+     * Check if ILS supports self-registration.
      *
      * @param string $target Login target (only for MultiILS)
      *

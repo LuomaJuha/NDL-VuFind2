@@ -1,19 +1,17 @@
 <!-- START of: finna - RecordTab/authorityrecords.phtml -->
 <?php
   $script = <<<JS
-$(document).ready(function() {
-  finna.layout.initCondensedList();
-});
-JS;
-  echo $this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
+      $(document).ready(function() {
+        finna.layout.initCondensedList();
+        finna.layout.initTruncate(document.querySelector('.authority-records'));
+      });
+      JS;
+  echo $this->assetManager()->outputInlineScriptString($script);
 
   $results = $this->tab->loadRecords($this->driver);
   $resultCnt = $results->getResultTotal();
   $i = 0;
   $queryHelper = $results->getUrlQuery();
-  $authorityFilter = $queryHelper->getParamArray()['lookfor'];
-  [$field, $id] = explode(':', $authorityFilter);
-  $queryHelper = $queryHelper->setSearchTerms('')->addFilter("{$field}:{$id}");
   $moreUrl = $this->url('search-results') . (string)$queryHelper;
   $moreLabel = $this->transEsc('authority_records_search_link', ['%%count%%' => $this->localizedNumber($results->getResultTotal())]);
 ?>
@@ -23,17 +21,17 @@ JS;
       <?=$this->translate('showing_results_html', ['%%start%%' => 1, '%%end%%' => count($results->getResults())])?>
     </span>
     <?php if ($resultCnt > 10): ?>
-      <?= " / <span class=\"search-link\"><a href=\"{$moreUrl}\">{$moreLabel}</a></span>" ?>
+      <span class="search-link"><a href="<?=$moreUrl?>"><?=$moreLabel?></a></span>
     <?php endif ?>
   </div>
   <?php foreach ($results->getResults() as $current): ?>
-    <div id="result<?=$i++ ?>" class="result condensed-list-view clearfix<?=$current->supportsAjaxStatus()?' ajaxItem':''?>">
-      <span class="sr-only"><?=$this->transEsc('Search Result');?> <?=$i ?></span>
-      <?=$this->record($current)->getSearchResult('condensed', ['authorId' => $this->driver->getUniqueId()])?>
+    <div id="result<?=$i++ ?>" class="result condensed-list-view clearfix<?=$current->supportsAjaxStatus() ? ' ajaxItem' : ''?>">
+      <span class="visually-hidden"><?=$this->transEsc('Search Result');?> <?=$i ?></span>
+      <?=$this->record($current)->getSearchResult('condensed', $this->results)?>
     </div>
   <?php endforeach ?>
   <div class="search-btn-container">
-    <a href="<?=$moreUrl?>" class="btn btn-outline-primary search-btn" aria-label="<?=$moreLabel?>"><i class="fa fa-arrow-right" aria-hidden="true"></i> <?=$moreLabel?></a>
+    <a href="<?=$moreUrl?>" class="btn btn-outline-primary search-btn" aria-label="<?=$moreLabel?>"><?=$this->icon('full-results-link') ?> <?=$moreLabel?></a>
   </div>
 </div>
 <!-- END of: finna - RecordTab/authorityrecords.phtml -->

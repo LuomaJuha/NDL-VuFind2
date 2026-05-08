@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Encapsulated Records aspect of the Search Multi-class (Params)
+ * Encapsulated Records aspect of the Search Multi-class (Params).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_EncapsulatedRecords
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\EncapsulatedRecords;
 
 /**
- * Encapsulated Records Search Parameters
+ * Encapsulated Records Search Parameters.
  *
  * @category VuFind
  * @package  Search_EncapsulatedRecords
@@ -55,7 +57,7 @@ class Params extends \VuFind\Search\Base\Params
         // Special filter -- if the "id" parameter is set, limit to a specific
         // record:
         $id = $request->get('id');
-        if (!empty($id)) {
+        if (isset($id)) {
             $this->addFilter("ids:{$id}");
         }
 
@@ -64,7 +66,7 @@ class Params extends \VuFind\Search\Base\Params
     }
 
     /**
-     * Pull the page size parameter or set to default
+     * Pull the page size parameter or set to default.
      *
      * @param \Laminas\Stdlib\Parameters $request Parameter object representing user
      * request.
@@ -73,7 +75,8 @@ class Params extends \VuFind\Search\Base\Params
      */
     protected function initLimit($request)
     {
-        if ($request->offsetExists('limit')
+        if (
+            $request->offsetExists('limit')
             && null === $request->offsetGet('limit')
         ) {
             // Null value is allowed (no limit)

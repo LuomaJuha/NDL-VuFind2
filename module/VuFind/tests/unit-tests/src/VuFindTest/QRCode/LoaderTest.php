@@ -1,8 +1,9 @@
 <?php
+
 /**
- * QR Code Loader Test Class
+ * QR Code Loader Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,14 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\QRCode;
 
-use Laminas\Config\Config;
+use VuFind\Config\Config;
 use VuFind\QRCode\Loader;
 use VuFindTheme\ThemeInfo;
 
+use function strlen;
+
 /**
- * QR Code Loader Test Class
+ * QR Code Loader Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -47,7 +51,7 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
      *
      * @var string
      */
-    protected $testTheme = 'bootstrap3';
+    protected $testTheme = 'bootstrap5';
 
     /**
      * Test that failure to load even the baseline image causes an exception.
@@ -61,7 +65,10 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
 
         $theme = $this->getMockBuilder(\VuFindTheme\ThemeInfo::class)
             ->setConstructorArgs(['foo', 'bar'])->getMock();
-        $theme->expects($this->once())->method('findContainingTheme')->with($this->equalTo(['images/noQRCode.gif']))->will($this->returnValue(false));
+        $theme->expects($this->once())
+            ->method('findContainingTheme')
+            ->with(['images/noQRCode.gif'])
+            ->willReturn(false);
         $loader = $this->getLoader([], $theme);
         $loader->getImage();
     }
@@ -76,7 +83,7 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
         $loader = $this->getLoader();
         $loader->loadQRCode('');
         $this->assertEquals('image/gif', $loader->getContentType());
-        $this->assertEquals('483', strlen($loader->getImage()));
+        $this->assertSame(483, strlen($loader->getImage()));
     }
 
     /**
@@ -89,7 +96,7 @@ class LoaderTest extends \PHPUnit\Framework\TestCase
         $loader = $this->getLoader();
         $loader->loadQRCode('foofoofoofoofoofoofoofoofoofoofoofoo', ['size' => 1]);
         $this->assertEquals('image/gif', $loader->getContentType());
-        $this->assertEquals('483', strlen($loader->getImage()));
+        $this->assertSame(483, strlen($loader->getImage()));
     }
 
     /**

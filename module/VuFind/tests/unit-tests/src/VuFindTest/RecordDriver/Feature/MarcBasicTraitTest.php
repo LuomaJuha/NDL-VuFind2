@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Record Driver Marc Traits Test Class
+ * Record Driver Marc Traits Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\RecordDriver\Feature;
 
-use VuFind\RecordDriver\WorldCat;
+use PHPUnit\Framework\MockObject\MockObject;
+use VuFindTest\RecordDriver\MarcBasicTraitTestHarness;
 
 /**
- * Record Driver Marc Traits Test Class
+ * Record Driver Marc Traits Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -58,7 +61,7 @@ class MarcBasicTraitTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals(
             [
                 '0000-1111', '1111-2222', '2222-3333', '3333-4444', '4444-5555',
-                '5555-6666', '6666-7777', '7777-8888'
+                '5555-6666', '6666-7777', '7777-8888',
             ],
             $obj->getISSNs()
         );
@@ -104,21 +107,19 @@ class MarcBasicTraitTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Create mock record
+     * Create mock record.
      *
      * @param string $fixture Record metadata fixture
      *
-     * @return MockObjec&WorldCat
+     * @return MarcBasicTraitTestHarness&MockObject
      */
-    protected function createMockRecord(string $fixture): WorldCat
+    protected function createMockRecord(string $fixture): MarcBasicTraitTestHarness&MockObject
     {
         $xml = $this->getFixture("marc/$fixture");
         $record = new \VuFind\Marc\MarcReader($xml);
-        $obj = $this->getMockBuilder(WorldCat::class)
+        $obj = $this->getMockBuilder(MarcBasicTraitTestHarness::class)
             ->onlyMethods(['getMarcReader'])->getMock();
-        $obj->expects($this->any())
-            ->method('getMarcReader')
-            ->will($this->returnValue($record));
+        $obj->method('getMarcReader')->willReturn($record);
         return $obj;
     }
 }

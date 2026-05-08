@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Matomo web analytics view helper for Matomo versions >= 4
+ * Matomo web analytics view helper for Matomo versions >= 4.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2014-2021.
+ * Copyright (C) The National Library of Finland 2014-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -26,12 +27,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace Finna\View\Helper\Root;
 
 use VuFind\RecordDriver\AbstractBase as RecordDriverBase;
 
+use function in_array;
+use function is_array;
+
 /**
- * Matomo web analytics view helper for Matomo versions >= 4
+ * Matomo web analytics view helper for Matomo versions >= 4.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -43,7 +48,7 @@ use VuFind\RecordDriver\AbstractBase as RecordDriverBase;
 class Matomo extends \VuFind\View\Helper\Root\Matomo
 {
     /**
-     * Locale settings
+     * Locale settings.
      *
      * @var \VuFind\I18n\Locale\LocaleSettings
      */
@@ -57,15 +62,15 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     protected $additionalCustomData = [];
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config               $config  VuFind configuration
+     * @param \VuFind\Config\Config                $config  VuFind configuration
      * @param \Laminas\Router\Http\TreeRouteStack  $router  Router
      * @param \Laminas\Http\PhpEnvironment\Request $request Request
      * @param \VuFind\I18n\Locale\LocaleSettings   $locale  Locale settings
      */
     public function __construct(
-        \Laminas\Config\Config $config,
+        \VuFind\Config\Config $config,
         \Laminas\Router\Http\TreeRouteStack $router,
         \Laminas\Http\PhpEnvironment\Request $request,
         \VuFind\I18n\Locale\LocaleSettings $locale
@@ -89,14 +94,15 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     }
 
     /**
-     * Get the URL for the current page
+     * Get the URL for the current page.
      *
      * @return string
      */
     protected function getPageUrl(): string
     {
         // Prettify image popup page URL (AJAX/JSON?method=... > /record/[id]/image
-        if ($this->calledFromImagePopup()
+        if (
+            $this->calledFromImagePopup()
             && !empty($this->params['recordUrl'])
         ) {
             return $this->params['recordUrl'] . '/image';
@@ -106,7 +112,7 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     }
 
     /**
-     * Convert a custom data array to JavaScript dimensions code
+     * Convert a custom data array to JavaScript dimensions code.
      *
      * @param array $customData Custom data
      *
@@ -124,7 +130,7 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     }
 
     /**
-     * Convert a custom data array to JavaScript code
+     * Convert a custom data array to JavaScript code.
      *
      * @param array $customData Custom data
      *
@@ -166,7 +172,7 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     }
 
     /**
-     * Augment custom data with additional information
+     * Augment custom data with additional information.
      *
      * @param array $customData Custom data
      *
@@ -187,7 +193,7 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     }
 
     /**
-     * Get custom data for record page
+     * Get custom data for record page.
      *
      * @param RecordDriverBase $recordDriver Record driver
      *
@@ -231,7 +237,7 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
     }
 
     /**
-     * Get custom data for lightbox actions
+     * Get custom data for lightbox actions.
      *
      * @return array Associative array of custom data
      */
@@ -253,5 +259,22 @@ class Matomo extends \VuFind\View\Helper\Root\Matomo
         return isset($this->params['action'])
             && $this->params['action'] == 'imagePopup'
             && isset($this->params['record']);
+    }
+
+    /**
+     * Get Page View Tracking Code.
+     *
+     * @param array $customData Custom data
+     *
+     * @return string JavaScript Code Fragment
+     */
+    protected function getTrackPageViewCode(array $customData): string
+    {
+        $result = parent::getTrackPageViewCode($customData);
+        $result .= <<<EOT
+            _paq.push(['trackVisibleContentImpressions']);
+
+            EOT;
+        return $result;
     }
 }

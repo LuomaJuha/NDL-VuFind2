@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Record loader
+ * Record loader.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010, 2022.
  * Copyright (C) The National Library of Finland 2015.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Record
@@ -27,6 +28,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Record;
 
 use VuFind\Exception\RecordMissing as RecordMissingException;
@@ -38,8 +40,11 @@ use VuFindSearch\Command\RetrieveCommand;
 use VuFindSearch\ParamBag;
 use VuFindSearch\Service as SearchService;
 
+use function count;
+use function is_object;
+
 /**
- * Record loader
+ * Record loader.
  *
  * @category VuFind
  * @package  Record
@@ -48,51 +53,51 @@ use VuFindSearch\Service as SearchService;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
-class Loader implements \Laminas\Log\LoggerAwareInterface
+class Loader implements \Psr\Log\LoggerAwareInterface
 {
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * Record factory
+     * Record factory.
      *
      * @var RecordFactory
      */
     protected $recordFactory;
 
     /**
-     * Search service
+     * Search service.
      *
      * @var SearchService
      */
     protected $searchService;
 
     /**
-     * Record cache
+     * Record cache.
      *
      * @var Cache
      */
     protected $recordCache;
 
     /**
-     * Fallback record loader
+     * Fallback record loader.
      *
      * @var FallbackLoader
      */
     protected $fallbackLoader;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param SearchService  $searchService  Search service
-     * @param RecordFactory  $recordFactory  Record loader
-     * @param Cache          $recordCache    Record Cache
-     * @param FallbackLoader $fallbackLoader Fallback record loader
+     * @param SearchService   $searchService  Search service
+     * @param RecordFactory   $recordFactory  Record loader
+     * @param ?Cache          $recordCache    Record Cache
+     * @param ?FallbackLoader $fallbackLoader Fallback record loader
      */
     public function __construct(
         SearchService $searchService,
         RecordFactory $recordFactory,
-        Cache $recordCache = null,
-        FallbackLoader $fallbackLoader = null
+        ?Cache $recordCache = null,
+        ?FallbackLoader $fallbackLoader = null
     ) {
         $this->searchService = $searchService;
         $this->recordFactory = $recordFactory;
@@ -103,11 +108,11 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
     /**
      * Given an ID and record source, load the requested record object.
      *
-     * @param string   $id              Record ID
-     * @param string   $source          Record source
-     * @param bool     $tolerateMissing Should we load a "Missing" placeholder
+     * @param string    $id              Record ID
+     * @param string    $source          Record source
+     * @param bool      $tolerateMissing Should we load a "Missing" placeholder
      * instead of throwing an exception if the record cannot be found?
-     * @param ParamBag $params          Search backend parameters
+     * @param ?ParamBag $params          Search backend parameters
      *
      * @throws \Exception
      * @return \VuFind\RecordDriver\AbstractBase
@@ -116,11 +121,12 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
         $id,
         $source = DEFAULT_SEARCH_BACKEND,
         $tolerateMissing = false,
-        ParamBag $params = null
+        ?ParamBag $params = null
     ) {
         if (null !== $id && '' !== $id) {
             $results = [];
-            if (null !== $this->recordCache
+            if (
+                null !== $this->recordCache
                 && $this->recordCache->isPrimary($source)
             ) {
                 $results = $this->recordCache->lookup($id, $source);
@@ -136,17 +142,22 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
                     }
                 }
             }
-            if (empty($results) && null !== $this->recordCache
+            if (
+                empty($results) && null !== $this->recordCache
                 && $this->recordCache->isFallback($source)
             ) {
                 $results = $this->recordCache->lookup($id, $source);
+                if (!empty($results)) {
+                    $results[0]->setExtraDetail('cached_record', true);
+                }
             }
 
             if (!empty($results)) {
                 return $results[0];
             }
 
-            if ($this->fallbackLoader
+            if (
+                $this->fallbackLoader
                 && $this->fallbackLoader->has($source)
             ) {
                 try {
@@ -179,12 +190,12 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
      * Given an array of IDs and a record source, load a batch of records for
      * that source.
      *
-     * @param array    $ids                       Record IDs
-     * @param string   $source                    Record source
-     * @param bool     $tolerateBackendExceptions Whether to tolerate backend
+     * @param array     $ids                       Record IDs
+     * @param string    $source                    Record source
+     * @param bool      $tolerateBackendExceptions Whether to tolerate backend
      * exceptions that may be caused by e.g. connection issues or changes in
-     * subcscriptions
-     * @param ParamBag $params                    Search backend parameters
+     * subscriptions
+     * @param ?ParamBag $params                    Search backend parameters
      *
      * @throws \Exception
      * @return array
@@ -193,12 +204,12 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
         $ids,
         $source = DEFAULT_SEARCH_BACKEND,
         $tolerateBackendExceptions = false,
-        ParamBag $params = null
+        ?ParamBag $params = null
     ) {
         $list = new Checklist($ids);
         $cachedRecords = [];
         if (null !== $this->recordCache && $this->recordCache->isPrimary($source)) {
-            // Try to load records from cache if source is cachable
+            // Try to load records from cache if source is cacheable
             $cachedRecords = $this->recordCache->lookupBatch($ids, $source);
             // Check which records could not be loaded from the record cache
             foreach ($cachedRecords as $cachedRecord) {
@@ -233,7 +244,8 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
         }
 
         $retVal = $genuineRecords;
-        if ($list->hasUnchecked() && $this->fallbackLoader
+        if (
+            $list->hasUnchecked() && $this->fallbackLoader
             && $this->fallbackLoader->has($source)
         ) {
             try {
@@ -257,10 +269,11 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
             }
         }
 
-        if ($list->hasUnchecked() && null !== $this->recordCache
+        if (
+            $list->hasUnchecked() && null !== $this->recordCache
             && $this->recordCache->isFallback($source)
         ) {
-            // Try to load missing records from cache if source is cachable
+            // Try to load missing records from cache if source is cacheable
             $cachedRecords = $this->recordCache
                 ->lookupBatch($list->getUnchecked(), $source);
         }
@@ -297,13 +310,13 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
      * requested order.
      *
      * @param array      $ids                       Array of associative arrays with
-     * id/source keys or strings in source|id format.  In associative array formats,
+     * id/source keys or strings in source|id format. In associative array formats,
      * there is also an optional "extra_fields" key which can be used to pass in data
      * formatted as if it belongs to the Solr schema; this is used to create
      * a mock driver object if the real data source is unavailable.
      * @param bool       $tolerateBackendExceptions Whether to tolerate backend
      * exceptions that may be caused by e.g. connection issues or changes in
-     * subcscriptions
+     * subscriptions
      * @param ParamBag[] $params                    Associative array of search
      * backend parameters keyed with source key
      *
@@ -351,7 +364,7 @@ class Loader implements \Laminas\Log\LoggerAwareInterface
     }
 
     /**
-     * Set the context to control cache behavior
+     * Set the context to control cache behavior.
      *
      * @param string $context Cache context
      *

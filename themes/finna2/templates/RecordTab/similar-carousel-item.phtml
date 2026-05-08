@@ -1,0 +1,20 @@
+<?php
+  $driver = $this->record($this->item)->getDriver();
+  $formats = $driver->tryMethod('getFormats');
+?>
+<div class="similar-carousel-item">
+  <div class="similar-carousel-image">
+    <img data-src="<?=$this->recordImage($this->record($this->item))->getLargeImage()?>" alt="">
+    <div class="iconlabel format-<?=$this->record($driver)->getFormatClass(end($formats))?> hidden"></div>
+  </div>
+  <div class="similar-carousel-text">
+    <span class="similar-carousel-item-title" data-toggle="tooltip-hover" data-original-title=<?=$this->escapeHtmlAttr($this->item->getTitle())?>><?=$this->escapeHtml($this->item->getTitle())?></span>
+    <?php $authors = $item->getPrimaryAuthors();
+    if (!empty($authors)): ?>
+      <span class="similar-carousel-item-author" data-toggle="tooltip-hover" data-original-title=<?=$this->escapeHtmlAttr($authors[0])?>><?=$this->escapeHtml($authors[0])?></span>
+    <?php endif; ?>
+    <div>
+      <span class="similar-carousel-format"><?=$this->record($driver)->getFormatList()?></span>
+    </div>
+  </div>
+</div>

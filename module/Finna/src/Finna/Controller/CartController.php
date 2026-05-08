@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Book Bag / Bulk Action Controller
+ * Book Bag / Bulk Action Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2017.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -27,12 +28,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace Finna\Controller;
 
+use VuFind\Controller\Feature\ListItemSelectionTrait;
+use VuFind\Exception\Forbidden as ForbiddenException;
 use VuFind\Exception\Mail as MailException;
 
+use function count;
+use function is_array;
+
 /**
- * Book Bag / Bulk Action Controller
+ * Book Bag / Bulk Action Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -43,6 +50,8 @@ use VuFind\Exception\Mail as MailException;
  */
 class CartController extends \VuFind\Controller\CartController
 {
+    use ListItemSelectionTrait;
+
     /**
      * Email a batch of records.
      *
@@ -51,21 +60,36 @@ class CartController extends \VuFind\Controller\CartController
     public function emailAction()
     {
         // Retrieve ID list:
-        $ids = null === $this->params()->fromPost('selectAll')
-            ? $this->params()->fromPost('ids')
-            : $this->params()->fromPost('idsAll');
+        $ids = $this->getSelectedIds();
 
         // Retrieve follow-up information if necessary:
         if (!is_array($ids) || empty($ids)) {
-            $ids = $this->followup()->retrieveAndClear('cartIds');
+            $ids = $this->followup()->retrieveAndClear('cartIds') ?? [];
         }
+        $actionLimit = $this->getBulkActionLimit('email');
         if (!is_array($ids) || empty($ids)) {
-            return $this->redirectToSource('error', 'bulk_noitems_advice');
+            if ($redirect = $this->redirectToSource('error', 'bulk_noitems_advice')) {
+                return $redirect;
+            }
+            $submitDisabled = true;
+        } elseif (count($ids) > $actionLimit) {
+            $errorMsg = $this->translate(
+                'bulk_limit_exceeded',
+                ['%%count%%' => count($ids), '%%limit%%' => $actionLimit],
+            );
+            if ($redirect = $this->redirectToSource('error', $errorMsg)) {
+                return $redirect;
+            }
+            $submitDisabled = true;
         }
 
+        $emailActionSettings = $this->getService(\VuFind\Config\AccountCapabilities::class)->getEmailActionSetting();
+        if ($emailActionSettings === 'disabled') {
+            throw new ForbiddenException('Email action disabled');
+        }
         // Force login if necessary:
-        $config = $this->getConfig();
-        if ((!isset($config->Mail->require_login) || $config->Mail->require_login)
+        if (
+            $emailActionSettings !== 'enabled'
             && !$this->getUser()
         ) {
             return $this->forceLogin(
@@ -83,7 +107,7 @@ class CartController extends \VuFind\Controller\CartController
         $view->useCaptcha = $this->captcha()->active('email');
 
         // Process form submission:
-        if ($this->formWasSubmitted('submit', $view->useCaptcha)) {
+        if (!($submitDisabled ?? false) && $this->formWasSubmitted(null, $view->useCaptcha)) {
             // Attempt to send the email and show an appropriate flash message:
             try {
                 // If we got this far, we're ready to send the email:
@@ -100,9 +124,9 @@ class CartController extends \VuFind\Controller\CartController
                     $view->subject,
                     $cc
                 );
-                return $this->redirectToSource('success', 'bulk_email_success');
+                return $this->redirectToSource('success', 'bulk_email_success', true);
             } catch (MailException $e) {
-                $this->flashMessenger()->addMessage($e->getMessage(), 'error');
+                $this->flashMessenger()->addErrorMessage($e->getDisplayMessage());
             }
         }
         return $view;
@@ -122,12 +146,9 @@ class CartController extends \VuFind\Controller\CartController
         if (empty($view->message)) {
             $listName = $this->params()->fromPost('listName', '');
             $listDescription = $this->params()->fromPost('listDescription', '');
-
-            if ($listName && $listDescription) {
-                $view->message = "$listName\n\n$listDescription";
-            } else {
-                $view->message = "$listName$listDescription";
-            }
+            $view->message = $listName && $listDescription
+                ? "$listName\n\n$listDescription"
+                : "$listName$listDescription";
         }
         return $view;
     }

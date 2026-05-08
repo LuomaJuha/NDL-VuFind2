@@ -1,0 +1,53 @@
+.caret {
+  display: initial;
+  width: initial;
+  height: initial;
+  margin-left: initial;
+  vertical-align: initial;
+  border: initial;
+  border-top: none;
+
+  &::before {
+    font-family: finnaicons;
+    content: "\e613";
+  }
+}
+
+.dropdown-menu {
+  padding: 0px 1px;
+  border: 1px solid $dropdown-border;
+  border-radius: $border-radius-base;
+  min-width: 0;
+  @include box-shadow(0 6px 12px rgba(0, 0, 0, .275));
+
+  > li {
+    border-bottom: 1px solid $gray-lighter;
+    &:last-child > a,
+    &:last-child {
+      border-bottom: none;
+    }
+    > a {
+      padding: 7px 15px;
+    }
+  }
+}
+
+.dropdown-menu > li > a {
+  display: block;
+
+  &:focus {
+    // Hide focus effect so that menus look ok even if first item is automatically focused:
+    background-color: inherit;
+  }
+  &.active:focus {
+    // Make sure the active item is displayed properly:
+    color: $dropdown-link-active-color;
+    background-color: $dropdown-link-active-bg;
+  }
+  &:hover,
+  &:active {
+    text-decoration: none;
+    color: $dropdown-link-hover-color;
+    background-color: $dropdown-link-hover-bg;
+  }
+}

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Abstract factory for backends.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Factory;
 
 use Laminas\Cache\Storage\StorageInterface;
-use Laminas\Config\Config;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use Psr\Container\ContainerInterface;
+use VuFind\Config\Config;
+use VuFind\Service\GetServiceTrait;
 
 /**
  * Abstract factory for backends.
@@ -43,22 +46,17 @@ use Psr\Container\ContainerInterface;
  */
 abstract class AbstractBackendFactory implements FactoryInterface
 {
-    /**
-     * Service container.
-     *
-     * @var ContainerInterface
-     */
-    protected $serviceLocator;
+    use GetServiceTrait;
 
     /**
-     * Constructor
+     * Constructor.
      */
     public function __construct()
     {
     }
 
     /**
-     * Initialize the factory
+     * Initialize the factory.
      *
      * @param ContainerInterface $sm Service manager
      *
@@ -70,7 +68,7 @@ abstract class AbstractBackendFactory implements FactoryInterface
     }
 
     /**
-     * Create HTTP Client
+     * Create HTTP Client.
      *
      * @param int    $timeout Request timeout
      * @param array  $options Other options
@@ -82,10 +80,9 @@ abstract class AbstractBackendFactory implements FactoryInterface
     protected function createHttpClient(
         ?int $timeout = null,
         array $options = [],
-        string $url = null
+        ?string $url = null
     ): \Laminas\Http\Client {
-        $client = $this->serviceLocator->get(\VuFindHttp\HttpService::class)
-            ->createClient($url);
+        $client = $this->getService(\VuFindHttp\HttpService::class)->createClient($url);
         if (null !== $timeout) {
             $options['timeout'] = $timeout;
         }
@@ -94,7 +91,7 @@ abstract class AbstractBackendFactory implements FactoryInterface
     }
 
     /**
-     * Create cache for the connector if enabled in configuration
+     * Create cache for the connector if enabled in configuration.
      *
      * @param Config $searchConfig Search configuration
      *
@@ -117,8 +114,7 @@ abstract class AbstractBackendFactory implements FactoryInterface
             'adapter' => $cacheConfig['adapter'],
             'options' => $options,
         ];
-        return $this->serviceLocator
-            ->get(\Laminas\Cache\Service\StorageAdapterFactory::class)
+        return $this->getService(\Laminas\Cache\Service\StorageAdapterFactory::class)
             ->createFromArrayConfiguration($settings);
     }
 }

@@ -1,0 +1,66 @@
+<!-- START of: finna - reservationlist/displaylists.phtml -->
+<?php
+  $title = $this->translate('ReservationList::All Lists');
+
+  // Set up breadcrumbs:
+  $this->breadcrumbs()->set($this->translate('Your Account'), $this->url('myresearch-home'))
+    ->add($title, active: true);
+  $listEntities = array_column($this->listEntities, 'list_entity');
+?>
+
+<!-- Leftside navigationbar -->
+<?= $this->context($this)->renderInContext('myresearch/menu.phtml', ['active' => 'reservationlist']); ?>
+
+
+<div class="<?=$this->layoutClass('mainbody-myresearch')?> reservation-list-body">
+  <div id="useraccount-content-heading" class="useraccount-header">
+    <?=$this->component('page-title', ['title' => $title]);?>
+  </div>
+  <?= $this->flashmessages() ?>
+  <ul class="reservations-list-home-ul">
+    <?php foreach ($listEntities ?? [] as $listEntity): ?>
+      <?php
+        $listHandler = $this->reservationList($this->auth()->getUserObject())->getListHandler($listEntity->getInstitution(), $listEntity->getListConfigIdentifier());
+      ?>
+      <li class="reservations-list-home-li">
+        <div class="reservation-list-header">
+          <div>
+            <a href="<?= $this->url('reservationlist-displaylist', ['listId' => $listEntity->getId()])?>"><?= $this->escapeHtml($listEntity->getTitle()) ?></a>
+          </div>
+          <div class="float-end">
+            <?=
+              $this->component(
+                  'confirm-button',
+                  [
+                    'buttonLink' => $this->url('reservationlist-deletelist', ['listId' => $listEntity->getId()]),
+                    'buttonLabel' => 'Delete',
+                    'confirmLink' => $this->url('reservationlist-deletelist', ['listId' => $listEntity->getId()], ['query' => ['confirm' => 1]]),
+                    'header' => 'confirm_delete_list_text',
+                    'align' => 'right',
+                  ]
+              );
+            ?>
+          </div>
+        </div>
+        <div class="reservation-list-info">
+          <?php // TODO: create a component which handles the defaulting into prettier form ?>
+          <div class="location">
+            <?php if ($title = $listHandler->getTitle($this->layout()->userLang)): ?>
+              <?= $this->escapeHtml($title); ?>
+            <?php else: ?>
+              <?= $this->transEscWithPrefix('source_', $listHandler->getInstitution()) . ': ' . $this->escapeHtml($listHandler->getIdentifier()); ?>
+            <?php endif; ?>
+          </div>
+          <div class="list-ordered list-info">
+            <?php if (!$listHandler->isEnabled()): ?>
+                <?= $this->transEsc('ReservationList::Disabled'); ?>
+            <?php elseif ($listEntity->getOrdered()): ?>
+                <?= $this->transEsc('ReservationList::list_ordered', ['%%date%%' => $listEntity->getOrdered()->format('d.m.Y')])?>
+            <?php endif; ?>
+          </div>
+        </div>
+      </li>
+      <?php endforeach; ?>
+  </ul>
+</div>
+<!-- END of: finna - reservationlist/displaylists.phtml -->

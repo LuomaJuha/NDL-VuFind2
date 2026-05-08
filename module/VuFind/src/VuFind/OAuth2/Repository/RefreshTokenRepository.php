@@ -1,10 +1,11 @@
 <?php
+
 /**
  * OAuth2 refresh token repository implementation.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2022.
+ * Copyright (C) The National Library of Finland 2022-2024.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  OAuth2
@@ -25,12 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\OAuth2\Repository;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
-use VuFind\Db\Table\AccessToken;
+use VuFind\Auth\InvalidArgumentException;
+use VuFind\Db\Service\AccessTokenServiceInterface;
+use VuFind\Db\Service\UserServiceInterface;
 use VuFind\OAuth2\Entity\RefreshTokenEntity;
+use VuFind\ServiceManager\Factory\Autowire;
 
 /**
  * OAuth2 refresh token repository implementation.
@@ -41,29 +46,38 @@ use VuFind\OAuth2\Entity\RefreshTokenEntity;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
-class RefreshTokenRepository extends AbstractTokenRepository
-    implements RefreshTokenRepositoryInterface
+class RefreshTokenRepository extends AbstractTokenRepository implements RefreshTokenRepositoryInterface
 {
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param AccessToken $table Token table
+     * @param array                       $oauth2Config       OAuth2 configuration
+     * @param AccessTokenServiceInterface $accessTokenService Access token service
+     * @param UserServiceInterface        $userService        User service
      */
-    public function __construct(AccessToken $table)
-    {
+    public function __construct(
+        #[Autowire(container: \VuFind\Config\YamlReader::class, service: 'OAuth2Server.yaml')]
+        array $oauth2Config,
+        #[Autowire(container: \VuFind\Db\Service\PluginManager::class)]
+        AccessTokenServiceInterface $accessTokenService,
+        #[Autowire(container: \VuFind\Db\Service\PluginManager::class)]
+        UserServiceInterface $userService
+    ) {
         parent::__construct(
             'oauth2_refresh_token',
             RefreshTokenEntity::class,
-            $table
+            $oauth2Config,
+            $accessTokenService,
+            $userService
         );
     }
 
     /**
-     * Create a new refresh token
+     * Create a new refresh token.
      *
      * @return RefreshTokenEntityInterface
      */
-    public function getNewRefreshToken()
+    public function getNewRefreshToken(): RefreshTokenEntityInterface
     {
         return $this->getNew();
     }
@@ -75,9 +89,9 @@ class RefreshTokenRepository extends AbstractTokenRepository
      *
      * @return void
      *
-     * @throws UniqueTokenIdentifierConstraintViolationException
+     * @throws InvalidArgumentException
      */
-    public function persistNewRefreshToken(RefreshTokenEntityInterface $entity)
+    public function persistNewRefreshToken(RefreshTokenEntityInterface $entity): void
     {
         $this->persistNew($entity);
     }
@@ -89,7 +103,7 @@ class RefreshTokenRepository extends AbstractTokenRepository
      *
      * @return void
      */
-    public function revokeRefreshToken($tokenId)
+    public function revokeRefreshToken($tokenId): void
     {
         $this->revoke($tokenId);
     }
@@ -101,7 +115,7 @@ class RefreshTokenRepository extends AbstractTokenRepository
      *
      * @return bool Return true if this token has been revoked
      */
-    public function isRefreshTokenRevoked($tokenId)
+    public function isRefreshTokenRevoked($tokenId): bool
     {
         return $this->isRevoked($tokenId);
     }

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * AJAX handler for retrieving lists.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,11 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
+use Finna\Db\Service\UserResourceServiceInterface;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\View\Renderer\RendererInterface;
-use VuFind\Db\Row\User;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Db\Service\UserListServiceInterface;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 
 /**
@@ -41,41 +45,26 @@ use VuFind\I18n\Translator\TranslatorAwareInterface;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetUserLists extends \VuFind\AjaxHandler\AbstractBase
-    implements TranslatorAwareInterface
+class GetUserLists extends \VuFind\AjaxHandler\AbstractBase implements TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Logged in user (or false)
+     * Constructor.
      *
-     * @var User|bool
+     * @param ?UserEntityInterface         $user                Logged in user (or null)
+     * @param UserListServiceInterface     $userListService     UserList database service
+     * @param UserResourceServiceInterface $userResourceService UserResource database service
+     * @param RendererInterface            $renderer            View renderer
+     * @param bool                         $enabled             Are lists enabled?
      */
-    protected $user;
-
-    /**
-     * View renderer
-     *
-     * @var RendererInterface
-     */
-    protected $renderer;
-
-    /**
-     * Are lists enabled?
-     *
-     * @var bool
-     */
-    protected $enabled;
-
-    /**
-     * Constructor
-     *
-     * @param User|bool         $user     Logged in user (or false)
-     * @param RendererInterface $renderer View renderer
-     * @param bool              $enabled  Are lists enabled?
-     */
-    public function __construct($user, RendererInterface $renderer, $enabled = true)
-    {
+    public function __construct(
+        protected ?UserEntityInterface $user,
+        protected UserListServiceInterface $userListService,
+        protected UserResourceServiceInterface $userResourceService,
+        protected RendererInterface $renderer,
+        protected bool $enabled = true
+    ) {
         $this->user = $user;
         $this->renderer = $renderer;
         $this->enabled = $enabled;
@@ -98,7 +87,7 @@ class GetUserLists extends \VuFind\AjaxHandler\AbstractBase
             );
         }
 
-        if ($this->user === false) {
+        if ($this->user === null) {
             return $this->formatResponse(
                 $this->translate('You must be logged in first'),
                 self::STATUS_HTTP_NEED_AUTH
@@ -106,10 +95,17 @@ class GetUserLists extends \VuFind\AjaxHandler\AbstractBase
         }
 
         $activeId = (int)$params->fromPost('active');
-        $lists = $this->user->getLists();
+        $lists = $this->userListService->getUserListsAndCountsByUser($this->user);
+        $totalResourceCount = $this->userResourceService->getTotalResourceCount($this->user);
+
         $html = $this->renderer->partial(
             'myresearch/mylist-navi.phtml',
-            ['user' => $this->user, 'activeId' => $activeId, 'lists' => $lists]
+            [
+                'user' => $this->user,
+                'activeId' => $activeId,
+                'lists' => $lists,
+                'totalResourceCount' => $totalResourceCount,
+            ]
         );
         return $this->formatResponse($html);
     }

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Make tag view helper
+ * Make tag view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -26,10 +27,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
+use function in_array;
+use function is_array;
+
 /**
- * Make tag view helper
+ * Make tag view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -41,7 +46,7 @@ namespace VuFind\View\Helper\Root;
 class MakeTag extends \Laminas\View\Helper\AbstractHelper
 {
     /**
-     * List of all valid body tags
+     * List of all valid body tags.
      *
      * Source: https://developer.mozilla.org/en-US/docs/Web/HTML/Element
      * Last checked: September 27, 2022
@@ -189,11 +194,11 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
         'var',
         'video',
         'wbr',
-        'xmp'
+        'xmp',
     ];
 
     /**
-     * List of all void tags (tags that access no innerHTML)
+     * List of all void tags (tags that access no innerHTML).
      *
      * Source: https://html.spec.whatwg.org/multipage/syntax.html#void-elements
      * Last checked: September 27, 2022
@@ -214,7 +219,7 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
         'param', // deprecated, but included for back-compatibility
         'source',
         'track',
-        'wbr'
+        'wbr',
     ];
 
     /**
@@ -252,11 +257,11 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
         'spacer',
         'strike',
         'tt',
-        'xmp'
+        'xmp',
     ];
 
     /**
-     * Render an HTML tag
+     * Render an HTML tag.
      *
      * A string passed into $attrs will be treated like a class.
      * These two are equivalent:
@@ -289,12 +294,11 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Verify HTML tag matches HTML spec
+     * Verify HTML tag matches HTML spec.
      *
      * @param string $tagName Element tag name
      *
      * @return void
-     * @throws InvalidArgumentException
      */
     protected function verifyTagName(string $tagName)
     {
@@ -347,7 +351,7 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Turn associative array into a string of attributes in an anchor
+     * Turn associative array into a string of attributes in an anchor.
      *
      * Additional options
      * - escapeContent: Default true, set to false to skip escaping (like for HTML).
@@ -358,7 +362,6 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
      * @param array  $options  Additional options
      *
      * @return string
-     * @throws InvalidArgumentException
      */
     protected function compileTag(
         string $tagName,
@@ -371,7 +374,7 @@ class MakeTag extends \Laminas\View\Helper\AbstractHelper
         $htmlAttrs = $this->getView()->plugin('htmlAttributes')($attrs);
 
         if (empty($contents) && in_array($tagName, $this->voidElements)) {
-            return '<' . $tagName . $htmlAttrs . ' />';
+            return '<' . $tagName . $htmlAttrs . '>';
         }
 
         // Special option: escape content

@@ -14,7 +14,7 @@
       }
       $lookfor = implode(', ', $terms);
     ?>
-    <?/* Depending on the record driver, $field may either be an array with
+    <?php /* Depending on the record driver, $field may either be an array with
        "name" and "number" keys or a flat string containing only the series
        name.  We should account for both cases to maximize compatibility. */?>
     <?php if (is_array($field)): ?>
@@ -26,10 +26,10 @@
         <?php if (!empty($field['additional'])): ?>
           <?=$this->escapeHtml($field['additional'])?>
         <?php endif; ?>
-        <br/>
+        <br>
       <?php endif; ?>
     <?php else: ?>
-      <a href="<?=$this->record($this->driver)->getLink('series', $field)?>"><?=$this->escapeHtml($field)?></a><br/>
+      <a href="<?=$this->record($this->driver)->getLink('series', $field)?>"><?=$this->escapeHtml($field)?></a><br>
     <?php endif; ?>
   <?php endforeach; ?>
 <?php endif; ?>

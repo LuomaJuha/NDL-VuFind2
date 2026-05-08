@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Additional functionality for Finna Solr and Finna SolrAuth records.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library 2019-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -26,9 +27,14 @@
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver\Feature;
+
+use VuFind\I18n\Locale\LocaleSettings;
+
+use function is_array;
 
 /**
  * Additional functionality for Finna Solr and Finna SolrAuth records.
@@ -40,7 +46,7 @@ namespace Finna\RecordDriver\Feature;
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  *
  * @SuppressWarnings(PHPMD.ExcessivePublicCount)
  */
@@ -49,21 +55,28 @@ trait SolrCommonFinnaTrait
     use FinnaRecordTrait;
 
     /**
-     * Date Converter
+     * Date Converter.
      *
      * @var \VuFind\Date\Converter
      */
     protected $dateConverter = null;
 
     /**
-     * Video Handler
+     * Video Handler.
      *
-     * @var \Finna\Video\Video
+     * @var ?\Finna\Video\Video
      */
     protected $videoHandler = null;
 
     /**
-     * Attach date converter
+     * Locale settings.
+     *
+     * @var ?LocaleSettings
+     */
+    protected $localeSettings = null;
+
+    /**
+     * Attach date converter.
      *
      * @param \VuFind\Date\Converter $dateConverter Date Converter
      *
@@ -75,7 +88,7 @@ trait SolrCommonFinnaTrait
     }
 
     /**
-     * Attach video handler
+     * Attach video handler.
      *
      * @param \Finna\Video\Video $videoHandler Video Handler
      *
@@ -87,13 +100,25 @@ trait SolrCommonFinnaTrait
     }
 
     /**
+     * Attach locale settings to the driver.
+     *
+     * @param LocaleSettings $localeSettings Locale Settings
+     *
+     * @return void
+     */
+    public function attachLocaleSettings(LocaleSettings $localeSettings)
+    {
+        $this->localeSettings = $localeSettings;
+    }
+
+    /**
      * Sanitize HTML.
      * If validation is enabled and the stripped HTML is invalid,
      * all tags are stripped.
      *
-     * @param string  $html      HTML
-     * @param string  $allowTags Allowed tags
-     * @param boolean $validate  Validate output?
+     * @param string $html      HTML
+     * @param string $allowTags Allowed tags
+     * @param bool   $validate  Validate output?
      *
      * @return array
      */
@@ -185,18 +210,22 @@ trait SolrCommonFinnaTrait
     public function getRecordImage($size = 'small', $index = 0)
     {
         if ($images = $this->getAllImages()) {
-            if (isset($images[$index]['urls'][$size])) {
+            $image = $images[$index]['urls'][$size] ?? null;
+            $cacheSize = $images[$index]['cacheSizes'][$size] ?? $size;
+            if ($image) {
                 $params = $images[$index]['urls'][$size];
                 if (!is_array($params)) {
                     $params = [
-                        'url' => $params
+                        'url' => $params,
                     ];
                 }
                 if ($size == 'large') {
                     $params['fullres'] = 1;
                 }
                 $params['id'] = $this->getUniqueId();
-                $params['pdf'] = $images[$index]['pdf'][$size] ?? false;
+                $params['pdf'] = !empty($images[$index]['pdf'][$size])
+                    || true === ($images[$index]['pdf'] ?? false);
+                $params['cacheSize'] = $cacheSize;
                 return $params;
             }
         }
@@ -208,7 +237,7 @@ trait SolrCommonFinnaTrait
     }
 
     /**
-     * Get sector
+     * Get sector.
      *
      * @return string
      */
@@ -218,7 +247,7 @@ trait SolrCommonFinnaTrait
     }
 
     /**
-     * Return local record IDs (only works with dedup records)
+     * Return local record IDs (only works with dedup records).
      *
      * @return array
      */
@@ -228,30 +257,55 @@ trait SolrCommonFinnaTrait
     }
 
     /**
-     * Does this record contain restricted metadata?
+     * Return the unique identifier of this record within the index;
+     * useful for retrieving additional information (like tags and user
+     * comments) from the external MySQL database.
      *
-     * @return bool
+     * @return string Unique identifier.
      */
-    public function hasRestrictedMetadata()
+    public function getUniqueID()
     {
-        return false;
+        if ($this->getExtraDetail('preview_record')) {
+            return '0';
+        }
+        return parent::getUniqueID();
     }
 
     /**
-     * Is restricted metadata included with the record, i.e. is the user
-     * authorized to access restricted metadata?
+     * Get record creation date range from index in ISO 8601 format.
      *
-     * @return bool
+     * @return string
      */
-    public function isRestrictedMetadataIncluded()
+    public function getCreationDateRange(): string
     {
-        return false;
+        $filteredRange = str_replace(['[', ']'], ['', ''], $this->fields['creation_daterange'] ?? '');
+        return implode('/', explode(' TO ', $filteredRange));
+    }
+
+    /**
+     * Get geographic subject headings.
+     *
+     * @return array
+     */
+    public function getGeographicSubjects(): array
+    {
+        return (array)($this->fields['geographic'] ?? []);
+    }
+
+    /**
+     * Get chronological subject headings.
+     *
+     * @return array
+     */
+    public function getEraSubjects(): array
+    {
+        return (array)($this->fields['era'] ?? []);
     }
 
     /**
      * Get the VuFind configuration.
      *
-     * @return \Laminas\Config\Config
+     * @return \VuFind\Config\Config
      */
     protected function getConfig()
     {
@@ -259,7 +313,7 @@ trait SolrCommonFinnaTrait
     }
 
     /**
-     * Returns the locale used by translator
+     * Returns the locale used by translator.
      *
      * @return string
      */
@@ -267,5 +321,43 @@ trait SolrCommonFinnaTrait
     {
         [$locale] = explode('-', $this->getTranslatorLocale());
         return $locale;
+    }
+
+    /**
+     * Get an array containing languages in a priority order.
+     * First language is the translator locale, then languages from primary array,
+     * then sites fallback_languages and last default non-language code.
+     *
+     * @param array  $primary An array containing languages, which are to be checked after
+     *                        translator locale.
+     * @param string $default If a non-language term is required, then use $default to append
+     *                        a non-language code like 'no_locale'
+     *
+     * @return array
+     */
+    protected function getPrioritizedLanguages(
+        array $primary = [],
+        string $default = '',
+    ): array {
+        $languages = [
+            $this->getTranslatorLocale(),
+            ...$primary,
+            ...$this->localeSettings?->getFallbackLocales() ?? [],
+        ];
+        $final = [];
+        foreach ($languages as $lang) {
+            $final[] = $lang;
+            if (!str_contains($lang, '-')) {
+                continue;
+            }
+            [$code] = explode('-', $lang, 2);
+            if ($code) {
+                $final[] = $code;
+            }
+        }
+        if ($default) {
+            $final[] = $default;
+        }
+        return array_unique($final);
     }
 }

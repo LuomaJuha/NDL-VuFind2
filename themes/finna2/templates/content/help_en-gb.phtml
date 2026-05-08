@@ -1,4 +1,6 @@
 <!-- START of: finna - content/help_en-gb.phtml -->
+<?php $this->headTitle($this->translate('tabs_help'))?>
+
 <?php if ($this->resolver('content/help-tabs.phtml')): ?>
   <?=$this->render('content/help-tabs.phtml', ['activeTab' => 'help'])?>
 <?php endif; ?>
@@ -14,15 +16,15 @@
     <div id="begin1" class="content-section">
       <h2>How do I start a search on Finna?</h2>
       <p>You have several options:</p>
-      <h3>Do a free search and filter your results <a href="<?=$this->url('home')?>" aria-label="Link: Do a free search and filter your results"><i class="fa fa-external-link-square" aria-hidden="true"></i></a></h3>
+      <h3>Do a free search and filter your results <a href="<?=$this->url('home')?>" aria-label="Link: Do a free search and filter your results"><?=$this->icon('external-link-square') ?></a></h3>
       <ul class="list-bullets">
         <li>The easiest way to start a search is to enter the search terms for your chosen subject or collection in the search box.</li>
         <li>In the drop-down menu at the end of the search box, you can choose to search by title, author or subject. The default “All fields” option will return all results related to your search terms.</li>
         <li>After the first search, you have the option to <strong>filter your search results</strong>, for example by terms of use, type of collection or date of manufacture.</li>
         <li>You can find ideas for formulating your searches in the <a href="<?=$this->url('content-page', ['page' => 'help-basic'])?>">Basic search </a> guide.</li>
       </ul>
-      <h3>Advanced search <a href="<?=$this->url('search-advanced')?>" aria-label="Link: Advanced search"><i class="fa fa-external-link-square" aria-hidden="true"></i></a></h3>
-      <h3>Finna Street <a href="<?=$this->url('search-streetsearch')?>?go=1" aria-label="Link: Finna Street"><i class="fa fa-external-link-square" aria-hidden="true"></i></a></h3>
+      <h3>Advanced search <a href="<?=$this->url('search-advanced')?>" aria-label="Link: Advanced search"><?=$this->icon('external-link-square') ?></a></h3>
+      <h3>Finna Street <a href="<?=$this->url('search-streetsearch')?>?go=1" aria-label="Link: Finna Street"><?=$this->icon('external-link-square') ?></a></h3>
       <ul class="list-bullets">
         <li>Finna Street place search searches for pictures on Finna based on the location given by your browser. These searches are most reliable with devices that use GPS technology for establishing location, i.e. mobile devices. The search results are dependent on the location information provided for each picture. You can also look for results by location by entering a place name or address in the search box. Remember to allow your browser to access your location!</li>
       </ul>
@@ -30,7 +32,7 @@
     <div id="begin2" class="content-section">
       <h2>How can I review my search results?</h2>
       <p>When you do a search on Finna, you will be directed to the search results page where you will find all of the results that match your search term(s). You can filter your results on this page (see the Narrowing your search section for more information). Finna will notify you if no matching results are found.</p>
-      <p>In the search results list, you can find the details for each search result by clicking on its title. If you click on a search result icon or picture, a preview window will open displaying a larger image and some of the picture’s/object’s information.</p>
+      <p>In the search results list, you can find the details for each search result by clicking on its title. If you click on a search result icon or picture, a preview window will open displaying a larger image and some of the picture's/object's information.</p>
       <p>There is an option to download some of the materials on Finna. Please remember to check the permissible uses information provided with each result.</p>
       <p>Many of the available materials can, for example, be used for educational purposes or for hobbies.</p>
     </div>

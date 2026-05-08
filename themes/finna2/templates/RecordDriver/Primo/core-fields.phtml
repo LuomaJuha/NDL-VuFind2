@@ -5,7 +5,7 @@
     $coreFields = $formatter->getData($formatter->getDefaults());
   ?>
   <?php if (!empty($coreFields)): ?>
-    <table class="table table-finna-record record-details" role="presentation">
+    <table class="table table-finna-record record-details" role="presentation" tabindex="-1">
       <?php foreach ($coreFields as $key => $current): ?>
         <?php $header = $this->transEsc($current['context']['title'] ?? $current['label']); ?>
         <?php if ($header): ?>
@@ -14,7 +14,7 @@
           <?php else: ?>
             <tr>
           <?php endif; ?>
-            <th><?=$header?></th>
+            <th scope="row"><?=$header?></th>
             <td><?=$current['value']?></td>
           </tr>
         <?php else: ?>
@@ -23,6 +23,7 @@
       <?php endforeach; ?>
     </table>
   <?php endif; ?>
+  <?php $openUrl = $this->openUrl($this->driver, 'record'); ?>
   <?=$openUrl ? $openUrl->renderMoreOptions() : '' ?>
 </div>
 <!-- END of: finna - RecordDriver/Primo/core-fields.phtml -->

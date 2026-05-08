@@ -1,8 +1,9 @@
 <?php
+
 /**
- * RecordLinker view helper
+ * RecordLinker view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2017-2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,12 +26,19 @@
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
+use Finna\Search\UrlQueryHelper;
+use Laminas\View\Helper\ServerUrl;
+use VuFind\Search\Memory;
+
+use function sprintf;
+
 /**
- * RecordLinker view helper
+ * RecordLinker view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -38,31 +46,62 @@ namespace Finna\View\Helper\Root;
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class RecordLinker extends \VuFind\View\Helper\Root\RecordLinker
 {
     /**
-     * Data source configuration
+     * Data source configuration.
      *
      * @var array
      */
     protected $datasourceConfig;
 
     /**
-     * Constructor
+     * Search memory.
      *
-     * @param \VuFind\Record\Router $router   Record router
-     * @param array                 $dsConfig Data source configuration
+     * @var Memory
      */
-    public function __construct(\VuFind\Record\Router $router, array $dsConfig)
-    {
+    protected $searchMemory = null;
+
+    /**
+     * ServerUrl helper.
+     *
+     * @var ServerUrl
+     */
+    protected $serverUrl;
+
+    /**
+     * Constructor.
+     *
+     * @param \VuFind\Record\Router $router    Record router
+     * @param array                 $dsConfig  Data source configuration
+     * @param ServerUrl             $serverUrl ServerUrl helper
+     */
+    public function __construct(
+        \VuFind\Record\Router $router,
+        array $dsConfig,
+        ServerUrl $serverUrl
+    ) {
         parent::__construct($router);
         $this->datasourceConfig = $dsConfig;
+        $this->serverUrl = $serverUrl;
     }
 
     /**
-     * Returns 'data-embed-iframe' if url is vimeo or youtube url
+     * Inject the search memory.
+     *
+     * @param Memory $memory Search memory
+     *
+     * @return void
+     */
+    public function setSearchMemory(Memory $memory): void
+    {
+        $this->searchMemory = $memory;
+    }
+
+    /**
+     * Returns 'data-embed-iframe' if url is vimeo or youtube url.
      *
      * @param string $url record url
      *
@@ -77,7 +116,7 @@ class RecordLinker extends \VuFind\View\Helper\Root\RecordLinker
     }
 
     /**
-     * Returns url for video embedding if url is vimeo or youtube url
+     * Returns url for video embedding if url is vimeo or youtube url.
      *
      * @param string $url record url
      *
@@ -91,16 +130,23 @@ class RecordLinker extends \VuFind\View\Helper\Root\RecordLinker
         }
         $embedUrl = '';
         switch ($parts['host']) {
-        case 'vimeo.com':
-            $embedUrl = "https://player.vimeo.com/video" . $parts['path'];
-            break;
-        case 'youtu.be':
-            $embedUrl = "https://www.youtube.com/embed" . $parts['path'];
-            break;
-        case 'youtube.com':
-            parse_str($parts['query'], $query);
-            $embedUrl = "https://www.youtube.com/embed/" . $query['v'];
-            break;
+            case 'vimeo.com':
+                $embedUrl = 'https://player.vimeo.com/video' . $parts['path'];
+                break;
+            case 'youtu.be':
+                $embedUrl = 'https://www.youtube.com/embed' . $parts['path'];
+                break;
+            case 'youtube.com':
+                parse_str($parts['query'] ?? '', $query);
+                if (!isset($query['v'])) {
+                    return '';
+                }
+                $embedUrl = 'https://www.youtube.com/embed/' . $query['v'];
+                break;
+            case 'players.icareus.com':
+                // Icareus URLs can be returned as is.
+                $embedUrl = $url;
+                break;
         }
         return $embedUrl;
     }
@@ -116,24 +162,68 @@ class RecordLinker extends \VuFind\View\Helper\Root\RecordLinker
      */
     public function related($link, $source = DEFAULT_SEARCH_BACKEND)
     {
+        $driver = $this->getView()->plugin('record')->getDriver();
+
         if ('identifier' === $link['type']) {
             $urlHelper = $this->getView()->plugin('url');
-            $baseUrl = $urlHelper($this->getSearchActionForSource($source));
-
-            $result = $baseUrl
-                . '?lookfor=' . urlencode($link['value'])
-                . '&type=Identifier&jumpto=1';
+            $result = $urlHelper(
+                $this->getSearchActionForSource($source),
+                [],
+                [
+                    'query' => [
+                        'lookfor' => $link['value'],
+                        'type' => 'Identifier',
+                        'jumpto' => 1,
+                    ],
+                ],
+            );
+        } elseif ('linkingId' === $link['type']) {
+            $urlHelper = $this->getView()->plugin('url');
+            $lookFor = sprintf(
+                'linking_id_str_mv:"%s" AND datasource_str_mv:"%s"',
+                $link['value'],
+                $driver->getDataSource()
+            );
+            $result = $urlHelper(
+                $this->getSearchActionForSource($source),
+                [],
+                [
+                        'query' => [
+                            'lookfor' => $lookFor,
+                            'filter[]' => 'finna.include_hidden_parts:1',
+                            'jumpto' => 1,
+                        ],
+                    ],
+            );
         } else {
             $result = parent::related($link, $source);
         }
 
-        $driver = $this->getView()->plugin('record')->getDriver();
-        $result .= $this->getView()->plugin('searchTabs')
-            ->getCurrentHiddenFilterParams(
-                $driver->getSourceIdentifier(),
-                false,
-                '&'
-            );
+        $prepend = (!str_contains($result, '?')) ? '?' : '&amp;';
+        $hiddenFilters = null;
+        // Try to get hidden filters for the current search:
+        if ($this->searchMemory) {
+            $searchId = $driver->getExtraDetail('searchId')
+                ?? $this->getView()->plugin('searchMemory')->getLastSearchId();
+            if ($searchId && ($search = $this->searchMemory->getSearchById($searchId))) {
+                $filters = UrlQueryHelper::buildQueryString(
+                    [
+                        'hiddenFilters' => $search->getParams()->getHiddenFiltersAsQueryParams(),
+                    ]
+                );
+                $hiddenFilters = $filters ? $prepend . $filters : '';
+            }
+        }
+        // If we couldn't get hidden filters for the current search, use last filters:
+        if (null === $hiddenFilters) {
+            $hiddenFilters = $this->getView()->plugin('searchTabs')
+                ->getCurrentHiddenFilterParams(
+                    $driver->getSearchBackendIdentifier(),
+                    false,
+                    $prepend
+                );
+        }
+        $result .= $hiddenFilters;
 
         if ($filters = ($link['filter'] ?? [])) {
             $result .= '&' . implode(
@@ -152,7 +242,7 @@ class RecordLinker extends \VuFind\View\Helper\Root\RecordLinker
     }
 
     /**
-     * Return URL of the record in staff interface if available
+     * Return URL of the record in staff interface if available.
      *
      * @param \VuFind\RecordDriver\AbstractBase $driver Record driver
      *
@@ -173,5 +263,21 @@ class RecordLinker extends \VuFind\View\Helper\Root\RecordLinker
             return str_replace('%%id%%', $id, $url);
         }
         return '';
+    }
+
+    /**
+     * Return fully qualified URL to a generated IIIF manifest of the record.
+     *
+     * @param \VuFind\RecordDriver\AbstractBase $driver Record driver
+     *
+     * @return string
+     */
+    public function getGeneratedIiifManifestUrl($driver): string
+    {
+        return ($this->serverUrl)($this->getActionUrl(
+            $driver,
+            'IIIFManifest',
+            options: ['force_canonical' => true]
+        ));
     }
 }

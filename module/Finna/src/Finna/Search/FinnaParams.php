@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Additional functionality for Finna parameters.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library 2015-2016.
  *
@@ -16,18 +17,20 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Search;
 
-use VuFind\Search\QueryAdapter;
+use function in_array;
+use function is_callable;
 
 /**
  * Additional functionality for Finna parameters.
@@ -36,7 +39,7 @@ use VuFind\Search\QueryAdapter;
  * @package  Search
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 trait FinnaParams
 {
@@ -56,7 +59,7 @@ trait FinnaParams
         $showField = [$this->getOptions(), 'getHumanReadableFieldName'];
 
         // Build display query:
-        $result = QueryAdapter::display($this->getQuery(), $translate, $showField);
+        $result = $this->getQueryAdapter()->display($this->getQuery(), $translate, $showField);
 
         // Hack to display WorkKeys search nicer
         $str = preg_quote($showField('WorkKeys'));
@@ -68,14 +71,14 @@ trait FinnaParams
     /**
      * Get information on the current state of the boolean checkbox facets.
      *
-     * @param array $include        List of checkbox filters to return (null for all)
-     * @param bool  $includeDynamic Should we include dynamically-generated
+     * @param ?array $include        List of checkbox filters to return (null for all)
+     * @param bool   $includeDynamic Should we include dynamically-generated
      * checkboxes that are not part of the include list above?
      *
      * @return array
      */
     public function getCheckboxFacets(
-        array $include = null,
+        ?array $include = null,
         bool $includeDynamic = true
     ) {
         $facets = parent::getCheckboxFacets($include, $includeDynamic);
@@ -91,7 +94,7 @@ trait FinnaParams
     }
 
     /**
-     * Get the date range field from options, if available
+     * Get the date range field from options, if available.
      *
      * @return string
      */
@@ -106,20 +109,22 @@ trait FinnaParams
     /**
      * Get a user-friendly string to describe the provided facet field.
      *
-     * @param string $field   Facet field name.
-     * @param string $value   Facet value.
-     * @param string $default Default field name (null for default behavior).
+     * @param string $field               Facet field name.
+     * @param string $value               Facet value.
+     * @param string $default             Default field name (null for default behavior).
+     * @param bool   $allowCheckboxFacets Should checkbox facet labels be allowed too?
      *
-     * @return string         Human-readable description of field.
+     * @return string Human-readable description of field.
      */
-    public function getFacetLabel($field, $value = null, $default = null)
+    public function getFacetLabel($field, $value = null, $default = null, $allowCheckboxFacets = true)
     {
-        if (is_callable([$this, 'isGeographicFilter'])
+        if (
+            is_callable([$this, 'isGeographicFilter'])
             && $this->isGeographicFilter($field)
         ) {
             return 'Geographical Area';
         }
-        return parent::getFacetLabel($field, $value, $default);
+        return parent::getFacetLabel($field, $value, $default, $allowCheckboxFacets);
     }
 
     /**
@@ -157,14 +162,8 @@ trait FinnaParams
     {
         // Extract field and value from URL string:
         [$field, $value] = $this->parseFilter($filter);
-
-        if (isset($this->hiddenFilters[$field])
-            && in_array($value, $this->hiddenFilters[$field])
-        ) {
-            return true;
-        }
-
-        return false;
+        return isset($this->hiddenFilters[$field])
+        && in_array($value, $this->hiddenFilters[$field]);
     }
 
     /**
@@ -238,7 +237,7 @@ trait FinnaParams
         $regex = '/(\w+)\|\[([\d-]+|\*)\s+TO\s+([\d-]+|\*)\]/';
         if (preg_match($regex, $filter, $matches)) {
             return [
-                'from' => $matches[2], 'to' => $matches[3], 'type' => $matches[1]
+                'from' => $matches[2], 'to' => $matches[3], 'type' => $matches[1],
             ];
         }
 
@@ -247,7 +246,7 @@ trait FinnaParams
         $regex = '/\[([\d-]+|\*)\s+TO\s+([\d-]+|\*)\]/';
         if (preg_match($regex, $filter, $matches)) {
             return [
-                'from' => $matches[1], 'to' => $matches[2], 'type' => 'overlap'
+                'from' => $matches[1], 'to' => $matches[2], 'type' => 'overlap',
             ];
         }
 
@@ -276,11 +275,11 @@ trait FinnaParams
             $from += 0.5;
             $to -= 0.5;
         }
-        $from = $from * 86400;
+        $from *= 86400;
         $from = new \DateTime("@{$from}");
         $from = $from->format('Y');
 
-        $to = $to * 86400;
+        $to *= 86400;
         $to = new \DateTime("@{$to}");
         $to = $to->format('Y');
 
@@ -303,7 +302,8 @@ trait FinnaParams
         if ($this->isDateRangeFilter($field)) {
             return $this->formatDateRangeFilterListEntry($res, $field, $value);
         }
-        if (is_callable([$this, 'isGeographicFilter'])
+        if (
+            is_callable([$this, 'isGeographicFilter'])
             && $this->isGeographicFilter($field)
         ) {
             return $this->formatGeographicFilterListEntry($res, $field, $value);
@@ -356,11 +356,11 @@ trait FinnaParams
     }
 
     /**
-     * Check if the given filter is a date range filter
+     * Check if the given filter is a date range filter.
      *
      * @param string $field Filter field
      *
-     * @return boolean
+     * @return bool
      */
     protected function isDateRangeFilter($field)
     {
@@ -371,7 +371,7 @@ trait FinnaParams
     }
 
     /**
-     * Pull the page size parameter or set to default
+     * Pull the page size parameter or set to default.
      *
      * @param \Laminas\Stdlib\Parameters $request Parameter object representing user
      * request.
@@ -394,7 +394,8 @@ trait FinnaParams
             // to reduce the size of result lists without actually enabling
             // the user's ability to select a reduced list size).
             $legalOptions = $this->getOptions()->getLimitOptions();
-            if (in_array($limit, $legalOptions)
+            if (
+                in_array($limit, $legalOptions)
                 || ($limit > 0 && $limit < max($legalOptions))
             ) {
                 $this->limit = $limit;
@@ -412,7 +413,7 @@ trait FinnaParams
     }
 
     /**
-     * Get view options list type setting
+     * Get view options list type setting.
      *
      * @return bool
      */
@@ -425,7 +426,7 @@ trait FinnaParams
     }
 
     /**
-     * Used to be used for activating all facets, but no longer needed
+     * Used to be used for activating all facets, but no longer needed.
      *
      * @return void
      */

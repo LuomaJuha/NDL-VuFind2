@@ -6,11 +6,18 @@ finna.myList = (function finnaMyList() {
   var save = false;
   var refreshLists = null;
 
-  // This is duplicated in image-popup.js to avoid dependency
+  /**
+   * Get current active list id
+   * @returns {string} Active list id
+   */
   function getActiveListId() {
     return $('input[name="listID"]').val();
   }
 
+  /**
+   * Toggle an error message
+   * @param {boolean} mode Should the message be shown
+   */
   function toggleErrorMessage(mode) {
     var $msg = $('.mylist-error');
     $msg.addClass('alert alert-danger');
@@ -20,6 +27,11 @@ finna.myList = (function finnaMyList() {
     }
   }
 
+  /**
+   * Toggle spinner
+   * @param {jQuery | HTMLElement} target jQuery element or FinnaMdEditable
+   * @param {boolean} mode Should the spinner be displayed
+   */
   function toggleSpinner(target, mode) {
     if (target === mdEditable) {
       mdEditable.setBusy(!mdEditable.isBusy());
@@ -37,13 +49,19 @@ finna.myList = (function finnaMyList() {
     target.toggleClass('fa-spinner fa-spin list-save', mode);
   }
 
+  /**
+   * Update a list entity
+   * @param {object} params List params as object
+   * @param {Function} callback Function to call after edit list is successful
+   * @param {string} type Type of the update list update method
+   */
   function updateList(params, callback, type) {
     save = true;
     var spinner = null;
 
     var listParams = {
       'id': getActiveListId(),
-      'title': $('.list-title span').text(),
+      'title': $('.js-list-title').text(),
       'public': $(".list-visibility input[type='radio']:checked").val()
     };
 
@@ -84,8 +102,8 @@ finna.myList = (function finnaMyList() {
     } else if (type === 'add-list') {
       spinner = $('.add-new-list .fa');
     } else if (type === 'visibility') {
-      var holder = $('.list-visibility > div:first');
-      holder.hide().after('<i class="fa fa-spinner fa-spin"></i>');
+      var holder = $('.list-visibility > div').first();
+      holder.hide().after(VuFind.icon('spinner'));
     }
 
     if (spinner) {
@@ -123,12 +141,16 @@ finna.myList = (function finnaMyList() {
       });
   }
 
-  function addResourcesToList(listId) {
+  /**
+   * Add resources to a list
+   * @param {string} listId Id of the list
+   * @param {string} currentListId Current list id
+   */
+  function addResourcesToList(listId, currentListId = '') {
     toggleErrorMessage(false);
 
     var ids = [];
-    $('input.checkbox-select-item[name="ids[]"]:checked').each(function processRecordId() {
-      var recId = $(this).val();
+    VuFind.listItemSelection.getAllSelected(document.querySelector('form[name="bulkActionForm"]')).forEach(recId => {
       var pos = recId.indexOf('|');
       var source = recId.substring(0, pos);
       var id = recId.substring(pos + 1);
@@ -145,7 +167,7 @@ finna.myList = (function finnaMyList() {
       type: 'POST',
       dataType: 'json',
       url: VuFind.path + '/AJAX/JSON?method=addToList',
-      data: {params: {'listId': listId, 'source': 'Solr', 'ids': ids}}
+      data: {params: {'listId': listId, 'currentListId': currentListId, 'source': 'Solr', 'ids': ids}}
     })
       .done(function onAddToListDone(/*data*/) {
         // Don't reload to avoid trouble with POST requests
@@ -159,8 +181,12 @@ finna.myList = (function finnaMyList() {
       });
   }
 
+  /**
+   * Toggle title to be editable
+   * @param {boolean} mode Should the title be editable
+   */
   function toggleTitleEditable(mode) {
-    var target = $('.list-title span');
+    var target = $('.js-list-title');
     var currentTitle;
     if (mode) {
       // list title
@@ -184,13 +210,17 @@ finna.myList = (function finnaMyList() {
           }
         }
       };
-      target.editable({action: 'click', triggers: [target, $('.list-title i')]}, titleCallback, editableSettings);
+      target.editable({action: 'click', triggers: [target, $('.list-title .icon')]}, titleCallback, editableSettings);
     } else {
       target.replaceWith(target.clone());
     }
     $('.list-title').toggleClass('disable', !mode);
   }
 
+  /**
+   * List description changed handler
+   * @param {object} data Object containing descHtml, desc
+   */
   function listDescriptionChanged(data) {
     var description = $('.list-description [data-markdown]');
     if (data.desc === '') {
@@ -198,7 +228,7 @@ finna.myList = (function finnaMyList() {
     } else {
       if (typeof data.descHtml !== 'undefined' && data.descHtml !== '') {
         description.html(data.descHtml);
-        finna.layout.initTruncate(description);
+        VuFind.truncate.initTruncate(description.find('.finna-truncate'));
       }
       $('input[name=listDescription]').val(data.desc);
     }
@@ -208,6 +238,10 @@ finna.myList = (function finnaMyList() {
   // fixes jshint error from using initListTagComponent before it's defined.
   var initListTagComponent;
 
+  /**
+   * List tags changed handler
+   * @param {object} data Object containing tags-edit, tags
+   */
   function listTagsChanged(data) {
     $('.list-tags .edit-tags .tags').html(data['tags-edit']);
     $('.list-tags .view-tags').html(data.tags);
@@ -232,6 +266,10 @@ finna.myList = (function finnaMyList() {
     });
   };
 
+  /**
+   * New list added handler
+   * @param {object} data Object containing title, id
+   */
   function newListAdded(data) {
     var title = data.title;
     var newTitle = title.length > 20 ? title.substring(0, 20) + '...' : title;
@@ -245,15 +283,12 @@ finna.myList = (function finnaMyList() {
     refreshLists();
   }
 
-  function updateBulkActionsToolbar() {
-    var buttons = $('.bulk-action-buttons-col');
-    if ($(document).scrollTop() > $('.bulk-action-buttons-row').offset().top) {
-      buttons.addClass('fixed');
-    } else {
-      buttons.removeClass('fixed');
-    }
-  }
 
+  /**
+   * Update list resource
+   * @param {object} params Params for ajax edit list resource
+   * @param {jQuery} input Input element to find notes from
+   */
   function updateListResource(params, input /*, row*/) {
     save = true;
     toggleErrorMessage(false);
@@ -277,7 +312,7 @@ finna.myList = (function finnaMyList() {
           && data.data.notesHtml !== '')
         {
           input.html(data.data.notesHtml);
-          finna.layout.initTruncate(input);
+          VuFind.truncate.initTruncate(input.find('.finna-truncate'));
         }
         toggleTitleEditable(true);
         save = false;
@@ -291,17 +326,11 @@ finna.myList = (function finnaMyList() {
       });
   }
 
+  /**
+   * Initialize edit components for list
+   */
   function initEditComponents() {
     var isDefaultList = typeof getActiveListId() == 'undefined';
-
-    // bulk actions
-    var buttons = $('.bulk-action-buttons-col');
-    if (buttons.length) {
-      $(window).on('scroll', function onScrollWindow() {
-        updateBulkActionsToolbar();
-      });
-      updateBulkActionsToolbar();
-    }
 
     //Init mobile navigation collapse after list has been reloaded
     finna.layout.initMobileNarrowSearch();
@@ -313,51 +342,12 @@ finna.myList = (function finnaMyList() {
       initListTagComponent();
 
       // list visibility
-      $(".list-visibility input[type='radio']").off('change').change(function onChangeVisibility() {
+      $(".list-visibility input[type='radio']").off('change').on("change", function onChangeVisibility() {
         updateList({}, refreshLists, 'visibility');
-      });
-
-      // delete list
-      var active = $('.mylist-bar').find('a.active');
-      active.find('.remove').off('click').on('click', function onClickRemove(e) {
-        var target = $(this);
-        var form = $('.delete-list');
-        var prompt = form.find('.dropdown-menu');
-
-        function repositionPrompt(ev, data) {
-          var pos = target.offset();
-          var left = data.w / 2 - prompt.width() / 2;
-
-          prompt.css({
-            'left': left,
-            'top': pos.top + 30
-          });
-        }
-
-        function initRepositionListener() {
-          $(window).on('throttled-resize.finna', repositionPrompt);
-        }
-
-        prompt.find('.confirm').off('click').on('click', function onClickConfirm(ev) {
-          form.submit();
-          ev.preventDefault();
-        });
-        prompt.find('.cancel').off('click').on('click', function onClickCancel(ev) {
-          $(window).off('throttled-resize.finna', repositionPrompt);
-          prompt.hide();
-          $('.remove-favorite-list').focus();
-          ev.preventDefault();
-        });
-
-        repositionPrompt({}, {w: $(window).width(), h: $(window).height()});
-        initRepositionListener();
-        prompt.show();
-        prompt.find('.confirm a').focus();
-        e.preventDefault();
       });
     }
 
-    $('.add-new-list .icon').on('click', function createNewList() {
+    $('#add-new-list-item-btn').on('click', function createNewList() {
       var newListInput = $('.new-list-input');
       var newListName = newListInput.val().trim();
 
@@ -367,19 +357,24 @@ finna.myList = (function finnaMyList() {
         updateList({'id': 'NEW', 'title': newListName, 'desc': null, 'public': 0}, newListAdded, 'add-list');
       }
     });
+    $('#add-new-list-item-btn').on('keyup', function invokeCreateNewList(e) {
+      if (e.keyCode === 32) {
+        $('#add-new-list-item-btn').trigger("click");
+      }
+    });
 
     //Add new list, listen for keyup enter
     $('.new-list-input').on('keyup', function invokeCreateNewList(e) {
       if (e.keyCode === 13) {
-        $('.add-new-list .icon').click();
+        $('#add-new-list-item-btn').trigger("click");
       }
     });
 
     // add resource to list
-    $('.mylist-functions #add-to-list').off('change').change(function onChangeAddToList(/*e*/) {
+    $('.mylist-functions #add-to-list').off('change').on("change", function onChangeAddToList(/*e*/) {
       var val = $(this).val();
       if (val !== '') {
-        addResourcesToList(val);
+        addResourcesToList(val, getActiveListId());
       }
     });
 
@@ -415,7 +410,6 @@ finna.myList = (function finnaMyList() {
       .done(function onGetMyListsDone(data) {
         toggleSpinner(spinner, false);
         $('.mylist-bar').empty().html(data.data);
-        $('.mylist-bar').closest('.finna-movement').trigger('reindex');
         initEditComponents();
       })
       .fail(function onGetMyListsDone() {
@@ -424,6 +418,9 @@ finna.myList = (function finnaMyList() {
       });
   };
 
+  /**
+   * Initialize favorite ordering functionality
+   */
   function initFavoriteOrderingFunctionality() {
     var el = document.getElementById('sortable');
     var sortable = Sortable.create(el);
@@ -440,6 +437,9 @@ finna.myList = (function finnaMyList() {
     });
   }
 
+  /**
+   * Initialize listeners when editable opens
+   */
   function initListeners() {
     $(document).on('finna:openEditable', function onOpenEditable(event) {
       if (event.editable.element.hasClass('list-description')
@@ -488,11 +488,46 @@ finna.myList = (function finnaMyList() {
     });
   }
 
+  /**
+   * Initialize multi page selection events
+   */
+  function initMultiPageSelection() {
+    const favoriteForm = document.querySelector('form[name=bulkActionForm]');
+    if (!favoriteForm) {
+      return;
+    }
+    const updateFunctionButtons = function updateButtonStatesFunc() {
+      var actions = $('.mylist-functions button, .mylist-functions select');
+      var aria = $('.mylist-functions .visually-hidden');
+      var noneChecked = VuFind.listItemSelection.getAllSelected(favoriteForm).length === 0;
+      if (noneChecked) {
+        actions.attr('disabled', true);
+        aria.removeAttr('aria-hidden');
+      } else {
+        actions.removeAttr('disabled');
+        aria.attr('aria-hidden', 'true');
+      }
+    };
+    const inputSelector = `.template-name-mylist .selection-controls-bar input,
+      .template-name-mylist input.checkbox-select-item,
+      .template-dir-reservationlist.template-name-displaylist input.checkbox-select-item,
+      .template-dir-reservationlist.template-name-displaylist .selection-controls-bar input
+    `;
+    document.querySelectorAll(inputSelector).forEach(el => el.addEventListener('change', updateFunctionButtons));
+    const clearButton = document.querySelector('.template-name-mylist .clear-selection');
+    if (clearButton) {
+      clearButton.addEventListener('click', updateFunctionButtons);
+    }
+
+    updateFunctionButtons();
+  }
+
   var my = {
     initFavoriteOrderingFunctionality: initFavoriteOrderingFunctionality,
     init: function init() {
       initEditComponents();
       initListeners();
+      initMultiPageSelection();
     }
   };
 

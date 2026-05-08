@@ -1,47 +1,78 @@
-<!-- START of: finna - RecordTab/hierarchytree.phtml -->
 <?php
+  // Set page title.
+  $this->headTitle($this->translate($this->tab->getDescription()) . ': ' . $this->driver->getBreadcrumb());
   $hierarchyTreeList = $this->tab->getTreeList();
   $activeTree = $this->tab->getActiveTree();
-
-  $this->inlineScript(
-      \Laminas\View\Helper\HeadScript::SCRIPT,
-      "var hierarchySettings = {\n"
-      . "    lightboxMode: " . ($this->layout()->getTemplate() == 'layout/lightbox' ? 'true' : 'false') . ",\n"
-      . "    fullHierarchy: " . ($this->tab->isFullHierarchyVisible() ? 'true' : 'false') . "\n"
-      . "};\n",
-      'SET'
-  );
-  $this->jsTranslations()->addStrings(
-      ['showTree' => 'hierarchy_show_tree', 'hideTree' => 'hierarchy_hide_tree']
-  );
-  $this->inlineScript(\Laminas\View\Helper\HeadScript::FILE, 'vendor/jsTree/jstree.min.js');
-  $this->inlineScript(\Laminas\View\Helper\HeadScript::FILE, 'hierarchyTree.js');
-  echo $this->inlineScript();
 ?>
-<?php if ($this->layout()->getTemplate() == 'layout/lightbox'): ?>
-  <h2><?=$this->transEsc($this->tab->getDescription())?></h2>
+<?php if ($this->inLightbox && $heading = $this->slot('hierarchy-tree-heading')->get($this->tab->getDescription())): ?>
+  <?php // Note: h2 must be the first element to display properly in lightbox ?>
+  <h2><?=$this->transEsc($heading)?></h2>
 <?php endif; ?>
-<?php if (count($hierarchyTreeList) > 1): ?>
-  <div id="treeSelector">
-    <?php foreach ($hierarchyTreeList as $hierarchy => $hierarchyTitle): ?>
-      <?php if($activeTree == $hierarchy): ?>
-        <i class="fa fa-sitemap" aria-hidden="true"></i> <?=$this->escapeHtml($hierarchyTitle)?>
-      <?php else: ?>
-        <i class="fa fa-sitemap text-muted" aria-hidden="true"></i> <a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, 'HierarchyTree', ['hierarchy' => $hierarchyID]))?>"><?=$this->escapeHtml($hierarchyTitle)?></a>
-      <?php endif; ?>
-    <?php endforeach; ?>
-  </div>
-<?php endif; ?>
-<?php if ($activeTree): ?>
-  <div id="hierarchyTreeHolder">
-    <div id="hierarchyLoading" class="hide"><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> <?=$this->transEsc('loading_ellipsis')?></div>
-    <div id="hierarchyTree" class="hierarchy-tree">
-      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueId())?>" class="hiddenRecordId" />
-      <input type="hidden" value="<?=$this->escapeHtmlAttr($activeTree)?>" class="hiddenHierarchyId" />
-      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenRecordSource" />
-      <input type="hidden" value="<?=$this->escapeHtmlAttr($this->treeContext ?? 'Record')?>" class="hiddenContext" />
+<div class="hierarchy-tree-container js-hierarchy-tree-container">
+  <?php if (count($hierarchyTreeList) > 1): ?>
+    <div class="hierarchy-tree-selector">
+      <?php foreach ($hierarchyTreeList as $hierarchy => $hierarchyTitle): ?>
+        <?php if ($activeTree == $hierarchy): ?>
+          <?=$this->icon('hierarchy-tree') ?>
+          <?=$this->escapeHtml($hierarchyTitle)?>
+        <?php else: ?>
+          <?=$this->icon('hierarchy-tree', ['class' => 'text-muted']) ?>
+          <a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, 'HierarchyTree', ['hierarchy' => $hierarchy]))?>"><?=$this->escapeHtml($hierarchyTitle)?></a>
+        <?php endif; ?>
+      <?php endforeach; ?>
     </div>
-    <div class="back-to-up hidden"><?=$this->transEsc("Back to top")?> <i class="fa fa-arrow-up"></i></div>
-  </div>
-<?php endif; ?>
-<!-- END of: finna - RecordTab/hierarchytree.phtml -->
+  <?php endif; ?>
+
+  <?php if ($activeTree): ?>
+    <?php if (!$this->tab->isFullHierarchyVisible()): ?>
+      <div class="hierarchy-tree-toggle-full">
+        <label class="js-toggle-full-tree hidden">
+          <input type="checkbox" class="js-show-full-tree">
+          <?=$this->transEsc('hierarchy_show_tree')?>
+        </label>
+      </div>
+    <?php endif; ?>
+    <?php if ($this->tab->searchActive()): ?>
+      <div class="hidden hierarchy-tree-search-form js-tree-search">
+        <div class="input-group">
+          <input type="text" class="form-control search-query js-search-text" aria-label="<?=$this->transEscAttr('Search from archive')?>" value="">
+          <select class="form-select hidden js-search-type" name="type">
+            <option value="AllFields"><?=$this->transEsc('All Fields')?></option>
+          </select>
+          <button class="btn btn-primary js-submit" type="submit" name="submit">
+            <?=$this->icon('search') ?>
+            <span><?=$this->transEsc('Find')?></span>
+          </button>
+        </div>
+        <span class="hidden js-load-indicator"><?=$this->icon('spinner') ?></span>
+      </div>
+      <div class="js-search-error alert alert-danger hidden"><?=$this->transEsc('An error has occurred')?></div>
+      <div class="js-no-results alert alert-danger hidden"><?=$this->transEsc('nohit_heading')?></div>
+      <div class="js-limit-reached alert alert-info hidden" role="alert">
+        <?=$this->translate('tree_search_limit_reached_html', ['%%limit%%' => $this->tab->getSearchLimit()])?>
+      </div>
+    <?php endif; ?>
+    <div class="js-tree-loading hidden"><?=$this->icon('spinner') ?> <?=$this->transEsc('loading_ellipsis')?></div>
+    <?php
+      $treeContainerAttrs = $this->htmlAttributes([
+        'class' => 'js-hierarchy-tree-placeholder',
+        'data-id' => $this->driver->getUniqueId(),
+        'data-source-id' => $this->driver->getSourceIdentifier(),
+        'data-hierarchy-id' => $activeTree,
+        'data-context' => $this->treeContext ?? 'Record',
+        'data-preview-element' => $this->treePreviewElement ?? '',
+        'data-lightbox' => $this->inLightbox,
+        'data-full-hierarchy' => $this->tab->isFullHierarchyVisible(),
+      ]);
+    ?>
+    <div<?=$treeContainerAttrs?>></div>
+  <?php endif; ?>
+  <div class="back-to-up hidden"><?=$this->transEsc('Back to top')?> <?=$this->icon('back-to-up') ?></div>
+</div>
+<?php
+  $this->assetManager()->outputInlineScriptLink('hierarchy_tree.js');
+  $js = <<<JS
+        document.querySelectorAll('.js-hierarchy-tree-container').forEach((el) => VuFind.hierarchyTree.initTree(el));
+      JS;
+  echo $this->assetManager()->outputInlineScriptString($js);
+?>

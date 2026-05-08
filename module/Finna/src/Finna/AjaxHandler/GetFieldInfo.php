@@ -1,8 +1,9 @@
 <?php
+
 /**
  * AJAX handler for getting information for a field popover.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,18 +26,23 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
-use Finna\Db\Table\FinnaCache;
-use Laminas\Config\Config;
-use Laminas\Log\LoggerAwareInterface;
+use Finna\Db\Service\FinnaCacheServiceInterface;
 use Laminas\Mvc\Controller\Plugin\Params;
+use Psr\Log\LoggerAwareInterface;
+use VuFind\Config\Config;
 use VuFind\Log\LoggerAwareTrait;
 use VuFind\Record\Loader;
 use VuFind\Session\Settings as SessionSettings;
 use VuFind\View\Helper\Root\Record;
 use VuFindHttp\HttpService;
 use VuFindSearch\ParamBag;
+
+use function in_array;
+use function is_array;
+use function strlen;
 
 /**
  * AJAX handler for getting information for a field popover.
@@ -47,70 +53,44 @@ use VuFindSearch\ParamBag;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
-    implements LoggerAwareInterface
+class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
     /**
-     * Main configuration
+     * Settings for diplaying dynamic content.
      *
-     * @var Config
+     * @var array
      */
-    protected $config;
+    protected $dynamicContent;
 
     /**
-     * Record loader
+     * Constructor.
      *
-     * @var Loader
-     */
-    protected $loader;
-
-    /**
-     * Record plugin
-     *
-     * @var Record
-     */
-    protected $recordPlugin;
-
-    /**
-     * HTTP service
-     *
-     * @var HttpService
-     */
-    protected $httpService;
-
-    /**
-     * Cache table
-     *
-     * @var FinnaCache
-     */
-    protected $finnaCache;
-
-    /**
-     * Constructor
-     *
-     * @param Config          $config Main configuration
-     * @param SessionSettings $ss     Session settings
-     * @param Loader          $loader Record loader
-     * @param Record          $rp     Record plugin
-     * @param HttpService     $http   HTTP Service
-     * @param FinnaCache      $cache  Cache table
+     * @param Config                     $config            Main configuration
+     * @param SessionSettings            $sessionSettings   Session settings
+     * @param Loader                     $loader            Record loader
+     * @param Record                     $recordPlugin      Record plugin
+     * @param HttpService                $httpService       HTTP Service
+     * @param FinnaCacheServiceInterface $finnaCacheService Cache database service
      */
     public function __construct(
-        Config $config,
-        SessionSettings $ss,
-        Loader $loader,
-        Record $rp,
-        HttpService $http,
-        FinnaCache $cache
+        protected Config $config,
+        SessionSettings $sessionSettings,
+        protected Loader $loader,
+        protected Record $recordPlugin,
+        protected HttpService $httpService,
+        protected FinnaCacheServiceInterface $finnaCacheService
     ) {
-        $this->config = $config;
-        $this->sessionSettings = $ss;
-        $this->loader = $loader;
-        $this->recordPlugin = $rp;
-        $this->httpService = $http;
-        $this->finnaCache = $cache;
+        $this->sessionSettings = $sessionSettings;
+        $this->dynamicContent = array_merge(
+            [
+                'label_enrichment' => true,
+                'alt_label_enrichment' => true,
+                'other_language_enrichment' => true,
+            ],
+            $config->LinkPopovers?->dynamic_content?->toArray() ?? []
+        );
     }
 
     /**
@@ -139,11 +119,8 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
         $params->set('authorityType', $type);
         $params->set('recordSource', $source);
         $authority = null;
-        $authorityFields = $this->config->LinkPopovers->authority_fields
-            ? $this->config->LinkPopovers->authority_fields->toArray() : [];
-        if ($authIds && $authIds[0] && preg_match('/^[\w_-]+\./', $authIds[0])
-            && $authorityFields
-        ) {
+        $authorityFields = array_filter($this->config->LinkPopovers?->authority_fields?->toArray() ?? []);
+        if ($authIds[0] ?? false) {
             try {
                 $authority = $this->loader->load(
                     $authIds[0],
@@ -162,8 +139,9 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
         }
 
         // Fetch any enrichment data by the first ID:
-        $enrichmentData = $this->getEnrichmentData($ids[0], $label);
-
+        $enrichmentData = in_array(true, $this->dynamicContent)
+            ? $this->getEnrichmentData($ids[0], $label)
+            : [];
         $html = ($this->recordPlugin)($driver)->renderTemplate(
             'ajax-field-info.phtml',
             compact(
@@ -177,11 +155,12 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
             )
         );
 
-        return $this->formatResponse(compact('html'));
+        $isAuthority = (bool)$authority;
+        return $this->formatResponse(compact('html', 'isAuthority'));
     }
 
     /**
-     * Get enrichment data from Skosmos
+     * Get enrichment data from Skosmos.
      *
      * @param string $id    Identifier
      * @param string $label Label
@@ -190,7 +169,8 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
      */
     protected function getEnrichmentData(string $id, string $label): array
     {
-        if (empty($this->config->LinkPopovers->skosmos)
+        if (
+            empty($this->config->LinkPopovers->skosmos)
             || empty($this->config->LinkPopovers->skosmos_base_url)
         ) {
             return [];
@@ -210,9 +190,7 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
 
         // Check if the url has an allowed prefix:
         $match = false;
-        foreach ($this->config->LinkPopovers->skosmos_id_prefix_allowed_list
-            as $prefix
-        ) {
+        foreach ($this->config->LinkPopovers->skosmos_id_prefix_allowed_list as $prefix) {
             if (strncmp($id, $prefix, strlen($prefix)) === 0) {
                 $match = true;
                 break;
@@ -224,8 +202,8 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
 
         // Check cache:
         $cacheId = strlen($id) < 255 ? $id : md5($id);
-        if ($cached = $this->finnaCache->getByResourceId($cacheId)) {
-            return $this->parseSkosmos($cached['data'], $id, $label);
+        if ($cached = $this->finnaCacheService->getByResourceId($cacheId)) {
+            return $this->parseSkosmos($cached->getData(), $id, $label);
         }
 
         // Fetch from external API:
@@ -233,17 +211,17 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
             return [];
         }
 
-        $row = $this->finnaCache->createRow();
-        $row['mtime'] = time();
-        $row['resource_id'] = $cacheId;
-        $row['data'] = $data;
-        $row->save();
+        $row = $this->finnaCacheService->createEntity()
+            ->setModificationTimestamp(time())
+            ->setResourceId($cacheId)
+            ->setData($data);
+        $this->finnaCacheService->persistEntity($row);
 
         return $this->parseSkosmos($data, $id, $label);
     }
 
     /**
-     * Fetch data for an identifier from Skosmos
+     * Fetch data for an identifier from Skosmos.
      *
      * @param string $id Identifier
      *
@@ -280,7 +258,7 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
     }
 
     /**
-     * Parse Skosmos data and return labels
+     * Parse Skosmos data and return labels.
      *
      * @param string $response     Skoskos response
      * @param string $id           Requested id
@@ -321,7 +299,7 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
                     }
                     $lng = $label['lang'] ?? '-';
                     // Try to determine the language of the display label:
-                    if ($label === $displayLabel) {
+                    if ($value === $displayLabel) {
                         $labelLang = $lng;
                     } else {
                         $pref[$lng][] = $value;
@@ -350,9 +328,7 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
 
                 // Check if exact match id prefix is allowed:
                 $allowed = false;
-                foreach ($this->config->LinkPopovers->skosmos_id_prefix_exact_matches
-                    as $prefix
-                ) {
+                foreach ($this->config->LinkPopovers->skosmos_id_prefix_exact_matches as $prefix) {
                     if (strncmp($matchId, $prefix, strlen($prefix)) === 0) {
                         $allowed = true;
                         break;
@@ -364,8 +340,7 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
                 $matchData = json_decode($match, true);
 
                 foreach ($matchData['graph'] ?? [] as $matchItem) {
-                    if (!in_array('skos:Concept', (array)($matchItem['type'] ?? []))
-                    ) {
+                    if (!in_array('skos:Concept', (array)($matchItem['type'] ?? []))) {
                         continue;
                     }
                     if (($matchItem['uri'] ?? null) !== $matchId) {
@@ -411,15 +386,21 @@ class GetFieldInfo extends \VuFind\AjaxHandler\AbstractBase
             $labelLang = 'fi';
         }
         if (isset($pref[$labelLang])) {
-            $result['labels'] = $pref[$labelLang];
+            if ($this->dynamicContent['label_enrichment']) {
+                $result['labels'] = $pref[$labelLang];
+            }
             unset($pref[$labelLang]);
         }
         if (isset($alt[$labelLang])) {
-            $result['altLabels'] = $alt[$labelLang];
+            if ($this->dynamicContent['alt_label_enrichment']) {
+                $result['altLabels'] = $alt[$labelLang];
+            }
             unset($alt[$labelLang]);
         }
-        $result['otherLanguageLabels'] = $pref;
-        $result['otherLanguageAltLabels'] = $alt;
+        if ($this->dynamicContent['other_language_enrichment']) {
+            $result['otherLanguageLabels'] = $pref;
+            $result['otherLanguageAltLabels'] = $alt;
+        }
 
         return $result;
     }

@@ -1,5 +1,10 @@
 /*global VuFind, finna */
 finna.contentFeed = (function finnaContentFeed() {
+  /**
+   * Load content feed
+   * @param {jQuery}  container Container holding the data
+   * @param {boolean} modal     Is the context in a modal
+   */
   function loadFeed(container, modal) {
     var id = container.data('feed');
     var element = container.data('element');
@@ -11,7 +16,7 @@ finna.contentFeed = (function finnaContentFeed() {
     }
 
     // Append spinner
-    contentHolder.append('<i class="fa fa-spin fa-spinner"></i>');
+    contentHolder.append(VuFind.icon('spinner'));
 
     var url = VuFind.path + '/AJAX/JSON';
     var params = {method: 'getContentFeed', id: id, element: element};
@@ -68,6 +73,9 @@ finna.contentFeed = (function finnaContentFeed() {
             if (typeof data.navigation != 'undefined') {
               $('.article-navigation-wrapper').html(VuFind.updateCspNonce(data.navigation));
               $('.article-navigation-header').show();
+            }
+            if (typeof data.nextarticles != 'undefined') {
+              $('.next-articles').html(VuFind.updateCspNonce(data.nextarticles));
             }
           }
         }

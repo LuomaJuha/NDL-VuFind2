@@ -6,8 +6,8 @@
       . "VuFind.loadHtml(\$('#finna-suggestions-deferred'), url);";
   ?>
   <div id="finna-suggestions-deferred">
-    <p><i class="fa fa-spinner fa-spin" aria-hidden="true"></i> <?=$this->transEsc('loading_ellipsis')?></p>
-    <?=$this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $loadJs, 'SET')?>
+    <p><?=$this->icon('spinner') ?> <?=$this->transEsc('loading_ellipsis')?></p>
+    <?=$this->assetManager()->outputInlineScriptString($loadJs)?>
   </div>
 <?php endif ?>
 <!-- END of: finna - Recommend/FinnaSuggestionsDeferred.phtml -->

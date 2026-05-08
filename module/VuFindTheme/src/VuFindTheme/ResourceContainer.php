@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Theme Public Resource Handler (for CSS, JS, etc.)
+ * VuFind Theme Public Resource Handler (for CSS, JS, etc.).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Theme
@@ -25,10 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFindTheme;
 
+use function count;
+use function is_array;
+
 /**
- * VuFind Theme Public Resource Handler (for CSS, JS, etc.)
+ * VuFind Theme Public Resource Handler (for CSS, JS, etc.).
  *
  * @category VuFind
  * @package  Theme
@@ -38,43 +43,38 @@ namespace VuFindTheme;
  */
 class ResourceContainer
 {
-    /**
-     * Less CSS files
-     *
-     * @var array
-     */
-    protected $less = [];
+    use \VuFind\Log\VarDumperTrait;
 
     /**
-     * CSS files
+     * CSS files.
      *
      * @var array
      */
     protected $css = [];
 
     /**
-     * Javascript files
+     * Javascript files.
      *
      * @var array
      */
     protected $js = [];
 
     /**
-     * Favicon
+     * Favicon.
      *
-     * @var string
+     * @var string|array|null
      */
     protected $favicon = null;
 
     /**
-     * Encoding type
+     * Encoding type.
      *
      * @var string
      */
     protected $encoding = 'UTF-8';
 
     /**
-     * Generator value for <meta> tag
+     * Generator value for <meta> tag.
      *
      * @var string
      */
@@ -90,13 +90,16 @@ class ResourceContainer
      */
     public function addCss($css)
     {
-        if (!is_array($css) && !is_a($css, 'Traversable')) {
-            $css = [$css];
-        }
-        foreach ($css as $current) {
-            if (!$this->dynamicallyParsed($current)) {
-                $this->css[] = $current;
+        if ((!is_array($css) && !is_a($css, 'Traversable')) || isset($css['file'])) {
+            $this->addCssEntry($css);
+        } elseif (isset($css[0])) {
+            foreach ($css as $current) {
+                $this->addCssEntry($current);
             }
+        } elseif ($css === []) {
+            return;
+        } else {
+            throw new \Exception('Invalid CSS entry format: ' . $this->varDump($css));
         }
     }
 
@@ -119,8 +122,92 @@ class ResourceContainer
         } elseif ($js === []) {
             return;
         } else {
-            throw new \Exception("Invalid JS entry format: " . print_r($js, true));
+            throw new \Exception('Invalid JS entry format: ' . $this->varDump($js));
         }
+    }
+
+    /**
+     * Helper function for adding a CSS file.
+     *
+     * @param string|array $cssEntry Entry to add, either as string with path
+     * or array with additional properties.
+     *
+     * @return void
+     */
+    protected function addCssEntry($cssEntry)
+    {
+        if (!is_array($cssEntry)) {
+            $this->addCssStringEntry($cssEntry);
+        } else {
+            $this->addCssArrayEntry($cssEntry);
+        }
+    }
+
+    /**
+     * Helper function for adding a CSS file which is described as string.
+     *
+     * @param string $cssEntry Entry to add as string.
+     *
+     * @return void
+     */
+    protected function addCssStringEntry($cssEntry)
+    {
+        $parts = $this->parseSetting($cssEntry);
+        // Special case for media with parentheses
+        // ie. (min-width: 768px)
+        if (count($parts) > 1 && str_starts_with($parts[1], '(')) {
+            $parts[1] .= ':' . $parts[2];
+            array_splice($parts, 2, 1);
+        }
+        $cssArray = [
+            'file' => trim($parts[0]),
+        ];
+        if (isset($parts[1])) {
+            $cssArray['media'] = trim($parts[1]);
+        }
+        if (isset($parts[2])) {
+            $cssArray['conditional'] = trim($parts[2]);
+        }
+        $this->addCssArrayEntry($cssArray);
+    }
+
+    /**
+     * Helper function for adding a CSS file which is described as array.
+     *
+     * @param array $cssEntry Entry to add as array.
+     *
+     * @return void
+     */
+    protected function addCssArrayEntry($cssEntry)
+    {
+        if (isset($cssEntry['priority']) && isset($cssEntry['load_after'])) {
+            throw new \Exception(
+                'Using "priority" as well as "load_after" in the same entry '
+                . 'is not supported: "' . $cssEntry['file'] . '"'
+            );
+        }
+
+        // If we are disabling the dependency, remove it now.
+        if ($cssEntry['disabled'] ?? false) {
+            $this->removeEntry($cssEntry, $this->css);
+            return;
+        }
+
+        foreach ($this->css as $existingEntry) {
+            if ($existingEntry['file'] == $cssEntry['file']) {
+                // If we have the same settings as before, just skip this entry.
+                if ($existingEntry == $cssEntry) {
+                    return;
+                }
+
+                throw new \Exception(
+                    'Overriding an existing dependency is not supported: '
+                    . '"' . $cssEntry['file'] . '"'
+                );
+            }
+        }
+
+        $this->insertEntry($cssEntry, $this->css);
     }
 
     /**
@@ -164,7 +251,7 @@ class ResourceContainer
     /**
      * Helper function for adding a Javascript file which is described as array.
      *
-     * @param string $jsEntry Entry to add as string.
+     * @param array $jsEntry Entry to add as array.
      *
      * @return void
      */
@@ -237,7 +324,8 @@ class ResourceContainer
             foreach (array_keys($array) as $i) {
                 if (isset($entry['priority'])) {
                     $currentPriority = $array[$i]['priority'] ?? null;
-                    if (!isset($currentPriority)
+                    if (
+                        !isset($currentPriority)
                         || $currentPriority > $entry['priority']
                     ) {
                         array_splice($array, $i, 0, [$entry]);
@@ -270,18 +358,18 @@ class ResourceContainer
      */
     public function getCss()
     {
-        return array_unique($this->css);
+        return $this->css;
     }
 
     /**
      * Get Javascript files.
      *
-     * @param string $position Position where the files should be inserted
-     * (allowed values are 'header' or 'footer').
+     * @param ?string $position Position where the files should be inserted
+     * (allowed values are 'header', 'footer' or null for all).
      *
      * @return array
      */
-    public function getJs(string $position = null)
+    public function getJs(?string $position = null)
     {
         if (!isset($position)) {
             return $this->js;
@@ -309,8 +397,9 @@ class ResourceContainer
         // have been converted to arrays
         $parts = explode(':', $current);
         // Special case: don't explode URLs:
-        if (($parts[0] === 'http' || $parts[0] === 'https')
-            && '//' === substr($parts[1], 0, 2)
+        if (
+            ($parts[0] === 'http' || $parts[0] === 'https')
+            && str_starts_with($parts[1], '//')
         ) {
             $protocol = array_shift($parts);
             $parts[0] = $protocol . ':' . $parts[0];
@@ -343,7 +432,7 @@ class ResourceContainer
     /**
      * Set the favicon.
      *
-     * @param string $favicon New favicon path.
+     * @param string|array $favicon New favicon path.
      *
      * @return void
      */
@@ -355,7 +444,7 @@ class ResourceContainer
     /**
      * Get the favicon (null for none).
      *
-     * @return string
+     * @return string|array|null
      */
     public function getFavicon()
     {
@@ -385,24 +474,7 @@ class ResourceContainer
     }
 
     /**
-     * Check if a CSS file is being dynamically compiled in LESS
-     *
-     * @param string $file Filename to check
-     *
-     * @return bool
-     */
-    protected function dynamicallyParsed($file)
-    {
-        if (empty($this->less)) {
-            return false;
-        }
-        [$fileName, ] = explode('.', $file);
-        $lessFile = $fileName . '.less';
-        return in_array($lessFile, $this->less, true);
-    }
-
-    /**
-     * Remove a CSS file if it matches another file's name
+     * Remove a CSS file if it matches another file's name.
      *
      * @param string $file Filename to remove
      *

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * View helper to support ILS holdings display
+ * View helper to support ILS holdings display.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,10 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
+use function strlen;
+
 /**
- * View helper to support ILS holdings display
+ * View helper to support ILS holdings display.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -39,14 +43,14 @@ namespace VuFind\View\Helper\Root;
 class Holdings extends \Laminas\View\Helper\AbstractHelper
 {
     /**
-     * Configuration
+     * Configuration.
      *
      * @var array
      */
     protected $config;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array $config Configuration
      */
@@ -68,6 +72,7 @@ class Holdings extends \Laminas\View\Helper\AbstractHelper
         $catalogConfig = $this->config['Catalog'] ?? [];
         $showEmptyBarcodes
             = (bool)($catalogConfig['display_items_without_barcodes'] ?? true);
-        return $showEmptyBarcodes || strlen($holding['barcode'] ?? '') > 0;
+        return $holding['availability']->isVisibleInHoldings()
+            && ($showEmptyBarcodes || strlen($holding['barcode'] ?? '') > 0);
     }
 }

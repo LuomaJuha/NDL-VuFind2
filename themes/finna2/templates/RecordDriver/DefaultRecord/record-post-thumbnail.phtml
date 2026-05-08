@@ -5,23 +5,10 @@
   <?php endif; ?>
   <?=$this->record($this->driver)->renderTemplate('rating.phtml')?>
 <?php endif; ?>
-<?php if ($template = $this->content()->findTemplateForLng("content/Additions/record-post-toolbar")): ?>
+<?php if ($template = $this->content()->findTemplateForLng('content/Additions/record-post-toolbar')): ?>
   <div>
     <div class="record-post-toolbar">
       <?=$this->render($template)?>
     </div>
   </div>
 <?php endif; ?>
-<?php
-  $script = <<<JS
-$('.rating-link').on('click', function () {
-  $('a.usercomments').click();
-  $('html, body').animate(
-    {
-      scrollTop: $('.record-tabs').offset().top
-    }, 500
-  );
-});
-JS;
-  echo $this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
-?>

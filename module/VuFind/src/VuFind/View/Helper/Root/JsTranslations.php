@@ -1,8 +1,9 @@
 <?php
+
 /**
- * JsTranslations helper for passing translation text to Javascript
+ * JsTranslations helper for passing translation text to Javascript.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
 /**
- * JsTranslations helper for passing translation text to Javascript
+ * JsTranslations helper for passing translation text to Javascript.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -39,21 +41,21 @@ namespace VuFind\View\Helper\Root;
 class JsTranslations extends AbstractJsStrings
 {
     /**
-     * Translate helper
+     * Translate helper.
      *
      * @var Translate
      */
     protected $translate;
 
     /**
-     * Translate + escape helper
+     * Translate + escape helper.
      *
      * @var TransEsc
      */
     protected $transEsc;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param Translate $translate Translate helper
      * @param TransEsc  $transEsc  Translate + escape helper
@@ -70,7 +72,7 @@ class JsTranslations extends AbstractJsStrings
     }
 
     /**
-     * Translate string
+     * Translate string.
      *
      * @param string|array $translation String to translate
      * @param string       $key         JSON object key
@@ -80,7 +82,7 @@ class JsTranslations extends AbstractJsStrings
     protected function mapValue($translation, string $key): string
     {
         $translateFunc
-            = substr($key, -5) === '_html' || substr($key, -10) === '_unescaped'
+            = str_ends_with($key, '_html') || str_ends_with($key, '_unescaped')
             ? $this->translate : $this->transEsc;
 
         // $translation could be a string or an array of parameters; this code

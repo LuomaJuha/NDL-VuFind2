@@ -1,9 +1,9 @@
 <?php
+
 /**
- * Service for querying Kirjastohakemisto database.
- * See: https://api.kirjastot.fi/
+ * Service for querying organisation info databases.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2023.
  *
@@ -17,161 +17,293 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
+ * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\OrganisationInfo;
 
-use Laminas\Mvc\Controller\Plugin\Url;
+use Finna\OrganisationInfo\Provider\Kirkanta;
+use Finna\OrganisationInfo\Provider\MuseotFi;
+use Finna\OrganisationInfo\Provider\ProviderInterface;
+use Finna\Search\Solr\HierarchicalFacetHelper;
+use VuFind\Search\Results\PluginManager;
+
+use function in_array;
+use function is_array;
 
 /**
- * Service for querying Kirjastohakemisto database.
- * See: https://api.kirjastot.fi/
+ * Service for querying organisation info databases.
  *
  * @category VuFind
  * @package  Content
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
+ * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterface,
-    \VuFindHttp\HttpServiceAwareInterface,
-    \Laminas\Log\LoggerAwareInterface
+class OrganisationInfo implements
+    \Psr\Log\LoggerAwareInterface,
+    \VuFind\I18n\HasSorterInterface,
+    \VuFind\I18n\Translator\TranslatorAwareInterface
 {
+    use \VuFind\I18n\HasSorterTrait;
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
-    use \VuFindHttp\HttpServiceAwareTrait;
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * Organisation configuration.
+     * Organisation info configuration.
      *
-     * @var Laminas\Config\Config
+     * @var VuFind\Config\Config
      */
     protected $config = null;
 
     /**
-     * Cache manager
+     * Cache manager.
      *
      * @var \VuFind\CacheManager
      */
     protected $cacheManager;
 
     /**
-     * View Renderer
-     *
-     * @var \Laminas\View\Renderer\PhpRenderer
-     */
-    protected $viewRenderer;
-
-    /**
-     * Date converter
-     *
-     * @var \VuFind\Date\Converter
-     */
-    protected $dateConverter;
-
-    /**
-     * Language (use getLanguage())
+     * Language (use getLanguage()).
      *
      * @var string
      */
     protected $language = null;
 
     /**
-     * CleanHtml helper
+     * Results plugin manager.
      *
-     * @var \Finna\View\Helper\Root\CleanHtml
+     * @var PluginManager
      */
-    protected $cleanHtml;
+    protected $resultsManager;
 
     /**
-     * URL plugin
+     * Hierarchical facet helper.
      *
-     * @var Url
+     * @var HierarchicalFacetHelper
      */
-    protected $urlPlugin;
+    protected $facetHelper;
+
+    /**
+     * Kirkanta provider.
+     *
+     * @var Kirkanta
+     */
+    protected $kirkanta;
+
+    /**
+     * MuseotFi provider.
+     *
+     * @var MuseotFi
+     */
+    protected $museotFi;
 
     /**
      * Constructor.
      *
-     * @param \Laminas\Config\Config             $config        Configuration
-     * @param \VuFind\Cache\Manager              $cacheManager  Cache manager
-     * @param \Laminas\View\Renderer\PhpRenderer $viewRenderer  View renderer
-     * @param \VuFind\Date\Converter             $dateConverter Date converter
-     * @param Url                                $url           URL plugin
+     * @param \VuFind\Config\Config   $config         Organisation info configuration
+     * @param \VuFind\Cache\Manager   $cacheManager   Cache manager
+     * @param PluginManager           $resultsManager Results manager
+     * @param HierarchicalFacetHelper $facetHelper    Hierarchical facet helper
+     * @param Kirkanta                $kirkanta       Kirkanta provider
+     * @param MuseotFi                $museotFi       MuseotFi provider
      */
     public function __construct(
-        \Laminas\Config\Config $config,
+        \VuFind\Config\Config $config,
         \VuFind\Cache\Manager $cacheManager,
-        \Laminas\View\Renderer\PhpRenderer $viewRenderer,
-        \VuFind\Date\Converter $dateConverter,
-        Url $url
+        PluginManager $resultsManager,
+        HierarchicalFacetHelper $facetHelper,
+        Kirkanta $kirkanta,
+        MuseotFi $museotFi,
     ) {
         $this->config = $config;
         $this->cacheManager = $cacheManager;
-        $this->viewRenderer = $viewRenderer;
-        $this->dateConverter = $dateConverter;
-        $this->urlPlugin = $url;
-        $this->cleanHtml = $viewRenderer->plugin('cleanHtml');
+        $this->resultsManager = $resultsManager;
+        $this->facetHelper = $facetHelper;
+        $this->kirkanta = $kirkanta;
+        $this->museotFi = $museotFi;
     }
 
     /**
-     * Validate language version.
+     * Check if organisation info is enabled.
      *
-     * @param string $language     Language version
-     * @param array  $allLanguages List of valid languages.
-     *
-     * @return string Language version
+     * @return bool
      */
-    protected function validateLanguage($language, $allLanguages)
+    public function isAvailable()
     {
-        $map = ['en-gb' => 'en'];
-        if (isset($map[$language])) {
-            $language = $map[$language];
-        }
-
-        if (!in_array($language, $allLanguages)) {
-            $language = 'fi';
-        }
-
-        return $language;
+        return !empty($this->config->General->enabled);
     }
 
     /**
-     * Get the active language to use in a request
+     * Check if a consortium is found in organisation info and return basic information.
      *
-     * @return string
+     * @param array  $sectors Sectors if known, empty array otherwise
+     * @param string $id      Parent organisation ID
+     *
+     * @return array
      */
-    protected function getLanguage()
+    public function lookup(array $sectors, string $id): array
     {
-        if (null === $this->language) {
-            $allLanguages = isset($this->config->General->languages)
-                ? $this->config->General->languages->toArray() : [];
-
-            $language = $this->config->General->language
-                ?? $this->translator->getLocale();
-
-            $this->language = $this->validateLanguage($language, $allLanguages);
-        }
-        return $this->language;
+        return $this->getProvider($sectors, $id)->lookup($this->getLanguage(), $id);
     }
 
     /**
-     * Convert building code to Kirjastohakemisto finna_id
+     * Get consortium information (includes list of locations).
+     *
+     * @param array  $sectors        Sectors if known, empty array otherwise
+     * @param string $id             Parent organisation ID
+     * @param array  $locationFilter Optional list of locations to include
+     *
+     * @return array
+     */
+    public function getConsortiumInfo(array $sectors, string $id, array $locationFilter = []): array
+    {
+        return $this->getProvider($sectors, $id)->getConsortiumInfo($this->getLanguage(), $id, $locationFilter);
+    }
+
+    /**
+     * Get location details.
+     *
+     * @param array   $sectors    Sectors if known, empty array otherwise
+     * @param string  $id         Parent organisation ID
+     * @param string  $locationId Location ID
+     * @param ?string $startDate  Start date (YYYY-MM-DD) of opening times (default is Monday of current week)
+     * @param ?string $endDate    End date (YYYY-MM-DD) of opening times (default is Sunday of current week)
+     *
+     * @return array
+     */
+    public function getDetails(
+        array $sectors,
+        string $id,
+        string $locationId,
+        ?string $startDate = null,
+        ?string $endDate = null
+    ): array {
+        return $this->getProvider($sectors, $id)
+            ->getDetails($this->getLanguage(), $id, $locationId, $startDate, $endDate);
+    }
+
+    /**
+     * Get all the sectors for an organisation.
+     *
+     * @param string $id Organisation ID
+     *
+     * @return array
+     */
+    public function getSectorsForOrganisation(string $id): array
+    {
+        $result = [];
+        $id = mb_strtolower($id, 'UTF-8');
+        foreach ($this->getOrganisationsList() as $organisations) {
+            foreach ($organisations as $organisation) {
+                if (!($sector = $organisation['sector'] ?? '')) {
+                    continue;
+                }
+                $orgId = mb_strtolower(
+                    $organisation['organisation'] ?? '',
+                    'UTF-8'
+                );
+                if ($orgId === $id) {
+                    $result[] = $sector;
+                }
+            }
+        }
+        // Assume lib if we didn't find any sources in the index:
+        return $result ?: ['lib'];
+    }
+
+    /**
+     * Get a list of current organisations.
+     *
+     * @return array
+     */
+    public function getOrganisationsList(): array
+    {
+        $cacheDir = $this->cacheManager->getCache('organisation-info')->getOptions()->getCacheDir();
+        $locale = $this->getLanguage();
+        $cacheFile = "$cacheDir/organisations_list_$locale.json";
+        $maxAge = (int)($this->config['General']['organisationListCacheTime'] ?? 60);
+        $sorter = $this->getSorter();
+        $list = [];
+        if (
+            is_readable($cacheFile)
+            && time() - filemtime($cacheFile) < $maxAge * 60
+        ) {
+            return json_decode(file_get_contents($cacheFile), true);
+        } else {
+            $emptyResults = $this->resultsManager->get('EmptySet');
+            try {
+                $sectorFacets = $this->getFacetList('sector_str_mv');
+                $sectorFacets = $this->facetHelper->flattenFacetHierarchy($sectorFacets);
+                foreach ($sectorFacets as $sectorFacet) {
+                    $sectorParts = explode('/', $sectorFacet['value']);
+                    $sectorParts = array_splice($sectorParts, 1, -1);
+                    $sector = implode('/', $sectorParts);
+                    $list[$sector] = [];
+
+                    $collection = $this->getFacetList(
+                        'building',
+                        '0/',
+                        'sector_str_mv:' . $sectorFacet['value']
+                    );
+
+                    foreach ($collection as $item) {
+                        $link = $emptyResults->getUrlQuery()
+                            ->addFacet('building', $item['value'])->getParams();
+                        $displayText = $item['displayText'];
+                        if ($displayText == $item['value']) {
+                            $displayText = $this->facetHelper
+                                ->formatDisplayText($displayText)
+                                ->getDisplayString();
+                        }
+                        $organisationInfoId = $this->getOrganisationInfoId($item['value']);
+
+                        $list[$sector][] = [
+                            'name' => $displayText,
+                            'link' => $link,
+                            'organisation' => $organisationInfoId,
+                            'sector' => $sector,
+                        ];
+                    }
+                    usort(
+                        $list[$sector],
+                        function ($a, $b) use ($sorter) {
+                            return $sorter->compare($a['name'], $b['name']);
+                        }
+                    );
+                }
+                $cacheJson = json_encode($list);
+                file_put_contents($cacheFile, $cacheJson);
+                return $list;
+            } catch (\VuFindSearch\Backend\Exception\BackendException $e) {
+                $this->logError(
+                    'Error creating organisations list: ' . $e->getMessage()
+                );
+                throw $e;
+            }
+        }
+        return [];
+    }
+
+    /**
+     * Convert building code to Kirjastohakemisto finna_id.
      *
      * @param string|array $building Building
      *
-     * @return string ID
+     * @return string|null ID or null if not found
      */
     public function getOrganisationInfoId($building)
     {
@@ -187,1212 +319,94 @@ class OrganisationInfo implements \VuFind\I18n\Translator\TranslatorAwareInterfa
     }
 
     /**
-     * Check if organisation info is enabled.
+     * Get facet data from a field.
      *
-     * @return boolean
-     */
-    public function isAvailable()
-    {
-        return !empty($this->config->General->enabled);
-    }
-
-    /**
-     * Perform query.
-     *
-     * @param string $parent    Parent organisation
-     * @param array  $params    Query parameters
-     * @param array  $buildings List of building id's to include in the
-     * consortium-query
-     *
-     * @return array|bool array of results or false on error.
-     */
-    public function query($parent, $params, $buildings = null)
-    {
-        if (!$this->isAvailable()) {
-            $this->logError("Organisation info disabled ($parent)");
-            return false;
-        }
-
-        if (!isset($this->config->General->url)) {
-            $this->logError(
-                "URL missing from organisation info configuration ($parent)"
-            );
-            return false;
-        }
-
-        if (empty($parent)) {
-            $this->logError("Missing parent");
-            return false;
-        }
-
-        if ($params['orgType'] == 'library') {
-            return $this->queryLibrary($parent, $params, $buildings);
-        } elseif ($params['orgType'] == 'museum') {
-            return $this->queryMuseum($parent, $params);
-        }
-
-        $this->logError("Unknown action: {$params['action']}");
-        return false;
-    }
-
-    /**
-     * Perform query for library data.
-     *
-     * @param string $parent    Parent organisation
-     * @param array  $params    Query parameters
-     * @param array  $buildings List of building id's to include in the
-     * consortium-query
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function queryLibrary($parent, $params, $buildings = null)
-    {
-        $id = null;
-        if (isset($params['id'])) {
-            $id = $params['id'];
-        }
-        $target = $params['target'] ?? 'widget';
-
-        $now = false;
-        if (isset($params['periodStart'])) {
-            $now = strtotime($params['periodStart']);
-            if ($now === false) {
-                $this->logError(
-                    'Error parsing periodStart: ' . $params['periodStart']
-                );
-            }
-        }
-        if ($now === false) {
-            $now = time();
-        }
-
-        $weekDay = date('N', $now);
-        $startDate = $weekDay == 1
-            ? $now : strtotime('last monday', $now);
-
-        $endDate = $weekDay == 7
-            ? $now : strtotime('next sunday', $now);
-
-        $schedules = $params['action'] == 'list' || !empty($params['periodStart']);
-
-        if ($params['action'] == 'details') {
-            $dir = isset($params['dir']) && in_array($params['dir'], ['1', '-1'])
-                ? $params['dir'] : 0;
-            $startDate = strtotime("{$dir} Week", $startDate);
-            $endDate = strtotime("{$dir} Week", $endDate);
-        }
-
-        $weekNum = date('W', $startDate);
-        $startDate = date('Y-m-d', $startDate);
-        $endDate = date('Y-m-d', $endDate);
-
-        if ($params['action'] == 'lookup') {
-            $link = $params['link'];
-            $parentName = $params['parentName'];
-            return $this->lookupLibraryAction($parent, $link, $parentName);
-        } elseif ($params['action'] == 'consortium') {
-            $response = $this->consortiumAction(
-                $parent,
-                $buildings,
-                $target,
-                $startDate,
-                $endDate
-            );
-            if ($response) {
-                $response['id'] = $id;
-                $response['weekNum'] = $weekNum;
-            }
-            return $response;
-        } elseif ($params['action'] == 'details') {
-            $allServices = !empty($params['allServices']);
-            $fullDetails = !empty($params['fullDetails']);
-            $response = $this->detailsAction(
-                $parent,
-                $id,
-                $target,
-                $schedules,
-                $startDate,
-                $endDate,
-                $fullDetails,
-                $allServices
-            );
-
-            if ($response) {
-                $response['weekNum'] = $weekNum;
-            }
-            return $response;
-        }
-        return false;
-    }
-
-    /**
-     * Perform query for museum data.
-     *
-     * @param string $parent Parent organisation
-     * @param array  $params Query parameters
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function queryMuseum($parent, $params)
-    {
-        if ($params['action'] == 'lookup') {
-            $link = $params['link'];
-            $parentName = $params['parentName'];
-            return $this->lookupMuseumAction($parent, $link, $parentName);
-        } else {
-            $params['id'] = !empty($parent) ? $parent
-                : $this->config->General->defaultOrganisation;
-            return $this->museumAction($params);
-        }
-        //TODO Consortium/Group handling, we need to get data for that first from
-        //TODO Museoliitto and organisations
-    }
-
-    /**
-     * Check if consortium is found in Kirjastohakemisto
-     *
-     * @param string  $parent     Consortium Finna ID in Kirjastohakemisto or
-     * in Museoliitto. Use a comma delimited string to check multiple Finna IDs.
-     * @param boolean $link       True to render the link as a html-snippet.
-     * Oherwise only the link URL is outputted.
-     * @param string  $parentName Translated consortium display name.
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function lookupLibraryAction(
-        $parent,
-        $link = false,
-        $parentName = null
-    ) {
-        // Check if consortium is found in Kirjastohakemisto
-        $params = [
-            'finna:id' => $parent,
-            'lang' => $this->getLanguage()
-        ];
-        $response = $this->fetchData('finna_organisation', $params);
-
-        if (!$response || $response['total'] == 0) {
-            return false;
-        }
-
-        $urlHelper = $this->viewRenderer->plugin('url');
-        $url = $urlHelper('organisationinfo-home');
-        $result = ['success' => true, 'items' => []];
-        foreach ($response['items'] as $item) {
-            $id = $item['finnaId'];
-            $data = "{$url}?" . http_build_query(['id' => $id]);
-            if ($link) {
-                $logo = '';
-                if (isset($response['items'][0]['logo'])) {
-                    $logos = $response['items'][0]['logo'];
-                    foreach (['small', 'medium'] as $size) {
-                        if (isset($logos[$size])) {
-                            $logo = $logos[$size]['url'];
-                            break;
-                        }
-                    }
-                }
-                $data = $this->viewRenderer->partial(
-                    'Helpers/organisation-page-link.phtml',
-                    [
-                       'url' => $data,
-                       'label' => 'organisation_info_link',
-                       'logo' => $this->proxifyImageUrl($logo),
-                       'name' => $parentName
-                    ]
-                );
-            }
-            $result['items'][$id] = $data;
-        }
-        return $result;
-    }
-
-    /**
-     * Check if consortium is found in Museoliitto API
-     *
-     * @param string  $parent     Consortium Finna ID in Kirjastohakemisto or
-     * in Museoliitto. Use a comma delimited string to check multiple Finna IDs.
-     * @param boolean $link       True to render the link as a html-snippet.
-     * Oherwise only the link URL is outputted.
-     * @param string  $parentName Translated consortium display name.
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function lookupMuseumAction(
-        $parent,
-        $link = false,
-        $parentName = null
-    ) {
-        $params['id'] = $parent;
-        $response = $this->fetchData('consortium', $params, true);
-
-        if (!$response || empty($response['museot'])) {
-            return false;
-        }
-
-        $urlHelper = $this->viewRenderer->plugin('url');
-        $url = $urlHelper('organisationinfo-home');
-        $json = $response['museot'][0];
-        $items = [];
-        if ($json['finna_publish'] == 1) {
-            $id = $json['finna_org_id'];
-            $data = "{$url}?" . http_build_query(['id' => $id]);
-            if ($link) {
-                $logo = $json['image'] ?? '';
-                $lang = $this->getLanguage();
-                $name = $json['name'][$lang]
-                        ?? $this->translator->translate("source_{$parent}");
-                $data = $this->viewRenderer->partial(
-                    'Helpers/organisation-page-link.phtml',
-                    [
-                    'url' => $data,
-                    'label' => 'organisation_info_link',
-                    'logo' => $this->proxifyImageUrl($logo),
-                    'name' => $name
-                    ]
-                );
-            }
-            $items[$id] = $data;
-        }
-        return ['success' => true, 'items' => $items];
-    }
-
-    /**
-     * Query consortium info.
-     *
-     * @param string $parent    Consortium Finna ID in Kirjastohakemisto.
-     * Use a comma delimited string to check multiple Finna IDs.
-     * @param array  $buildings List of building id's to include in the response
-     * @param string $target    page|widget
-     * @param string $startDate Start date (YYYY-MM-DD) of opening times
-     * @param string $endDate   End date (YYYY-MM-DD) of opening times
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function consortiumAction(
-        $parent,
-        $buildings,
-        $target,
-        $startDate,
-        $endDate
-    ) {
-        $params = [
-            'finna:id' => $parent,
-            'with' => 'links',
-            'lang' => $this->getLanguage()
-        ];
-
-        $response = $this->fetchData('finna_organisation', $params);
-
-        if (!$response
-            || !$response['total'] || !isset($response['items'][0]['id'])
-        ) {
-            $this->logError(
-                'Error reading consortium info: ' .
-                var_export($params, true)
-            );
-            return false;
-        }
-        $response = $response['items'][0];
-
-        $consortium = [];
-
-        if ($target == 'page') {
-            $consortium['name'] = $response['name'];
-            $consortium['description'] = $response['description'];
-
-            if (isset($response['homepage'])) {
-                $parts = parse_url($response['homepage']);
-                if (isset($parts['host'])) {
-                    $consortium['homepageLabel'] = $parts['host'];
-                }
-                $consortium['homepage'] = $response['homepage'];
-            }
-            if (!empty($response['logo'])) {
-                $consortium['logo']['small'] = $this->proxifyImageUrl(
-                    $response['logo']['small']['url']
-                    ?? $response['logo']['medium']['url']
-                    ?? ''
-                );
-            }
-
-            $consortium['finna'] = [
-                'usage_info' => $response['usageInfo'],
-                'notification' => $response['notification'],
-                'finna_coverage' => $response['finnaCoverage'],
-                'usage_perc' => $response['finnaCoverage'],
-            ];
-
-            if (isset($response['links'])) {
-                foreach ($response['links'] as $field => $key) {
-                    $consortium['finna']['finnaLink'][$field]['name'] = $key['name'];
-                    $consortium['finna']['finnaLink'][$field]['value'] = $key['url'];
-                }
-            }
-        }
-
-        $consortium['finna']['service_point'] = $response['servicePoint'];
-        $consortium['id'] = $response['id'];
-
-        // Organisation list for a consortium with schedules for the current week
-        $params = [
-            'consortium' => $response['id'],
-            'with' => 'schedules,primaryContactInfo,mailAddress',
-            'period.start' => $startDate,
-            'period.end' => $endDate,
-            'status' => '',
-            'lang' => $this->getLanguage(),
-        ];
-
-        if (!empty($buildings)) {
-            foreach ($buildings as $building) {
-                if ('' !== $building && !ctype_digit((string)$building)) {
-                    throw new \Exception('Invalid building: ' . $building);
-                }
-            }
-            if (($buildings = implode(',', $buildings)) != '') {
-                $params['id'] = $buildings;
-            }
-        }
-
-        $response = $this->fetchData('service_point', $params);
-        if (!$response) {
-            return false;
-        }
-        $result = ['consortium' => $consortium];
-        $result['list'] = $this->parseList($target, $response);
-
-        return $result;
-    }
-
-    /**
-     * Query organisation details.
-     *
-     * @param string  $parent      Consortium Finna ID in Kirjastohakemisto or
-     * in Museoliitto. Use a comma delimited string to check multiple Finna IDs.
-     * @param int     $id          Service Point ID
-     * @param string  $target      page|widget
-     * @param boolean $schedules   Include opening times
-     * @param string  $startDate   Start date (YYYY-MM-DD) of opening times
-     * @param string  $endDate     End date (YYYY-MM-DD) of opening times
-     * @param boolean $fullDetails Include full details.
-     * @param boolean $allServices Include full list of services.
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function detailsAction(
-        $parent,
-        $id,
-        $target,
-        $schedules,
-        $startDate,
-        $endDate,
-        $fullDetails,
-        $allServices
-    ) {
-        if (!$id) {
-            $this->logError("Missing id");
-            return false;
-        }
-
-        $with = 'schedules';
-        if ($fullDetails) {
-            $with .=
-                ',phoneNumbers,emailAddresses,mailAddress,pictures,links,services,'
-                . 'customData,schedules,persons';
-        }
-
-        $params = [
-            'id' => $id,
-            'with' => $with,
-            'period.start' => $startDate,
-            'period.end' => $endDate,
-            'status' => '',
-            'lang' => $this->getLanguage(),
-            'refs' => 'period'
-        ];
-
-        $response = $this->fetchData('service_point', $params);
-        if (!$response) {
-            return false;
-        }
-
-        if (!$response['total']) {
-            return false;
-        }
-
-        $scheduleDescriptions = null;
-        if (isset($response['refs']['period'])) {
-            $scheduleDescriptions = [];
-            foreach ($response['refs']['period'] as $period) {
-                $scheduleDesc = $period['description'];
-                if (!empty($scheduleDesc)) {
-                    $scheduleDescriptions[] = $scheduleDesc;
-                }
-            }
-        }
-
-        // Details
-        $response = $response['items'][0];
-        $result = $this->parseDetails(
-            $parent,
-            $id,
-            $target,
-            $response,
-            $schedules,
-            $allServices
-        );
-
-        $result['id'] = $id;
-        $result['periodStart'] = $startDate;
-        if ($scheduleDescriptions) {
-            $result['scheduleDescriptions'] = $scheduleDescriptions;
-        }
-
-        return $result;
-    }
-
-    /**
-     * Fetch data from cache or external API.
-     *
-     * @param string  $action Action
-     * @param array   $params Query parameters
-     * @param boolean $museum If organisation type is museum
-     *
-     * @return array|bool array of results or false on error.
-     */
-    protected function fetchData($action, $params, $museum = false)
-    {
-        if ($museum) {
-            if (empty($this->config->MuseumAPI->url)) {
-                return false;
-            }
-            $url = $this->config->MuseumAPI->url . '/finna_org_perustiedot.php'
-                . '?finna_org_id=' . urlencode($params['id']);
-        } else {
-            $params['limit'] = 1000;
-            $apiUrl = $this->config->General->url;
-            if (!strpos($apiUrl, 'v4')) {
-                $apiUrl .= 'v4';
-            }
-            $url = $apiUrl . '/' . $action
-                . '?' . http_build_query($params);
-        }
-        $cacheDir = $this->cacheManager->getCache('organisation-info')
-            ->getOptions()->getCacheDir();
-
-        $localFile = "$cacheDir/" . md5($url) . '.json';
-        $maxAge = $this->config->General->cachetime ?? 10;
-
-        $response = false;
-        if ($maxAge) {
-            if (is_readable($localFile)
-                && time() - filemtime($localFile) < $maxAge * 60
-            ) {
-                $response = file_get_contents($localFile);
-            }
-        }
-        if (!$response) {
-            $client = $this->httpService->createClient(
-                $url,
-                \Laminas\Http\Request::METHOD_GET,
-                10
-            );
-            $client->setOptions(['useragent' => 'VuFind']);
-            $result = $client->send();
-            if ($result->isSuccess()) {
-                if ($result->getStatusCode() != 200) {
-                    $this->logError(
-                        'Error querying organisation info, response code '
-                        . $result->getStatusCode() . ", url: $url"
-                    );
-                    return false;
-                }
-            } else {
-                $this->logError(
-                    'Error querying organisation info: '
-                    . $result->getStatusCode() . ': ' . $result->getReasonPhrase()
-                    . ", url: $url"
-                );
-                return false;
-            }
-
-            $response = $result->getBody();
-            if ($maxAge) {
-                file_put_contents($localFile, $response);
-            }
-        }
-
-        if (!$response) {
-            return false;
-        }
-
-        $response = json_decode($response, true);
-        $jsonError = json_last_error();
-        if ($jsonError !== JSON_ERROR_NONE) {
-            $this->logError("Error decoding JSON: $jsonError (url: $url)");
-            return false;
-        }
-
-        return $response;
-    }
-
-    /**
-     * Parse organisation list.
-     *
-     * @param string $target   page|widge
-     * @param object $response JSON-object
+     * @param string $field  Field to return
+     * @param string $prefix Optional facet prefix limiter
+     * @param string $filter Optional filter
      *
      * @return array
      */
-    protected function parseList($target, $response)
-    {
-        $mapUrls = ['routeUrl', 'mapUrl'];
-        $mapUrlConf = [];
-        foreach ($mapUrls as $url) {
-            if (isset($this->config->General[$url])) {
-                $base = $this->config->General[$url];
-                $conf = ['base' => $base];
-
-                if (preg_match_all('/{([^}]*)}/', $base, $matches)) {
-                    $conf['params'] = $matches[1];
-                }
-                $mapUrlConf[$url] = $conf;
-            }
+    protected function getFacetList(
+        string $field,
+        string $prefix = '',
+        string $filter = ''
+    ): array {
+        $results = $this->resultsManager->get('Solr');
+        $params = $results->getParams();
+        // Disable deduplication so that facet results are not affected:
+        $params->addFilter('finna.deduplication:"0"');
+        $params->setLimit(0);
+        $params->setFacetLimit(-1);
+        if ('' !== $prefix) {
+            $params->setFacetPrefix($prefix);
         }
+        $options = $params->getOptions();
+        $options->disableHighlighting();
+        $options->spellcheckEnabled(false);
 
-        $result = [];
-        foreach ($response['items'] as $item) {
-            if (empty($item['name'])) {
-                continue;
-            }
-
-            $data = [
-                'id' => $item['id'],
-                'name' => $item['name'],
-                'shortName' => $item['shortName'],
-                'slug' => $item['slug'],
-                'type' => $item['type'],
-                'mobile' => $item['type'] == 'mobile' ? 1 : 0,
-                'email' => $item['primaryContactInfo']['email']['email'] ?? null,
-                'homepage' => $item['primaryContactInfo']['homepage']['url'] ?? null
-            ];
-
-            if (!empty($item['mailAddress'])) {
-                $mailAddress = [
-                    'area' => $item['mailAddress']['area'],
-                    'boxNumber' => $item['mailAddress']['boxNumber'],
-                    'street' => $item['mailAddress']['street'],
-                    'zipcode' => $item['mailAddress']['zipcode']
-                ];
-            }
-            if (!empty($mailAddress)) {
-                $data['mailAddress'] = $mailAddress;
-            }
-
-            if (!empty($item['address'])) {
-                $address = [
-                    'street' => $item['address']['street'],
-                    'zipcode' => $item['address']['zipcode'],
-                ];
-
-                $city = $item['address']['city'];
-                $area = $item['address']['area'] ?? '';
-                if ($area && $area !== $city) {
-                    $address['city'] = "$area ($city)";
-                } else {
-                    $address['city'] = $city;
-                }
-            }
-
-            if (!empty($item['coordinates'])) {
-                $address['coordinates']['lat'] = $item['coordinates']['lat']
-                    ?? null;
-                $address['coordinates']['lon'] = $item['coordinates']['lon']
-                    ?? null;
-            }
-            if (!empty($address)) {
-                $data['address'] = $address;
-            }
-
-            if (!empty($item['address'])) {
-                foreach ($mapUrlConf as $map => $mapConf) {
-                    $mapUrl = $mapConf['base'];
-                    $replace = [];
-                    if (!empty($mapConf['params'])) {
-                        foreach ($mapConf['params'] as $param) {
-                            $val = $item['address'][$param];
-                            if (!empty($val)) {
-                                $replace[$param] = $val;
-                            }
-                        }
-                    }
-                    foreach ($replace as $param => $val) {
-                        $mapUrl = str_replace(
-                            '{' . $param . '}',
-                            rawurlencode($val),
-                            $mapUrl
-                        );
-                    }
-                    $data[$map] = $mapUrl;
-                }
-            }
-            $schedules = [
-                'schedule' => $item['schedules'],
-                'status' => $item['liveStatus']
-            ];
-            $data['openTimes'] = $this->parseSchedules($schedules);
-
-            $data['openNow'] = $item['liveStatus'] >= 1;
-
-            $result[] = $data;
+        $params->addFacet($field, $field, false);
+        if ('' !== $filter) {
+            $params->addFilter($filter);
         }
-        usort($result, [$this, 'sortList']);
-
-        return $result;
+        $facetList = $results->getFacetList();
+        return $facetList[$field]['list'] ?? [];
     }
 
     /**
-     * Sorting function for organisations.
-     *
-     * @param array $a Organisation data
-     * @param array $b Organisation data
-     *
-     * @return int
-     */
-    protected function sortList($a, $b)
-    {
-        return strcasecmp($a['name'], $b['name']);
-    }
-
-    /**
-     * Parse organisation details.
-     *
-     * @param string  $parent             Consortium Finna ID in Kirjastohakemisto or
-     * in Museoliitto. Use a comma delimited string to check multiple Finna IDs.
-     * @param int     $id                 Organisation
-     * @param string  $target             page|widget
-     * @param object  $response           JSON-object
-     * @param boolean $schedules          Include schedules in the response?
-     * @param boolean $includeAllServices Include services in the response?
-     *
-     * @return array
-     */
-    protected function parseDetails(
-        $parent,
-        $id,
-        $target,
-        $response,
-        $schedules,
-        $includeAllServices = false
-    ) {
-        $result = [];
-        $scheduleData = [
-            'schedule' => $response['schedules'],
-            'status' => $response['liveStatus']
-        ];
-        if ($schedules) {
-            $result['openTimes'] = $this->parseSchedules($scheduleData);
-        }
-
-        if (!empty($response['phoneNumbers'])) {
-            $phones = [];
-            foreach ($response['phoneNumbers'] as $phone) {
-                // Check for email data in phone numbers
-                if (strpos($phone['number'], '@') !== false) {
-                    continue;
-                }
-                $name = $phone['name'];
-                if ($name) {
-                    $phones[]
-                        = ['name' => $name, 'number' => $phone['number']];
-                }
-            }
-            try {
-                $result['phone'] = $this->viewRenderer->partial(
-                    "Helpers/organisation-info-phone-{$target}.phtml",
-                    ['phones' => $phones]
-                );
-            } catch (\Exception $e) {
-                $this->logError($e->getmessage());
-            }
-        }
-
-        if (!empty($response['emailAddresses'])) {
-            $emails = [];
-            $dedupEmails = array_unique($response['emailAddresses'], SORT_REGULAR);
-            foreach ($dedupEmails as $address) {
-                $emails[]
-                    = ['name' => $address['name'], 'email' => $address['email']];
-            }
-            try {
-                $result['emails'] = $this->viewRenderer->partial(
-                    "Helpers/organisation-info-email-{$target}.phtml",
-                    ['emails' => $emails]
-                );
-            } catch (\Exception $e) {
-                $this->logError($e->getmessage());
-            }
-        }
-
-        if (!empty($response['pictures'])) {
-            $pics = [];
-            foreach ($response['pictures'] as $pic) {
-                $medium = $pic['files']['medium'];
-                $medium['url'] = $this->proxifyImageUrl($medium['url']);
-                $pics[] = $medium;
-            }
-            if (!empty($pics)) {
-                $result['pictures'] = $pics;
-            }
-        }
-
-        if (!empty($response['slogan'])) {
-            $result['slogan'] = ($this->cleanHtml)($response['slogan']);
-        }
-        if (!empty($response['description'])) {
-            $result['description'] = ($this->cleanHtml)($response['description']);
-        }
-
-        if (!empty($response['links'])) {
-            $links = [];
-            foreach ($response['links'] as $link) {
-                $name = $link['name'];
-                $url = $link['url'];
-                if ($name && $url) {
-                    $links[] = ['name' => $name, 'url' => $url];
-                }
-            }
-            $result['links'] = $links;
-        }
-
-        if (!empty($response['services'])
-            && ($includeAllServices
-            || !empty($this->config->OpeningTimesWidget->services))
-        ) {
-            $servicesMap = [];
-            $servicesConf = $this->config->OpeningTimesWidget->services->toArray();
-            foreach ($servicesConf as $key => $ids) {
-                $servicesMap[$key] = explode(',', $ids);
-            }
-            $services = $allServices = [];
-            foreach ($response['services'] as $service) {
-                foreach ($servicesMap as $key => $ids) {
-                    if (in_array($service['id'], $ids)) {
-                        $services[] = $key;
-                    }
-                }
-                if ($includeAllServices) {
-                    $name = empty($service['name'])
-                        ? $service['standardName'] : $service['name'];
-                    $data = [$name];
-                    $shortDesc = ($this->cleanHtml)(
-                        $service['shortDescription'] ?? '',
-                        true
-                    );
-                    if ($shortDesc) {
-                        $data['shortDesc'] = $shortDesc;
-                    }
-                    $longDesc = ($this->cleanHtml)(
-                        $service['description'] ?? '',
-                        true
-                    );
-                    if ($longDesc) {
-                        $data['desc'] = $longDesc;
-                    }
-                    if (isset($service['type'])) {
-                        $allServices[$service['type']][] = $data;
-                    } else {
-                        $allServices[] = $data;
-                    }
-                }
-            }
-            if (!empty($services)) {
-                $result['services'] = $services;
-            }
-            if (!empty($allServices)) {
-                foreach ($allServices as &$serviceType) {
-                    usort(
-                        $serviceType,
-                        function ($service1, $service2) {
-                            return strnatcasecmp($service1[0], $service2[0]);
-                        }
-                    );
-                }
-                $result['allServices'] = $allServices;
-            }
-        }
-
-        if (!empty($response['persons'])) {
-            $personnel = [];
-            foreach ($response['persons'] as $person) {
-                if (!empty($email = $person['email'] ?? '')) {
-                    $email = str_replace('@', '/at/', $email);
-                    $email = str_replace('.', '/dot/', $email);
-                    $email = str_rot13($email);
-                }
-                $personnel[] = [
-                    'firstName' => $person['firstName'] ?? '',
-                    'lastName' => $person['lastName'] ?? '',
-                    'jobTitle' => $person['jobTitle'] ?? '',
-                    'email' => $email,
-                    'phone' => $person['phone'] ?? '',
-                ];
-            }
-            usort(
-                $personnel,
-                function ($person1, $person2) {
-                    return strnatcasecmp($person1['lastName'], $person2['lastName']);
-                }
-            );
-            $result['personnel'] = $personnel;
-        }
-
-        if (isset($response['customData'])) {
-            $rssLinks = [];
-            foreach ($response['customData'] as $link) {
-                if (in_array($link['id'], ['news', 'events'])) {
-                    $rssLinks[] = [
-                        'parent' => $parent,
-                        'id' => $id,
-                        'orgType' => 'library',
-                        'feedType' => $link['id'],
-                        'url' => $link['value']
-                    ];
-                }
-            }
-
-            if (!empty($rssLinks)) {
-                $result['rss'] = $rssLinks;
-            }
-        }
-
-        return $result;
-    }
-
-    /**
-     * Parse schedules
-     *
-     * @param object $data JSON data
-     *
-     * @return array
-     */
-    protected function parseSchedules($data)
-    {
-        $schedules = [];
-        $periodStart = null;
-
-        $dayNames = [
-            'monday', 'tuesday', 'wednesday', 'thursday',
-            'friday', 'saturday', 'sunday'
-        ];
-
-        $openToday = false;
-        $currentWeek = false;
-        foreach ($data['schedule'] as $day) {
-            if (!$periodStart) {
-                $periodStart = $day['date'];
-            }
-
-            $now = new \DateTime();
-            $now->setTime(0, 0, 0);
-
-            $date = new \DateTime($day['date']);
-            $date->setTime(0, 0, 0);
-
-            $today = $now == $date;
-
-            $dayTime = strtotime($day['date']);
-            if ($dayTime === false) {
-                $this->logError("Error parsing date: " . $day['date']);
-                continue;
-            }
-
-            $weekDay = date('l', $dayTime);
-            $weekDayName = $this->translator->translate(
-                'day-name-short-' . lcfirst($weekDay)
-            );
-
-            $times = [];
-            $now = time();
-            $closed = $day['closed'];
-
-            // Staff times
-            foreach ($day['times'] as $time) {
-                $result['opens'] = $this->formatTime($time['from']);
-                $result['closes'] = $this->formatTime($time['to']);
-                $result['selfservice'] = $time['status'] === 2 ? true : false;
-                $times[] = $result;
-            }
-
-            if ($today && !empty($times)) {
-                $openToday = $times;
-            }
-
-            $scheduleData = [
-               'date' => date('j.n.', $dayTime),
-               'times' => $times,
-               'day' => $weekDayName,
-            ];
-            if (!empty($day['info'])) {
-                $scheduleData['info'] = $day['info'];
-            }
-
-            if ($closed) {
-                $scheduleData['closed'] = $closed;
-            }
-
-            if ($today) {
-                $scheduleData['today'] = true;
-            }
-
-            $schedules[] = $scheduleData;
-
-            if ($today) {
-                $currentWeek = true;
-            }
-        }
-
-        $result = compact('schedules', 'openToday', 'currentWeek');
-        $result['openNow'] = $data['status'];
-        return $result;
-    }
-
-    /**
-     * Format time string.
-     *
-     * @param string $time Time
+     * Get the active language to use in a request.
      *
      * @return string
      */
-    protected function formatTime($time)
+    protected function getLanguage()
     {
-        $parts = explode(':', $time);
-        if (substr($parts[0], 0, 1) == '0') {
-            $parts[0] = substr($parts[0], 1);
+        if (null === $this->language) {
+            $allLanguages = isset($this->config->General->languages)
+                ? $this->config->General->languages->toArray() : [];
+
+            $language = $this->config->General->language
+                ?? $this->getTranslatorLocale();
+
+            $this->language = $this->validateLanguage($language, $allLanguages);
         }
-        if (!isset($parts[1]) || $parts[1] == '00') {
-            return $parts[0];
-        }
-        return $this->dateConverter->convertToDisplayTime('H:i', $time);
+        return $this->language;
     }
 
     /**
-     * Query museum info for organisation page
+     * Validate language.
      *
-     * @param array $params Query parameters
+     * @param string $language     Language version
+     * @param array  $allLanguages List of valid languages
      *
-     * @return array|bool array of results or false if no data available
+     * @return string Language version
      */
-    protected function museumAction($params)
+    protected function validateLanguage($language, $allLanguages)
     {
-        $response = $this->fetchData('consortium', $params, true);
-        if (empty($response['museot'])) {
-            return false;
+        $map = ['en-gb' => 'en'];
+        if (isset($map[$language])) {
+            $language = $map[$language];
         }
-        $language = $this->getLanguage();
-        $json = $response['museot'][0];
-        $publish = $json['finna_publish'];
-        if (!$publish) {
-            return false;
+
+        if (!in_array($language, $allLanguages)) {
+            $language = $this->config->General->fallbackLanguage ?? 'fi';
         }
-        // Consortium info
-        $consortium = [
-            'museum' => true,
-            'name' =>  $json['name'][$language],
-            'description' => $json['description'][$language],
-            'finna' => [
-                'service_point' => $params['id'],
-                'finna_coverage' => $json['coverage'],
-                'usage_perc' => $json['coverage'],
-                'usage_info' => $json['usage_rights'][$language]
-            ],
-        ];
-        foreach ($json['links'] as $field => $key) {
-            $consortium['finna']['finnaLink'][$field]['name']
-                = $key['link_info']['link_text_' . $language . ''];
-            $consortium['finna']['finnaLink'][$field]['value']
-                = $key['link_info']['link_url_' . $language . ''];
-        }
-        if (!empty($json['image'])) {
-            $consortium['logo']['small'] = $this->proxifyImageUrl($json['image']);
-        }
-        // Details info
-        $details = [
-            'name' => $json['name'][$language],
-            'openNow' => false,
-            'openTimes' => [
-                'museum' => true,
-                'currentWeek' => true,
-            ],
-            'address' => [
-                'coordinates' => [
-                    'lat' => !empty($json['latitude']) ? $json['latitude'] : '',
-                    'lon' => !empty($json['longitude']) ? $json['longitude'] : ''
-                ],
-                'street' => !empty($json['address']) ? $json['address'] : ''
-            ],
-            'id' => $params['id'],
-            'email' => $json['email'] ?? '',
-            'type' => 'museum',
-        ];
-        // Date handling
-        $days = [
-            0 => 'monday', 1 => 'tuesday', 2 => 'wednesday',
-            3 => 'thursday', 4 => 'friday', 5 => 'saturday', 6 => 'sunday'
-        ];
-        foreach ($days as $day => $key) {
-            $details['openTimes']['schedules'][$day]
-                = $this->getMuseumDaySchedule($key, $json);
-            if ($details['openTimes']['schedules'][$day]['openNow'] ?? false) {
-                $details['openNow'] = true;
-                $details['openTimes']['openNow'] = true;
-            }
-        }
-        // Address handling
-        if (!empty($details['address'])) {
-            $mapUrl = $this->config->General->mapUrl;
-            $routeUrl = $this->config->General->routeUrl;
-            $replace['street'] = $details['address']['street'];
-            $replace['city'] = preg_replace(
-                '/[0-9,]+/',
-                '',
-                $json['post_office']
-            );
-            foreach ($replace as $param => $val) {
-                $mapUrl = str_replace(
-                    '{' . $param . '}',
-                    rawurlencode($val),
-                    $mapUrl
-                );
-                $routeUrl = str_replace(
-                    '{' . $param . '}',
-                    rawurlencode($val),
-                    $routeUrl
-                );
-            }
-            $details['mapUrl'] = $mapUrl;
-            $details['routeUrl'] = $routeUrl;
-            $details['address']['zipcode']
-                = preg_replace('/\D/', '', $json['post_office']);
-            $details['address']['city'] = $replace['city'];
-        }
-        // Contact info handling
-        $contactInfo = [];
-        foreach ($json['contact_infos'] as $field => $key) {
-            $contactInfo[]
-                = [
-                    'name' =>
-                        $key['contact_info']['place_' . $language . ''],
-                    'contact' =>
-                        $key['contact_info']['phone_email_' . $language . '']
-                ];
-        }
-        try {
-            $contactInfoToResult = $this->viewRenderer->partial(
-                "Helpers/organisation-info-museum-page.phtml",
-                ['contactInfo' => $contactInfo]
-            );
-        } catch (\Exception $e) {
-            $this->logError($e->getmessage());
-        }
-        // All data to view
-        $result = [
-            'id' => $params['id'] ?? '',
-            'list' => [
-                0 => $details
-            ],
-            'weekNum' => date('W'),
-            'consortium' => $consortium,
-            'pictures' => [
-                0 => [
-                    'url' =>
-                    isset($json['image2']) && strlen($json['image2']) > 30
-                        ? $this->proxifyImageUrl($json['image2']) : ''
-                ],
-                1 => [
-                    'url' =>
-                    isset($json['image3']) && strlen($json['image3']) > 30
-                        ? $this->proxifyImageUrl($json['image3']) : ''
-                ],
-                2 => [
-                    'url' =>
-                    isset($json['image4']) && strlen($json['image4']) > 30
-                        ? $this->proxifyImageUrl($json['image4']) : ''
-                ]
-            ],
-            'scheduleDescriptions' => [
-                0 => !empty($json['opening_info'][$language])
-                    ? $json['opening_info'][$language] : ''
-            ],
-            'contactInfo' => $contactInfoToResult ?? ''
-        ];
-        return $result;
+
+        return $language;
     }
 
     /**
-     * Date data handling function for museums
+     * Get organisation info provider based on sector information.
      *
-     * @param string $day  Weekday
-     * @param array  $json Data from museum api
+     * @param array  $sectors Sectors for the organisation
+     * @param string $id      Parent organisation ID
      *
-     * @return array
+     * @return ProviderInterface;
      */
-    protected function getMuseumDaySchedule($day, $json)
+    protected function getProvider(array $sectors, string $id): ProviderInterface
     {
-        $today = date('d.m');
-        $currentHour = date('H:i');
-        $return = [];
-        $dayShortcode = substr($day, 0, 3);
-        if (empty($json['opening_time']["{$dayShortcode}_start"])
-            && empty($json['opening_time']["{$dayShortcode}_end"])
-        ) {
-            $return['closed'] = true;
-        } else {
-            $return['times'][0]['closes']
-                = $this->formatTime($json['opening_time']["{$dayShortcode}_end"]);
-            $return['times'][0]['opens']
-                = $this->formatTime($json['opening_time']["{$dayShortcode}_start"]);
+        if (!$sectors) {
+            $sectors = $this->getSectorsForOrganisation($id);
         }
-        $return['day'] = $this->translator->translate('day-name-short-' . $day);
-        $return['date'] = date('d.m', strtotime("{$day} this week"));
-        if ($today == $return['date']) {
-            $return['today'] = true;
-            if ($currentHour >= $json['opening_time']["{$dayShortcode}_start"]
-                && $currentHour <= $json['opening_time']["{$dayShortcode}_end"]
-            ) {
-                $return['openNow'] = true;
-            }
-        }
-        return $return;
-    }
-
-    /**
-     * Proxify an image url for loading via the OrganisationInfo controller
-     *
-     * @param string $url Image URL
-     *
-     * @return string
-     */
-    protected function proxifyImageUrl(string $url): string
-    {
-        // Ensure that we don't proxify an empty or already proxified URL:
-        if (!$url) {
-            return '';
-        }
-        $check = $this->urlPlugin->fromRoute('organisation-info-image');
-        if (strncasecmp($url, $check, strlen($check)) === 0) {
-            return $url;
-        }
-
-        return $this->urlPlugin->fromRoute(
-            'organisation-info-image',
-            [],
-            [
-                'query' => [
-                    'image' => $url,
-                ]
-            ]
-        );
+        return in_array('mus', $sectors) ? $this->museotFi : $this->kirkanta;
     }
 }

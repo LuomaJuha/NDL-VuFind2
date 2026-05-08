@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Content Controller
+ * Content Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  * Copyright (C) The National Library of Finland 2014-2016.
@@ -27,10 +28,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Controller;
 
 /**
- * Loads content pages
+ * Loads content pages.
  *
  * @category VuFind
  * @package  Controller
@@ -42,7 +44,7 @@ namespace Finna\Controller;
 class ContentController extends \VuFind\Controller\ContentController
 {
     /**
-     * Default action if none provided
+     * Default action if none provided.
      *
      * @return Laminas\View\Model\ViewModel
      */

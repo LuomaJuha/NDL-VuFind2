@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Factory for configurable forms.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Config
@@ -26,6 +27,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Form;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -46,7 +48,7 @@ use Psr\Container\ContainerInterface;
 class FormFactory extends \VuFind\Form\FormFactory
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -62,10 +64,10 @@ class FormFactory extends \VuFind\Form\FormFactory
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
-        $configManager = $container->get(\VuFind\Config\PluginManager::class);
-        $config = $configManager->get('config')->toArray();
+        $configManager = $container->get(\VuFind\Config\ConfigManagerInterface::class);
+        $config = $configManager->getConfigArray('config');
 
         $form = parent::__invoke($container, $requestedName, $options);
         if (isset($config['Site']['institution'])) {
@@ -74,7 +76,7 @@ class FormFactory extends \VuFind\Form\FormFactory
         if (isset($config['Site']['email'])) {
             $form->setInstitutionEmail($config['Site']['email']);
         }
-        if ($user = $container->get(\VuFind\Auth\Manager::class)->isLoggedIn()) {
+        if ($user = $container->get(\VuFind\Auth\Manager::class)->getUserObject()) {
             $roles = $container->get(\VuFind\Role\PermissionManager::class)
                 ->getActivePermissions();
             try {
@@ -88,7 +90,7 @@ class FormFactory extends \VuFind\Form\FormFactory
         $form->setRecordRequestFormsWithBarcode(
             (array)($config['Record']['repository_library_request_form'] ?? null)
         );
-        $form->setDataSourceConfig($configManager->get('datasources')->toArray());
+        $form->setDataSourceConfig($configManager->getConfigArray('datasources'));
         $form->setRecordLoader($container->get(\VuFind\Record\Loader::class));
         return $form;
     }

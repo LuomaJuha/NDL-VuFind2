@@ -47,7 +47,7 @@ default_noresults_recommend[] = SpellingSuggestions
 highlighting = true
 highlighting_fields = "artist_str_mv,author,author2,author_additional,author_fuller,collection,container_title,contents,culture,description,dewey-full,edition,era,genre,geographic,institution,isbn,issn,language,lccn,material,measurements,publication_place_txt_mv,publisher,series,series2,title,title_alt,title_full,title_new,title_old,topic"
 snippets = true
-retain_filters_by_default = true
+retain_filters_by_default = false
 ;default_filters[] = "format:Book"
 ;default_filters[] = "institution:MyInstitution"
 ;default_filters[] = "(format:Book AND institution:MyInstitution)"
@@ -73,7 +73,7 @@ tag                 = Tag
 [Sorting]
 relevance = sort_relevance
 main_date_str desc = sort_year
-main_date_str asc = "sort_year asc"
+main_date_str asc = "sort_year_asc"
 callnumber-sort = sort_callnumber
 ;dewey-sort = sort_callnumber
 author = sort_author
@@ -147,11 +147,15 @@ view=full
 ;0 = ""
 
 [HiddenFilters]
-datasource_str_mv = aoe ; This filter is required.
+; Use one of the commented options in [RawHiddenFilters] for AOE/AIPA selection.
 
 [RawHiddenFilters]
-;0 = "format:\"Book\" OR format:\"Journal\""
-;1 = "language:\"English\" OR language:\"French\""
+; AOE/AIPA selection
+; Comment or remove the following line and uncomment one of the options below.
+0 = 'datasource_str_mv:("")'
+;0 = 'datasource_str_mv:("aoe")'
+;0 = 'educational_material_type_str_mv:("1/AIPA/Education/")'
+;0 = 'datasource_str_mv:("aoe") OR educational_material_type_str_mv:("1/AIPA/Education/")'
 
 [ConditionalHiddenFilters]
 ;0 = "-conditionalFilter.MyUniversity|format:Book"

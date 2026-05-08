@@ -6,6 +6,11 @@ finna.multiSelect = (function multiSelect(){
   var i = 0;
   var regExp = new RegExp(/[a-öA-Ö0-9-_ ]/);
 
+  /**
+   * Constructor for multiselect prototype
+   * @param {HTMLSelectElement} select Select to use as a root
+   * @param {string} id Unique identifier
+   */
   function MultiSelect(select, id) {
     var _ = this;
     _.id = id;
@@ -66,12 +71,12 @@ finna.multiSelect = (function multiSelect(){
       e.preventDefault();
       e.stopPropagation();
       _.wasClicked = true;
-      $(this).focus();
+      $(this).trigger("focus");
     });
     _.ul.on('touchstart', function preventFocus(e) {
       e.stopPropagation();
       _.wasClicked = true;
-      $(this).focus();
+      $(this).trigger("focus");
     });
     _.ul.on('focusin', function setFirstActive() {
       if (_.wasClicked) {
@@ -251,6 +256,9 @@ finna.multiSelect = (function multiSelect(){
     _.active.attr('aria-selected', !isSelected);
   };
 
+  /**
+   * Initialize multiselect elements
+   */
   function init() {
     $('.finna-multiselect.init').each(function createMultiSelect(){
       new MultiSelect(this, i++);

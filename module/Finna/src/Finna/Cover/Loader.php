@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Record image loader
+ * Record image loader.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2007.
  * Copyright (C) The National Library of Finland 2015-2020.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Cover_Generator
@@ -29,10 +30,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/configuration:external_content Wiki
  */
+
 namespace Finna\Cover;
 
+use function func_get_args;
+use function is_array;
+use function is_callable;
+use function strlen;
+
 /**
- * Record image loader
+ * Record image loader.
  *
  * @category VuFind
  * @package  Cover_Generator
@@ -46,67 +53,74 @@ namespace Finna\Cover;
 class Loader extends \VuFind\Cover\Loader
 {
     /**
-     * Image URL
+     * Image URL.
      *
      * @var string
      */
     protected $url;
 
     /**
-     * Image parameters
+     * Image parameters.
      *
      * @var array
      */
     protected $imageParams = [];
 
     /**
-     * Record id
+     * Record id.
      *
      * @var string
      */
     protected $id;
 
     /**
-     * Invalid ISBN
+     * Invalid ISBN.
      *
      * @var string
      */
     protected $invalidIsbn = '';
 
     /**
-     * Image index
+     * Image index.
      *
      * @var int
      */
     protected $index;
 
     /**
-     * Image width
+     * Image width.
      *
      * @var int
      */
     protected $width = 100;
 
     /**
-     * Image height
+     * Image height.
      *
      * @var int
      */
     protected $height = 100;
 
     /**
-     * Image size to use
+     * Image size to use.
      *
-     * @var boolean
+     * @var bool
      */
     protected $size = 'medium';
 
     /**
-     * Datasource spesific cover image configuration
+     * Datasource spesific cover image configuration.
      *
      * @var string
      */
     protected $datasourceCoverConfig = null;
+
+    /**
+     * Name for the unsized image used as a base for resizing new images.
+     *
+     * @var string
+     */
+    protected $unsizedImageFile = '';
 
     /**
      * Set datasource spesific cover image configuration.
@@ -160,7 +174,8 @@ class Loader extends \VuFind\Cover\Loader
 
         // Display a fail image unless our parameters pass inspection and we
         // are able to display an ISBN or content-type-based image.
-        if (!$this->fetchFromAPI()
+        if (
+            !$this->fetchFromAPI()
             && !$this->fetchFromContentType()
         ) {
             if ($this->generator) {
@@ -198,7 +213,10 @@ class Loader extends \VuFind\Cover\Loader
             $this->id = $driver->getUniqueID();
             $this->url = $params['url'];
             $this->imageParams = $params;
-            return parent::fetchFromAPI();
+            // Sometimes records only contain 1 size of an image, so check if the current requested image
+            // is actually different size image. This helps to reduce amount of images cached.
+            $this->size = $params['cacheSize'] ?? $size;
+            return $this->fetchFromAPI();
         }
     }
 
@@ -225,10 +243,11 @@ class Loader extends \VuFind\Cover\Loader
      *
      * @param array  $ids     IDs returned by getIdentifiers() method
      * @param string $apiName Name of the API
+     * @param bool   $unsized Get unsized image name used for scaling other images
      *
      * @return string
      */
-    protected function determineLocalFile($ids, $apiName = 'default')
+    protected function determineLocalFile($ids, $apiName = 'default', bool $unsized = false)
     {
         $keys = [];
 
@@ -236,21 +255,17 @@ class Loader extends \VuFind\Cover\Loader
             $keys['url'] = md5($this->url);
             $host = parse_url($this->url, PHP_URL_HOST);
             $keys['host'] = substr($host, 0, 100);
+        } elseif (isset($ids['isbn'])) {
+            $keys['isbn'] = $ids['isbn']->get13();
+        } elseif (isset($ids['issn'])) {
+            $keys['issn'] = $ids['issn'];
+        } elseif (isset($ids['oclc'])) {
+            $keys['oclc'] = $ids['oclc'];
+        } elseif (isset($ids['upc'])) {
+            $keys['upc'] = $ids['upc'];
+        } elseif (isset($ids['invisbn'])) {
+            $keys['invisbn'] = $ids['invisbn'];
         } else {
-            if (isset($ids['isbn'])) {
-                $keys['isbn'] = $ids['isbn']->get13();
-            } elseif (isset($ids['issn'])) {
-                $keys['issn'] = $ids['issn'];
-            } elseif (isset($ids['oclc'])) {
-                $keys['oclc'] = $ids['oclc'];
-            } elseif (isset($ids['upc'])) {
-                $keys['upc'] = $ids['upc'];
-            } elseif (isset($ids['invisbn'])) {
-                $keys['invisbn'] = $ids['invisbn'];
-            }
-        }
-
-        if (!$keys) {
             if (isset($ids['recordid'])) {
                 $keys['recordid'] = $ids['recordid'];
             }
@@ -259,11 +274,13 @@ class Loader extends \VuFind\Cover\Loader
             }
         }
 
-        $keys = array_merge(
+        $keys = $unsized ? array_merge(
+            $keys,
+            [$this->index, 0, 0, $this->size]
+        ) : array_merge(
             $keys,
             [$this->index, $this->width, $this->height, $this->size]
         );
-
         $file = implode('-', $keys);
         return $this->getCachePath('finna', "$apiName-$file");
     }
@@ -297,22 +314,30 @@ class Loader extends \VuFind\Cover\Loader
                 $handler = $this->apiManager->get($apiName);
 
                 // Is the current provider appropriate for the available data?
-                if (!$handler->supports($ids)
+                if (
+                    !$handler->supports($ids)
                     || !$handler->getUrl($key, $this->size, $ids)
                 ) {
                     continue;
                 }
-
-                $localFile = $this->determineLocalFile($ids, $apiName);
-                if (is_readable($localFile)) {
+                $this->localFile = $this->determineLocalFile($ids, $apiName);
+                $this->unsizedImageFile = $this->determineLocalFile($ids, $apiName, true);
+                if (is_readable($this->localFile)) {
                     // Load local cache if available
                     $this->contentType = 'image/jpeg';
-                    $this->image = file_get_contents($localFile);
+                    $this->image = file_get_contents($this->localFile);
+                    return true;
+                } elseif (
+                    is_readable($this->unsizedImageFile)
+                    && $this->localFile = $this->createResizedImage($this->unsizedImageFile, $this->localFile)
+                ) {
+                    $this->contentType = 'image/jpeg';
+                    $this->image = file_get_contents($this->localFile);
                     return true;
                 }
             } catch (\Exception $e) {
                 $this->debug(
-                    get_class($e) . ' during cache processing of ' . $apiName
+                    $e::class . ' during cache processing of ' . $apiName
                     . ': ' . $e->getMessage()
                 );
             }
@@ -323,6 +348,7 @@ class Loader extends \VuFind\Cover\Loader
             $apiName = strtolower(trim($provider[0]));
             // Set up local file path:
             $this->localFile = $this->determineLocalFile($ids, $apiName);
+            $this->unsizedImageFile = $this->determineLocalFile($ids, $apiName, true);
             $key = isset($provider[1]) ? trim($provider[1]) : null;
             try {
                 $handler = $this->apiManager->get($apiName);
@@ -342,7 +368,7 @@ class Loader extends \VuFind\Cover\Loader
                 }
             } catch (\Exception $e) {
                 $this->debug(
-                    get_class($e) . ' during processing of ' . $apiName
+                    $e::class . ' during processing of ' . $apiName
                     . ': ' . $e->getMessage()
                 );
             }
@@ -388,18 +414,47 @@ class Loader extends \VuFind\Cover\Loader
             return false;
         }
 
+        if (!$this->getUnsizedImage($url)) {
+            return false;
+        }
+        // Set local file path to temporary file if the image is not to be cached
+        $targetFile = $cache ? $this->localFile : str_replace('.jpg', uniqid(), $this->localFile) . '.jpg';
+        // If the requested image has width and height of 0, then return the unsized image
+        if (!$this->width && !$this->height) {
+            $this->localFile = $this->unsizedImageFile;
+        } elseif (!($this->localFile = $this->createResizedImage($this->unsizedImageFile, $targetFile))) {
+            return false;
+        }
+        // Display the image:
+        $this->contentType = 'image/jpeg';
+        $this->image = file_get_contents($this->localFile);
+        if (!$cache) {
+            @unlink($this->unsizedImageFile);
+            @unlink($this->localFile);
+        }
+
+        return true;
+    }
+
+    /**
+     * Try to get the full size image to be used for scaling other images.
+     *
+     * @param string $url URL to load image from
+     *
+     * @return bool
+     */
+    protected function getUnsizedImage(string $url)
+    {
         $url = str_replace(
             [' ', 'ä','ö','å','Ä','Ö','Å'],
             ['%20','%C3%A4','%C3%B6','%C3%A5','%C3%84','%C3%96','%C3%85'],
             trim($url)
         );
-
         // Figure out file paths -- $tempFile will be used to store the
-        // image for analysis.  $finalFile will be used for long-term storage if
+        // image for analysis. $finalFile will be used for long-term storage if
         // $cache is true or for temporary display purposes if $cache is false.
         // $statusFile is used for blocking a non-responding server for a while.
-        $tempFile = str_replace('.jpg', uniqid(), $this->localFile);
-        $finalFile = $cache ? $this->localFile : $tempFile . '.jpg';
+        $tempFile = str_replace('.jpg', uniqid(), $this->unsizedImageFile);
 
         $pdfFile
             = ($this->imageParams['pdf'] ?? false) || preg_match('/\.pdf$/i', $url);
@@ -443,6 +498,9 @@ class Loader extends \VuFind\Cover\Loader
                 $this->debug("Failed to retrieve image from $url");
                 return false;
             }
+            if (filesize($tempFile) === 0) {
+                throw new \Exception('Received empty file');
+            }
             $this->addHostSuccess($host);
         } catch (\Exception $e) {
             $this->logError(
@@ -467,8 +525,51 @@ class Loader extends \VuFind\Cover\Loader
             return false;
         }
 
-        [$width, $height, $type] = @getimagesizefromstring($image);
+        if (isset($exif['Orientation'])) {
+            $orientation = $exif['Orientation'];
+            if ($orientation > 1 && $orientation < 9) {
+                $imageGD = $this->rotateImage(
+                    $imageGD,
+                    $orientation
+                );
+            }
+        }
 
+        [$width, $height, $type] = @getimagesizefromstring($image);
+        // Save unsized image, with quality 100
+        if ($type !== IMG_JPG) {
+            if (!@imagejpeg($imageGD, $this->unsizedImageFile, 100)) {
+                return false;
+            }
+        } elseif (false === file_put_contents($this->unsizedImageFile, $image)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Create a resized image from the unsized file.
+     *
+     * @param string $originalFile Original file path
+     * @param string $targetFile   Target file path
+     *
+     * @return string|false Returns the target file if successful, false on failure
+     */
+    protected function createResizedImage(string $originalFile, string $targetFile): string|false
+    {
+        if (!file_exists($originalFile)) {
+            return false;
+        }
+
+        $image = file_get_contents($originalFile);
+        [$width, $height, $type] = @getimagesizefromstring($image);
+        $this->localFile = $targetFile;
+        // Try to create a GD image and rewrite as JPEG, fail if we can't:
+        if (!($imageGD = @imagecreatefromstring($image))) {
+            return false;
+        }
+        // If image width and size is requested, then create a new image from the unsized image
         $reqWidth = $this->width ?: $width;
         $reqHeight = $this->height ?: $height;
 
@@ -494,42 +595,23 @@ class Loader extends \VuFind\Cover\Loader
                 $width,
                 $height
             );
-            if (isset($exif['Orientation'])) {
-                $orientation = $exif['Orientation'];
-                if ($orientation > 1 && $orientation < 9) {
-                    $imageGDResized = $this->rotateImage(
-                        $imageGDResized,
-                        $orientation
-                    );
-                }
+
+            if (!@imagejpeg($imageGDResized, $targetFile, $quality)) {
+                return false;
             }
-            if (!@imagejpeg($imageGDResized, $finalFile, $quality)) {
+        } elseif ($type !== IMG_JPG) {
+            if (!@imagejpeg($imageGD, $targetFile, $quality)) {
                 return false;
             }
         } else {
-            if ($type !== IMG_JPG) {
-                if (!@imagejpeg($imageGD, $finalFile, $quality)) {
-                    return false;
-                }
-            } else {
-                file_put_contents($finalFile, $image);
-            }
+            file_put_contents($targetFile, $image);
         }
 
-        // Display the image:
-        $this->contentType = 'image/jpeg';
-        $this->image = file_get_contents($finalFile);
-
-        // If we don't want to cache the image, delete it now that we're done.
-        if (!$cache) {
-            @unlink($finalFile);
-        }
-
-        return true;
+        return $targetFile;
     }
 
     /**
-     * Method for rotating the given image with exif orientation data
+     * Method for rotating the given image with exif orientation data.
      *
      * @param resource $image       Image to rotate
      * @param int      $orientation Orientation data of the original image
@@ -539,30 +621,30 @@ class Loader extends \VuFind\Cover\Loader
     protected function rotateImage($image, $orientation)
     {
         switch ($orientation) {
-        case 2: // horizontal flip
-            return imageflip($image, 1);
-            break;
-        case 3: // 180 rotate left
-            return imagerotate($image, 180, 0);
-            break;
-        case 4: // vertical flip
-            return imageflip($image, 2);
-            break;
-        case 5: // vertical flip + 90 rotate right
-            return imagerotate(imageflip($image, 2), -90, 0);
-            break;
-        case 6: // 90 rotate right
-            return imagerotate($image, -90, 0);
-            break;
-        case 7: // horizontal flip + 90 rotate right
-            return imagerotate(imageflip($image, 1), -90, 0);
-            break;
-        case 8: // 90 rotate left
-            return imagerotate($image, 90, 0);
-            break;
-        default: // no rotation found
-            return $image;
-            break;
+            case 2: // horizontal flip
+                return imageflip($image, 1);
+                break;
+            case 3: // 180 rotate left
+                return imagerotate($image, 180, 0);
+                break;
+            case 4: // vertical flip
+                return imageflip($image, 2);
+                break;
+            case 5: // vertical flip + 90 rotate right
+                return imagerotate(imageflip($image, 2), -90, 0);
+                break;
+            case 6: // 90 rotate right
+                return imagerotate($image, -90, 0);
+                break;
+            case 7: // horizontal flip + 90 rotate right
+                return imagerotate(imageflip($image, 1), -90, 0);
+                break;
+            case 8: // 90 rotate left
+                return imagerotate($image, 90, 0);
+                break;
+            default: // no rotation found
+                return $image;
+                break;
         }
     }
 
@@ -581,7 +663,7 @@ class Loader extends \VuFind\Cover\Loader
     }
 
     /**
-     * Check if a server has been temporarily blocked due to failures
+     * Check if a server has been temporarily blocked due to failures.
      *
      * @param string $host Host name
      *
@@ -616,7 +698,7 @@ class Loader extends \VuFind\Cover\Loader
     }
 
     /**
-     * Record a failure for a server
+     * Record a failure for a server.
      *
      * @param string $host Host name
      *
@@ -628,7 +710,8 @@ class Loader extends \VuFind\Cover\Loader
         $failures = 0;
         $blockDuration = $this->config->Content->coverServerFailureBlockDuration
             ?? 3600;
-        if (file_exists($statusFile)
+        if (
+            file_exists($statusFile)
             && filemtime($statusFile) + $blockDuration >= time()
         ) {
             $failures = file_get_contents($statusFile);
@@ -639,7 +722,7 @@ class Loader extends \VuFind\Cover\Loader
     }
 
     /**
-     * Record a success for a server
+     * Record a success for a server.
      *
      * @param string $host Host name
      *
@@ -655,7 +738,7 @@ class Loader extends \VuFind\Cover\Loader
     }
 
     /**
-     * Get status tracking file path for a host
+     * Get status tracking file path for a host.
      *
      * @param string $host Host name
      *

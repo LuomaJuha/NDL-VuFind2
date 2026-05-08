@@ -1,8 +1,9 @@
 <?php
+
 /**
  * BTJ Cover Image Service cover content loader.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Content\Covers;
 
 use VuFindCode\ISBN;
@@ -41,14 +43,14 @@ use VuFindCode\ISBN;
 class BTJ extends \VuFind\Content\AbstractCover
 {
     /**
-     * Recordloader to fetch the current record
+     * Recordloader to fetch the current record.
      *
      * @var VuFind\RecordLoader
      */
     protected $recordLoader = null;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param VuFind\RecordLoader $recordLoader Record loader.
      */
@@ -76,7 +78,7 @@ class BTJ extends \VuFind\Content\AbstractCover
         $sizeCodes = [
             'medium' => '04',
             'small' => '06',
-            'large' => '07'
+            'large' => '07',
         ];
         try {
             $pid = '';
@@ -100,7 +102,7 @@ class BTJ extends \VuFind\Content\AbstractCover
                 $params = [
                     'id' => $key,
                     'pid' => $pid,
-                    'ftype' => $sizeCodes[$size] ?? '04'
+                    'ftype' => $sizeCodes[$size] ?? '04',
                 ];
                 return 'https://armas.btj.fi/request.php?error=1&'
                     . http_build_query($params);
@@ -112,7 +114,7 @@ class BTJ extends \VuFind\Content\AbstractCover
     }
 
     /**
-     * Get record by id
+     * Get record by id.
      *
      * @param string $id Id for the record to load.
      *

@@ -2,7 +2,7 @@
   // Set page title.
   $this->headTitle($this->translate('An error has occurred'));
 
-  $this->layout()->breadcrumbs = '<li class="active">Error</li>';
+  $this->breadcrumbs()->set($this->translate('An error has occurred'), active: true);
 ?>
 <div class="alert alert-danger">
   <?php if ($this->exception instanceof \VuFind\Exception\RecordMissing): ?>
@@ -11,13 +11,7 @@
     <p><?=$this->transEsc('An error has occurred')?></p>
     <p><?=$this->transEsc($this->message)?></p>
   <?php endif; ?>
-  <p>
-    <?=$this->transEsc('Please contact the Library Reference Department for assistance')?>
-    <br/>
-    <?php $supportEmail = $this->escapeHtmlAttr($this->systemEmail()); ?>
-    <a href="mailto:<?=$supportEmail?>"><?=$supportEmail?></a>
-  </p>
-  <br/>
+  <?=$this->render('error/contact.phtml')?>
   <?php if (preg_match('/Record (\w+):.* does not exist/', $this->exception->getMessage(), $matches) && $this->authorizationNote($matches[1])): ?>
     <p><?=$this->translate('record_not_found_unauthorized')?></p>
   <?php endif; ?>
@@ -42,8 +36,8 @@
 
   <?php if ($e = $this->exception->getPrevious()): ?>
     <h3>Previous exceptions:</h3>
-    <?php while($e): ?>
-        <h4><?php echo get_class($e); ?></h4>
+    <?php while ($e): ?>
+        <h4><?php echo $e::class; ?></h4>
         <p><?=$e->getMessage()?></p>
         <pre><?=$e->getTraceAsString()?></pre>
         <?php $e = $e->getPrevious(); ?>

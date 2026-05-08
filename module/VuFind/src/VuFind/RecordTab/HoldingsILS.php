@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Holdings (ILS) tab
+ * Holdings (ILS) tab.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordTabs
@@ -25,12 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:record_tabs Wiki
  */
+
 namespace VuFind\RecordTab;
 
 use VuFind\ILS\Connection;
 
+use function strlen;
+
 /**
- * Holdings (ILS) tab
+ * Holdings (ILS) tab.
  *
  * @category VuFind
  * @package  RecordTabs
@@ -41,16 +45,16 @@ use VuFind\ILS\Connection;
 class HoldingsILS extends AbstractBase
 {
     /**
-     * ILS connection (or null if not applicable)
+     * ILS connection (or null if not applicable).
      *
-     * @param Connection
+     * @var Connection
      */
     protected $catalog;
 
     /**
      * Name of template to use for rendering holdings.
      *
-     * @param string
+     * @var string
      */
     protected $template;
 
@@ -62,17 +66,15 @@ class HoldingsILS extends AbstractBase
     protected $hideWhenEmpty;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFind\ILS\Connection|bool $catalog       ILS connection to use to
-     * check for holdings before displaying the tab; may be set to null if no check
-     * is needed.
-     * @param string                      $template      Holdings template to use
-     * @param bool                        $hideWhenEmpty Whether the
-     * holdings tab should be hidden when empty or not
+     * @param ?Connection $catalog       ILS connection to use to check for holdings before displaying the tab;
+     * may be set to null if no check is needed.
+     * @param ?string     $template      Holdings template to use
+     * @param bool        $hideWhenEmpty Whether the holdings tab should be hidden when empty or not
      */
     public function __construct(
-        Connection $catalog = null,
+        ?Connection $catalog = null,
         $template = null,
         $hideWhenEmpty = false
     ) {
@@ -89,6 +91,18 @@ class HoldingsILS extends AbstractBase
     public function getDescription()
     {
         return 'Holdings';
+    }
+
+    /**
+     * Is this tab initially visible?
+     *
+     * @return bool
+     */
+    public function isVisible()
+    {
+        // Check if the driver has a supportsHoldingsTab method and use it,
+        // defaulting to true (visible) if the method doesn't exist
+        return $this->driver->tryMethod('supportsHoldingsTab', [], true);
     }
 
     /**
@@ -122,7 +136,7 @@ class HoldingsILS extends AbstractBase
      *
      * @return array
      */
-    public function getUniqueCallNumbers($items, $fullDetails=false)
+    public function getUniqueCallNumbers($items, $fullDetails = false)
     {
         if (!$fullDetails) {
             return $this->getSimpleUniqueCallNumbers($items);
@@ -187,7 +201,7 @@ class HoldingsILS extends AbstractBase
     public function getPaginator($totalItemCount, $page, $itemLimit)
     {
         // Return if a paginator is not needed or not supported ($itemLimit = null)
-        if (!$itemLimit || $totalItemCount < $itemLimit) {
+        if (!$itemLimit || $totalItemCount <= $itemLimit) {
             return;
         }
 

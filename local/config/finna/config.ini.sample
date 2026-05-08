@@ -145,8 +145,11 @@ indexBasedNewItems = true
 ; Whether to hide email address in patron profile. Default is false
 ;hideProfileEmailAddress = true
 ; Scale for advanced search year slider. Current year + 1 is always added to the end.
-; Default scale is "0,900,1800,1910"
-;advSearchYearScale = "1600,1800,2000,2010"
+; Default scale is "-1000,0,900,1800,1910"
+; DEPRECATED - Only the first value is used as fallback. Use the facet-specific settings in facets configuration
+; (e.g. [Facet_search_daterange_mv] in facets.ini or [Facet_creationdate] in Primo.ini) instead.
+;
+;advSearchYearScale = "1600"
 
 ; This section allows you to configure the mechanism used for storing user
 ; sessions.  Available types: File, Memcache, Database.
@@ -311,8 +314,15 @@ library_cards = true
 ; memory problems for users with a large number of historic loans). Default = 50
 ;historic_loan_page_size = 50
 
+; Limit for how many historic transactions to fetch at most from ILS
+; when downloading loan history
+loan_history_download_batch_limit = 1000
+
 ; Whether to display the item barcode for each loan. Default is false.
 display_checked_out_item_barcode = true
+
+; Online payment availability. Default is true.
+online_payment = true
 
 ; This section controls features related to user accounts
 [Account]
@@ -332,7 +342,6 @@ schedule_searches = true
 ;method         = ILS
 ;method         = Database
 ;method         = Shibboleth
-;method         = Shibboleth_suomifi
 ;method         = SIP2
 ;method         = CAS
 method         = ChoiceAuth
@@ -417,6 +426,24 @@ delete_comments_with_user = false
 ; Default is true.
 delete_ratings_with_user = false
 
+; "Remember me" functionality for listed login methods. If the user chooses to save the login,
+; a login token cookie and a database entry will be created. Users' browser information will be
+; stored and browser detection is handled by get_browser(), so make sure to have a recent
+; browscap.ini file configured in PHP. The implementation is based on Improved Persistent
+; Login Cookie Best Practice, see https://gist.github.com/oleg-andreyev/9dcef18ca3687e12a071648c1abff782
+;persistent_login = "database,multiils"
+
+; Persistent login token lifetime in days
+;persistent_login_lifetime = 60
+
+; Whether to send email warnings about suspicious logins. Default is true.
+send_login_warnings = false
+
+; Subject for the email sent after a suspicious login has been detected.
+; Default email subject will be the translation for
+; "login_warning_email_subject" and any custom value used here
+; will also be run through the translator.
+;login_warning_email_subject = ""
 
 [ChoiceAuth]
 choice_order = Database,Shibboleth,MultiILS
@@ -432,13 +459,24 @@ choice_order = Database,Shibboleth,MultiILS
 ; This section will allow you to control whether VuFind should record usage
 ; statistics.
 [Statistics]
-; Currently only supported statistics driver is Database. Uncomment to enable
-; recording of statistics:
+; Driver to use for storing statistics. Supported drivers are:
+; Database  -- Stores statistics directly to the database
+; Redis     -- Sends statistics to a Redis queue that's processed separately
 ;driver = Database
 ; IP addresses or address ranges of monitoring systems
 ;monitoring_ips[] = "127.0.0.1"
 ; IP addresses or address ranges of systems excluded from statistics
 ;exclude_ips[] = "192.168.1.1-192.168.255.255"
+
+; Settings related to Redis-based queue. Defaults are below.
+;redis_host               = localhost
+;redis_port               = 6379
+;redis_connection_timeout = 0.5
+;redis_db                 = 0
+;redis_user               =
+;redis_auth               =
+;redis_standalone         = true
+;redis_key_prefix         = finna_statistics/
 
 ; This section requires no changes for most installations
 [Index]
@@ -584,61 +622,7 @@ email = SHIB_mail
 ; (e.g. "SHIB_eppn:almasandbox|SHIB_mail:almasandbox)").
 ;idp_to_ils_map[https://testidp.funet.fi/idp/shibboleth] = "SHIB_mail:almasandbox"
 
-; Shibboleth Suomi.fi is optional.
-; This section is only needed if Suomi.fi is to be used as an authentication method.
-[Shibboleth_suomifi]
-; Provider_id parameter to pass along to Shibboleth login.
 
-; Production
-; provider_ id = ""
-
-; Development
-; provider_id = "https://testi.apro.tunnistus.fi/idp1"
-
-userattribute_1 = "Shib-Identity-Provider"
-userattribute_value_1  = "https:\\/\\/testi.apro.tunnistus.fi\\/idp1"
-
-userattribute_2 = "SHIB_vtjverified"
-userattribute_value_2 = "true"
-
-; Attribute required to be set for Shibboleth login to be attempted
-required_attribute = Shib-Application-ID
-
-; Required: the attribute Shibboleth uses to uniquely identify users.
-username              = SHIB_eppn
-
-; Secret key for hashing usernames before saving to user profile (required)
-hash_secret = ""
-
-; Should the encrypted user identity number be stored in session? Required when using REMS.
-;store_identity_number_to_session = true
-; Public key path. Required if store_identity_number_to_session is true
-;public_key = ""
-
-; Required: Shibboleth login URL.
-login = "https://www.finna.fi/Shibboleth.sso/Login"
-
-; Optional: Shibboleth logout URL.
-logout = "https://www.finna.fi/Shibboleth.sso/Logout"
-
-; Optional: Dynamic Shibboleth logout url attribute id (alternative to the static url above)
-logout_attribute       = SHIB_logouturl
-
-; Optional: URL to forward to after Shibboleth login (if omitted,
-; defaultLoggedInModule from [Site] section will be used).
-;target                = http://shib.myuniversity.edu/vufind/MyResearch/Home
-
-; Some or all of the following entries may be uncommented to map Shibboleth
-; attributes to user database columns:
-;cat_username = HTTP_ALEPH_ID
-;cat_password = HTTP_CAT_PASSWORD
-email = SHIB_mail
-firstname = SHIB_givenName
-lastname = SHIB_sn
-;college = HTTP_COLLEGE
-;major = HTTP_MAJOR
-;home_library = HTTP_HOME_LIBRARY
-;
 ; CAS is optional.  This section only needs to exist if the
 ; Authentication Method is set to CAS.
 ;[CAS]
@@ -697,11 +681,42 @@ lastname = SHIB_sn
 ;            applications.  The existence of functionality in VuFind does not imply
 ;            suitability for any particular situation.
 [Content]
-; You can select Syndetics, LibraryThing, Summon, Amazon, Booksite, OpenLibrary,
-; Contentcafe and/or Google Books.
-;   Note: Summon service takes a Serials Solutions client key, NOT Summon API key!
-;coverimages     = Syndetics:MySyndeticsId,Amazon:MyAccessKeyId,Booksite,LibraryThing:MyLibraryThingId,Google,OpenLibrary,Summon:MySerialsSolutionsClientKey,Contentcafe:MyContentCafeID,NatLibFi,BookyFi,BTJ:customerId
+; You can select NatLibFi, Syndetics, LibraryThing, Summon, Booksite, OpenLibrary,
+; Contentcafe, Buchhandel.de, Google, BrowZine, ObalkyKnih, Orb, Koha and/or
+; LocalFile. Service-specific notes:
+;   - BrowZine requires you to have BrowZine.ini configured appropriately.
+;   - Google Books caching behavior can be customized in the [Cache_GoogleCover]
+;       section.
+;   - Koha requires the koha_cover_url setting below. Additionally, for
+;       Koha to be a source of covers, its LocalCoverImages and
+;       OPACLocalCoverImages system preferences must be turned on and local cover
+;       images uploaded to the Koha system. Koha emits only two sizes of cover
+;       images, so small and medium are treated the same in VuFind.
+;   - LocalFile:PathToFile supports a combination of directory path information
+;       and tokens for filename and image type. If you have multiple directories
+;       in which you have stored coverimages, you can specify multiple paths to search
+;       by specifying multiple LocalFile:PathToFile in the coverage images list below.
+;       Allowed tokens:
+;          %anyimage%         - Match known image file extensions (gif, jpg, etc.)
+;          %isbn10%           - 10-digit ISBN
+;          %isbn13%           - 13-digit ISBN
+;          %issn%             - ISSN
+;          %oclc%             - OCLC Number
+;          %recordid%         - Bibliographic record ID
+;          %size%             - Size (small/medium/large)
+;          %source%           - Search backend of record (e.g. Summon, Solr, etc.)
+;          %upc%              - UPC Number
+;          %vufind-home%      - The VUFIND_HOME environment variable
+;          %vufind-local-dir% - The VUFIND_LOCAL_DIR environment variable
+;        Example: LocalFile:%vufind-local-dir%/path/to/file/%size%/issn/%issn%.%anyimage%
 coverimages     = NatLibFi,OpenLibrary
+
+; Description providers (a comma-separated list in priority order). Available
+; providers are:
+; NatLibFi
+; Record
+; RecordUrl
+descriptions = NatLibFi,RecordUrl,Record
 
 ; List of undisplayable file formats
 ; undisplayable_file_formats = 'tif:tiff:3d-pdf:3d model:glb:obj:gltf'
@@ -734,35 +749,23 @@ feedcachetime = 10
 ; Host is the same as from parse_url
 ;feedHostToNameMappings[] = 'www.instagram.com:instagram'
 
-; You can select from Syndetics, SyndeticsPlus, Amazon Editorial, Amazon, Booksite
-; and/or the Guardian
-;   Note: Guardian reviews contain embedded advertisements. If the API key is not
-;         supplied, e.g. "Guardian:", only the review title, byline, Guardian logo
-;         and a link to the full Guardian page will be displayed
-;reviews         = Syndetics:MySyndeticsId,SyndeticsPlus:MySyndeticsID,AmazonEditorial:MyAccessKeyId,Amazon:MyAccessKeyId,Booksite,Guardian:MyGuardianKeyId
+; You can select from Syndetics and/or the Guardian
+;   Note: If the API key is omitted, e.g. "Guardian:", only the review title, byline,
+;         Guardian logo and a link to the full Guardian page will be displayed
+;   Note: The Guardian API changed in 2014; if you signed up before that date, you
+;         may need to obtain a new API key for continued access.
+;reviews         = Syndetics:MySyndeticsId,Guardian:MyGuardianKeyId
 
-; You can select from Syndetics or SyndeticsPlus
-;excerpts        = Syndetics:MySyndeticsId,SyndeticsPlus:MySyndeticsId
+; You can only select Syndetics
+;excerpts        = Syndetics:MySyndeticsId
 
-; You can select from Syndetics or SyndeticsPlus
-;authorNotes = Syndetics:MySyndeticsId,SyndeticsPlus:MySyndeticsId
-
-; You can select from Syndetics or SyndeticsPlus
-;videoClips = Syndetics:MySyndeticsId,SyndeticsPlus:MySyndeticsId
+; You can only select Syndetics
+;authorNotes = Syndetics:MySyndeticsId
 
 ; You can select from Wikipedia
 ; Note for Windows users: If using Wikipedia, you may need to increase your Apache
 ; heap size settings.  For details, see: http://vufind.org/jira/browse/VUFIND-630
 ;authors         = Wikipedia
-
-; You can look up your secret key by logging into http://aws.amazon.com and clicking
-; "Access Identifiers" under "Your Account".
-;amazonsecret    = MyAmazonSecretKey
-
-; You can sign up for an associate ID by logging into
-; https://affiliate-program.amazon.com .  Please make sure your instance of VuFind
-; complies with Amazon's agreements before enabling this feature.
-;amazonassociate = MyAmazonAssociateID
 
 ; You can select from Google, OpenLibrary, HathiTrust.  You should consult
 ; https://developers.google.com/books/branding before using Google Book Search.
@@ -815,6 +818,22 @@ recordMap = openlayers
 ; A colon-separated list of formats that are enabled for image zoom function
 zoomFormats = qdc:forward:ead3:ead:lido
 
+; Sets the amount of images allowed to be returned in search context.
+; Default and hard limit is 20.
+;maxImagesInSearchContext = 10
+
+; Sets the amount of images allowed to be returned in record context.
+; Default and hard limit is 1000.
+;maxImagesInRecordContext = 500
+
+; Sets the amount of URLs allowed to be returned in search context.
+; Default and hard limit is 200.
+;maxUrlsInSearchContext = 20
+
+; Sets the amount of URLs allowed to be returned in record context.
+; Default and hard limit is 200.
+;maxUrlsInRecordContext = 200
+
 [QRCode]
 ; This setting controls the image to display when no qrcode is available.
 ; The path is relative to the base of your theme directory.
@@ -826,19 +845,15 @@ zoomFormats = qdc:forward:ead3:ead:lido
 ; Should we show QR codes on record pages?
 showInCore = true
 
-; If you are using Syndetics Plus for *any* content, set plus = true
-; and set plus_id to your syndetics ID.  This loads the javascript file.
-; Syndetics vs. SyndeticsPlus: SyndeticsPlus has nice formatting, but loads slower
-; and requires javascript to be enabled in users' browsers.
-; You can change the base Syndetics URL used by the content services here.
-; Most users will not need to change this setting.  It does not affect
-; Syndetics Plus at all.  (FYI: Syndetics Plus is currently not available
-; through SSL.)
 [Syndetics]
-plus = false
-;plus_id = "MySyndeticsId"
-;url = "https://secure.syndetics.com"
-url = "http://syndetics.com"
+; When the Syndetics cover image fallback is enabled, it will return generic covers based
+; on information Syndetics has related to the ISBN number or other number given. This
+; will prevent other fallbacks in VuFind from being tried, such as other cover image sources.
+; If the Syndetics cover image fallback is disabled, VuFind will query for the metadata first,
+; and only return an image if the Syndetics metadata returns a real cover image.
+use_syndetics_cover_image_fallback = false
+; timeout value (in seconds) for API calls:
+timeout = 10
 
 ; Booksite CATS Enhanced Content - cover images, reviews, description, etc.
 [Booksite]
@@ -859,22 +874,19 @@ pw               = "xxxxxx"
 ;apiId        = myAccessId
 ;apiKey       = mySecretKey
 
-; WorldCat is Optional.  Worldcat offers extra features such as "Other Editions"
-; and the WorldCat searching.
-;[WorldCat]
-;id              = myAccount
-;apiKey          = YBaFHvqtTHbx7zzgtgAQDr4Rij9OSXBMmfsO1VRXxarmH1JU6neu2w3Lu6Y8OAjN2z5Pkz0M7GQwkwAF
-;OCLCCode        = MYCODE
-;LimitCodes      = Comma separated list of OCLC Codes
-
 ; These settings affect OpenURL generation and presentation; OpenURLs are used to
 ; help users find resources through your link resolver and to manage citations in
 ; Zotero.
 [OpenURL]
-; If a resolver base URL is enabled, it will be used to link ISSNs to your link
-; resolver and to access articles in Summon if that module is enabled.  Earlier
-; versions of VuFind included some parameters as part of the URL; at this point,
-; any extra parameters will be ignored -- please provide only the base URL.
+; If a resolver base URL is enabled, it will be used to link from records to your
+; OpenURL resolver. An OpenURL resolver is typically used to e.g. link to full text
+; from article metadata, but it may provide other services too. Extra parameters may
+; be added if necessary.
+; For LinkIQ (the API used with EBSCO Full Text Finder), the url format is the
+; following. {PROFILE} needs to be replaced with the actual profile code (like
+; ns123456.main.ftf), and also a password is required in the [LinkIQ] section).
+; Remember also to set resolver to "linkiq" below.
+; https://api.ebsco.io/ftf/ftfaccount/{PROFILE}/openurl
 ;url             = "http://openurl.myuniversity.edu/sfx_local"
 
 ; This string will be included as part of your OpenURL referer ID (the full string
@@ -886,8 +898,22 @@ rfr_id          = finna.fi
 
 ; By specifying your link resolver type, you can allow VuFind to optimize its
 ; OpenURLs for a particular platform.  Current legal values: "sfx", "360link",
-; "EZB" or "other" (default is "other" if commented out).
+; "JOP", "Redi", "Alma", "demo", "linkiq" or "generic" (default is "generic"
+; if commented out; "demo" generates fake values for use in testing the embed
+; setting below).
+; Note that linkiq (used with EBSCO Full Text Finder) requires additional settings
+; for the connection in the [LinkIQ] section.
 resolver        = sfx
+
+; Some link resolver drivers can filter resource links based on specific criteria.
+; This setting indicates which filter reasons should NOT be used to exclude
+; resource links. This is currently ONLY supported by the Alma resolver driver.
+; (default is "Date Filter" if commented out, for backwards compatibility)
+; You may add new filters to the array by adding new lines in the format shown below
+; Currently known valid values include: Date Filter
+; ignoredFilterReasons[] = "Date Filter"
+; To deactivate this setting you can set
+; ignoredFilterReasons = false or one line ignoredFilterReasons = ""
 
 ; If you want OpenURL links to open in a new window, set this setting to the
 ; desired Javascript window.open parameters.  If you do not want a new window
@@ -937,6 +963,16 @@ language[fi] = fin
 language[sv] = swe
 language[en-gb] = eng
 
+; Additional resolver settings required for EBSCO LinkIQ (available with EBSCO
+; Full Text Finder).
+[LinkIQ]
+; Profile Password for the service:
+;password = ""
+; Base URL for the "More Options" link to Full Text Finder. Leave empty to disable.
+; The base URL can be copied by going to EBSCO Experience Manager (experience.ebsco.com)
+; > Full Text Finder > Branding and clicking the "Copy base URL" button.
+;moreOptionsUrl = "https://resolver.ebsco.com/c/{PROFILE_OPID}/result"
+
 ; EZproxy is optional.  This section only needs to exist if you
 ; are using EZProxy to provide off-site access to online materials.
 ;[EZproxy]
@@ -951,6 +987,23 @@ url             = http://www.refworks.com
 [EndNoteWeb]
 vendor          = Finna
 url             = https://www.myendnoteweb.com/EndNoteWeb.html
+
+; These settings affect Zotero record exports. You will need to register your
+; VuFind instance with Zotero at https://www.zotero.org/oauth/apps and enter the
+; credentials below for the user-facing OAuth authentication to work properly.
+; Note: Zotero requires user login in VuFind because the Zotero access token must
+; be persisted across sessions (it doesn't expire in Zotero automatically).
+; time.
+; Users using Zotero desktop application will need to enable sync in Zotero (see
+; https://www.zotero.org/support/sync) to get the exported records to the client.
+[Zotero]
+; Client key
+identifier = ""
+; Client secret
+secret = ""
+; Callback URI pointing to VuFind's /Zotero/Callback action. Normally left
+; blank (VuFind will automatically create it based on the used server address).
+;callback_uri = ""
 
 ; These settings affect your OAI server if you choose to use it.
 ;
@@ -981,6 +1034,7 @@ url             = https://www.myendnoteweb.com/EndNoteWeb.html
 ;set_query['eod_books'] = "institution:kfu AND publishDate:[1911 TO 1911]"
 ;set_query['eod_ebooks'] = "format:eBook"
 ;vufind_api_format_fields = "id,authors,cleanIsbn,cleanIssn,formats,title"
+;finna_api_format_fields = "id,authors,cleanIsbn,cleanIssn,formats,title,images,mediaTypes,controlNumbers,institutions,year,recordFormat,sectors,majorGenres,usageRights,usageRightsExtended,measurements,collections"
 
 ; Proxy Server is Optional.
 [Proxy]
@@ -1117,6 +1171,7 @@ fi          = "Finnish"
 sv          = "Swedish"
 ;pl          = "Polish"
 ;da          = "Danish"
+se          = "Northern Sámi"
 
 ; This section controls the behavior of the Browse module.  The result_limit
 ; setting controls the maximum number of results that may display in any given
@@ -1162,6 +1217,9 @@ MARC = false
 MARCXML = false
 RDF = false
 BibTeX = false
+; Note: ZoteroWebLibrary requires proper settings in [Zotero] section!
+;ZoteroWebLibrary = "record,bulk"
+
 
 [BulkExport]
 ; Export behavior to use when no bulkExportType setting is found in the matching
@@ -1222,7 +1280,7 @@ marc_links = "760,762,765,767,770,772,775,776,780,785"
 ; until it finds one that matches. If you don't have id numbers in the fields,
 ; you can also use title to construct a title based search. id represents a raw
 ; bib id, dlc represents an LCCN.  Default setting:
-;marc_links_link_types = id,oclc,dlc,isbn,issn,title
+;marc_links_link_types = linkingId,id,oclc,dlc,isbn,issn,title
 ; Set use_visibility_indicator to false if you want to show links that are marked as
 ; "Do not show" in the MARC record (indicator 1). Otherwise, these links will be
 ; suppressed. (Default = true)
@@ -1249,11 +1307,16 @@ hide_holdings[] = "World Wide Web"
 ;    RecordDriverRelated - Related records based on RecordDriver metadata
 ;    Similar - Similarity based on Solr lookup
 ;    SimilarDeferred - Like Similar but asynchronous
-;    WorldCatEditions - Alternate editions (in the WorldCat index) based on WorldCat
-;        lookup
-;    WorldCatSimilar - Similarity based on WorldCat lookup
+;    WorldCat2Similar - Similarity based on WorldCat v2 lookup
 ;    WorkExpressions - Other expressions or versions of the record
 related[] = "SimilarDeferred"
+
+; Whether to display similar records at the bottom of the record view.
+; Records will be displayed as a carousel. The only available option at the moment
+; is "after_tabs".
+;similar_carousel_display = "after_tabs"
+; How many items will be shown in the similar items carousel. Default is 40.
+;similar_carousel_items = 15
 
 ; Presenter roles that are displayed separately from other authors
 presenter_roles[] = "esitt"
@@ -1324,6 +1387,10 @@ arranger_roles[] = "arrangör"
 arranger_roles[] = "sov"
 arranger_roles[] = "sovittaja"
 
+; Hidden author roles for authors that are not displayed as authors at all
+hidden_author_roles[] = "kustantaja"
+hidden_author_roles[] = "utgivare"
+
 ; Datasource specific EAD record link templates
 ; Currently supports the following placeholders for record data:
 ; {id} Record ID
@@ -1374,9 +1441,6 @@ allowed_url_schemes[] = 'maps'
 ; report  - Matching hosts are reported but loading is not blocked
 ; disable - List processing is disabled
 ;disallowed_external_hosts_mode = enforce
-
-; Allow image links from BTJ (default is false)
-;btj_links = true
 
 ; Allow image links from Kirjavälitys (default is false)
 ;kirjavalitys_links = true
@@ -1471,6 +1535,7 @@ skosmos_id_prefix_exact_matches[] = "http://www.yso.fi/onto/koko/"
 skosmos_id_prefix_exact_matches[] = "http://www.yso.fi/onto/kauno/"
 ; The following setting controls authority information in the popover. It is disabled
 ; by default. Use "*" to include all fields or specify the fields to show.
+; Setting a single empty value will load the author, but does not show core fields.
 ;authority_fields[] = "Date of birth"
 ;authority_fields[] = "Other Forms of Name"
 ;authority_fields[] = "Identifiers"
@@ -1485,6 +1550,11 @@ skosmos_id_prefix_exact_matches[] = "http://www.yso.fi/onto/kauno/"
 ;    or empty for none
 external_links[] = "external_link_kyppi_mjr||external_link_kyppi_mjr||\(mjr\)(.+)||https://www.kyppi.fi/palveluikkuna/mjreki/read/asp/r_kohde_det.aspx?KOHDE_ID={1}||{1}"
 external_links[] = "external_link_kyppi_rpr||external_link_kyppi_rpr||\(rpr\)(.+)||https://www.kyppi.fi/palveluikkuna/rapea/read/asp/r_kohde_det.aspx?KOHDE_ID={1}||{1}"
+external_links[] = "external_link_helsinki_map_service||external_link_helsinki_map_service||https:\/\/kartta.hel.fi\/link\/(.+)||https://kartta.hel.fi/?link={1}&setlanguage={lang}||"
+; The next option allows hiding certain parts from the ajax-field-info.phtml They are enabled as default.
+;dynamic_content[label_enrichment] = false
+;dynamic_content[alt_label_enrichment] = false
+;dynamic_content[other_language_enrichment] = false
 
 ; The following two sections control the Alphabetic Browse module.
 [AlphaBrowse]
@@ -1589,6 +1659,12 @@ treeSearchLimit = 100
 ; at a time e.g. unless custom record drivers are used.
 simpleContainerLinks = true
 
+; On collection list tab, display all collection items also on lower archive levels
+; showFullHierarchyTree = true
+
+; Uncomment to hide tree record preview if display width is too narrow
+;hide_preview_in_narrow_displays = true
+
 ; This section will be used to configure the feedback module.
 ; Set "tab_enabled" to true in order to enable the feedback module.
 [Feedback]
@@ -1679,7 +1755,7 @@ count = 2
 [SearchHistoryLabels]
 ;Solr = Catalog
 ;Summon = Summon
-;WorldCat = WorldCat
+;WorldCat2 = WorldCat
 ;SolrWeb = "Library Website"
 
 ; Use Matomo for visitor tracking
@@ -1711,6 +1787,11 @@ custom_dimensions[Language] = 16
 [NormalizationPreview]
 ; Backend URL
 url = http://finna-be-1.csc.fi/preview
+; Validation settings. Files are searched in the configuration directory stack.
+; XML schema
+validation_xsd[lido] = "lido-v1.1-profile-FINNA-v0.1.xsd"
+; Schematron validation rules
+validation_schematron[lido] = "lido-v1.1-profile-FINNA-v0.1.sch"
 
 ; Links to copyright information used for image rights.
 ; Note: keys must be in ALL CAPS.
@@ -1859,5 +1940,44 @@ use_locale_sorting = true
 new_window = true
 ; The following settings control where DOI-based links are displayed:
 show_in_results = true      ; include in search results
-show_in_record = false      ; include in core record metadata
+show_in_record = true      ; include in core record metadata
 show_in_holdings = false    ; include in holdings tab of record view
+
+[Bazaar]
+; Client IDs and secrets used in API request authentication.
+; See https://educloud-alliance-technical-documentation.readthedocs.io/en/latest/bazaar/interface_lms.html
+; for more information.
+;client[client_id] = secret
+
+[SearchHistoryLabels]
+Blender = tabs_blended
+Combined = tabs_combined
+EDS = tabs_eds
+L1 = tabs_l1
+Primo = tabs_pci
+Search2 = tabs_local
+Solr = tabs_local
+SolrAuthority = tabs_authority
+Summon = tabs_summon
+
+; View specific options for reservation lists
+[ReservationList]
+; Enable functionality in view by uncommenting the next line
+;enabled = true
+
+[Finna]
+; Site status. Displayed in a status bar unless value is 'production'.
+; Possible values are: 'production', 'beta', 'test' and 'disabled'.
+; Default value is 'production'.
+site_status = production
+
+[IIIF]
+; Pipe-separated tuple of viewer name and URL, the latter containing a
+; placeholder for a percent-encoded manifest URL
+externalViewers[] = "Mirador|https://projectmirador.org/embed/?iiif-content={manifest}"
+externalViewers[] = "Universal Viewer|https://uv-v4.netlify.app/#?manifest={manifest}"
+
+; Origins to be listed in Access-Control-Allow-Origin headers in the
+; RecordController IIIFManifest action. Use "*" for general use, or site URL
+; to restrict to local
+;manifestCORS[] = "*"

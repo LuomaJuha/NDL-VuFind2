@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Base for video services.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,16 +17,19 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Video
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Video\Handler;
+
+use function in_array;
 
 /**
  * Base for video services.
@@ -34,28 +38,28 @@ namespace Finna\Video\Handler;
  * @package  Video
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-abstract class AbstractBase implements \Laminas\Log\LoggerAwareInterface
+abstract class AbstractBase implements \Psr\Log\LoggerAwareInterface
 {
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * Datasource config as array
+     * Datasource config as array.
      *
      * @var array
      */
     protected $config;
 
     /**
-     * Source identifier
+     * Source identifier.
      *
      * @var string
      */
     protected $source;
 
     /**
-     * Array of required configuration settings
+     * Array of required configuration settings.
      *
      * @var array
      */
@@ -89,7 +93,7 @@ abstract class AbstractBase implements \Laminas\Log\LoggerAwareInterface
                         $conf['src']
                     ),
                     'type' => $conf['mediaType'],
-                    'priority' => $conf['priority']
+                    'priority' => $conf['priority'],
                 ];
             }
             if (!$videoSources) {
@@ -109,7 +113,7 @@ abstract class AbstractBase implements \Laminas\Log\LoggerAwareInterface
                 'desc' => $media['type'],
                 'source' => $this->source,
                 'embed' => 'video',
-                'warnings' => $media['warnings']
+                'warnings' => $media['warnings'],
             ];
         }
         return $results;
@@ -166,7 +170,7 @@ abstract class AbstractBase implements \Laminas\Log\LoggerAwareInterface
                 'mediaType' => $settings[0],
                 'src' => $settings[1],
                 'sourceTypes' => explode(',', $settings[2] ?? 'mp4'),
-                'priority' => $sourcePriority++
+                'priority' => $sourcePriority++,
             ];
         }
         return $results;

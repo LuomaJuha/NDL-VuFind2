@@ -1,15 +1,11 @@
 <!-- START of: finna - collection/view.phtml -->
 <?php
   // Set up standard record scripts:
-  $this->headScript()->appendFile("record.js");
-  $this->headScript()->appendFile("check_save_statuses.js");
-  // Activate Syndetics Plus if necessary:
-  if ($this->syndeticsPlus()->isActive()) {
-    $this->headScript()->appendFile($this->syndeticsPlus()->getScript());
-  }
+  $this->assetManager()->appendScriptLink('record.js');
+  $this->assetManager()->appendScriptLink('check_save_statuses.js');
   // Add any extra scripts the tabs require:
   foreach ($this->tabsExtraScripts as $script) {
-    $this->headScript()->appendFile($script);
+    $this->assetManager()->appendScriptLink($script);
   }
 
   // Add RDF header link if applicable:
@@ -21,57 +17,47 @@
   $tree = (strtolower($this->activeTab) == 'hierarchytree');
 
   // Set up breadcrumbs:
-  $lastSearch = $this->searchMemory()->getLastSearchLink($this->transEsc('Search'));
-  if (!empty($lastSearch)) {
-      $this->layout()->breadcrumbs = '<li>' . $lastSearch . '</li> ';
+  $this->breadcrumbs()->reset();
+  if ($url = $this->searchMemory()->getLastSearchUrl()) {
+    $this->breadcrumbs()->add($this->translate('Search'), $url);
   } else {
-      $this->layout()->breadcrumbs = '';
+    $this->breadcrumbs()->add($this->translate('Collections'), $this->url('collections-home'));
   }
-  $this->layout()->breadcrumbs .= '<li class="active" aria-current="page">' . $this->recordLinker()->getBreadcrumbHtml($this->driver) . '</li>';
+  $this->breadcrumbs()->add(...$this->recordLinker()->getBreadcrumbParams($this->driver), active: true);
+
+  // Set up search box:
+  $this->layout()->searchbox = $this->context($this)->renderInContext(
+      'search/searchbox.phtml',
+      [
+        'ignoreHiddenFiltersInRequest' => true,
+      ]
+  );
 
   // Set page title.
   $dataSource = $this->driver->tryMethod('getDataSource');
   $headText = $this->driver->getBreadcrumb() . ' | ' . $this->translate('Collection') . (isset($dataSource) ? ' | ' . $this->transEsc('default::source_' . $dataSource, null, $dataSource) : '');
   $this->headTitle($headText);
 
-  if ($lastUrl = $this->searchMemory()->getLastSearchUrl()) {
-      $params = $this->searchMemory()->getLastSearchParams($this->searchClassId);
-      $filterList = $params->getFilterList(true);
-
-      if (!empty($params->getFilterList(false))) {
-          $checkboxFilters = $params->getCheckboxFacets();
-          $lastSort = $this->searchMemory()->getLastSort($this->searchClassId);
-          $options = $this->searchOptions($this->searchClassId);
-          $defaultSortApplied = !isset($params) || $lastSort == $options->getDefaultSortByHandler($params->getSearchHandler());
-          // Set up filters
-          $this->layout()->finnaFilters = $this->context($this)->renderInContext(
-              'search/filters.phtml',
-              [
-                  'filterList' => $filterList,
-                  'checkboxFilters' => $checkboxFilters,
-                  'defaultSortApplied' => $defaultSortApplied,
-                  'options' => $options,
-                  'params' => $params
-              ]
-          );
-      }
-  }
-
   // LIDO records are displayed like on the record page:
   $displayAsFullRecord = $this->driver instanceof \Finna\RecordDriver\SolrLido;
   $largeImageLayout = $displayAsFullRecord && $this->record($this->driver)->hasLargeImageLayout();
+
+  if ($oldRecordId = $this->driver->getExtraDetail('redirectedFromId')) {
+    echo $this->assetManager()->outputInlineScriptString(
+        'finna.record.handleRedirect(' . json_encode($oldRecordId) . ', ' . json_encode($this->driver->getUniqueID()) . ');'
+    );
+  }
 ?>
-<?php if (!empty($lastSearch)) : ?>
+<?php if (!empty($this->searchMemory()->getLastSearchUrl())) : ?>
 </div>
 <div class="container">
 <?php endif; ?>
-<div class="record record-row source<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?><?=$largeImageLayout ? ' large-image-layout' : '' ?>">
-  <?= $this->R2()->registeredInfo($this->driver) ?>
+<div class="record source<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?><?=$largeImageLayout ? ' large-image-layout' : '' ?>">
   <div>
     <?=$this->record($this->driver)->getToolbar()?>
   </div>
-  <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueId())?>" class="hiddenId" id="record_id" />
-  <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenSource" />
+  <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueId())?>" class="hiddenId" id="record_id">
+  <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>" class="hiddenSource">
   <div class="record-main<?=!$largeImageLayout ? ' mainbody left' : ''?>">
     <?=$this->flashmessages()?>
     <?php if ($displayAsFullRecord): ?>
@@ -79,10 +65,10 @@
       <?=$this->record($this->driver)->getCoreMetadata()?>
     <?php else: ?>
       <h2 class="collection-title"><?=$this->driver->getTitle();?></h2>
-      <?= $this->R2()->register($this->driver, ['brief' => true])?>
-      <?php $formats = $this->driver->getFormats(); if (!empty($formats)): ?>
+      <?php $formats = $this->driver->getFormats();
+      if (!empty($formats)): ?>
         <div class="recordFormat collection-format">
-          <?=$this->record($this->driver)->getFormatList()?><br/>
+          <?=$this->record($this->driver)->getFormatList()?><br>
         </div>
       <?php endif; ?>
       <?php if ($summary = $this->driver->tryMethod('getSummaryExtended')): ?>
@@ -112,20 +98,30 @@
           <?php endforeach; ?>
         </div>
       <?php endif; ?>
-      <?/* Display Main Details from records */?>
+      <?php /* Display Main Details from records */?>
       <?php
         $formatter = $this->recordDataFormatter($driver);
         $coreFields = $formatter->getDefaults();
+        if ($driver instanceof \Finna\RecordDriver\SolrEad3) {
+          // Do not display sub label in access restrictions for EAD3 to avoid duplicate for general
+          $coreFields['Access Restrictions Extended']['hideSubheadings'] = ['access_restrictions_general'];
+        }
         $coreFieldGroups = $formatter->getGroupedData($driver, $formatter->getGroupedFields([
           ['label' => 'Context',
-            'lines' => ['Archive Origination', 'Archive', 'Archive Series', 'Archive File']
+            'lines' => ['Archive Origination', 'Archive', 'Archive Series', 'Archive File'],
+          ],
+          [
+            'lines' => ['Format', 'Unit ID', 'Unit IDs'],
+          ],
+          ['label' => 'archive_authors',
+          'lines' => ['archive_authors', 'Archive Relations', 'archive_other_authors'],
           ],
           ['lines' => [
-              'Format', 'Authors', 'Secondary Authors', 'Unit ID', 'Unit IDs','Subjects',
-              'subjects_extended', 'Dates', 'Material Condition']
+              'Authors', 'Secondary Authors', 'Subject Actor', 'Subjects',
+              'subjects_extended', 'Dates', 'Material Condition'],
           ],
           ['label' => 'access_restrictions_general',
-            'lines' => ['Access Restrictions Extended']]
+            'lines' => ['Access Restrictions Extended']],
           ], $coreFields));
         ?>
         <?php if (!empty($coreFieldGroups)): ?>
@@ -133,57 +129,53 @@
             <?=$this->record($this->driver)->renderTemplate('core-field-groups.phtml', ['data' => $coreFieldGroups]);?>
           </table>
         <?php endif; ?>
-      <?/* End Main Details */?>
+      <?php /* End Main Details */?>
     <?php endif; ?>
   </div>
-  <?php ob_start(); ?>
-    <?php if ($this->record($this->driver)->getOrganisationMenuPosition() === 'sidebar'): ?>
-      <div class="organisation-menu">
-          <?=$this->render('record/record-organisation-menu.phtml') ?>
-      </div>
-    <?php endif; ?>
-    <?php foreach ($this->related()->getList($this->driver) as $current): ?>
-        <?=$this->related()->render($current)?>
-    <?php endforeach; ?>
-  <?php $sidebar = ob_get_contents(); ?>
-  <?php ob_end_clean(); ?>
-  <div class="sidebar right smaller-image-sidebar hidden-xs hidden-sm">
-    <?php if ($sidebar):?>
-        <?=$sidebar ?>
-    <?php endif; ?>
-  </div>
+  <?php if (!$largeImageLayout): ?>
+    <div class="sidebar right smaller-image-sidebar hidden-xs hidden-sm">
+      <?= $this->render('record/sidebar-contents.phtml'); ?>
+    </div>
+  <?php endif; ?>
 
   <div class="clearfix hidden-lg hidden-md"></div>
   <?php // N.B. The element/class structure here is important for the ajax tabs to work properly ?>
   <div class="record-tabs record-accordions">
     <?php if (count($this->tabs) > 0): ?>
-      <a id="tabnav"></a>
+      <a id="tabnav"><h2 class="visually-hidden"><?=$this->transEsc('Additional Information')?></h2></a>
         <?php if (count($this->tabs) > 3): ?>
         <div class="tabs-responsive">
         <?php endif; ?>
-        <ul class="recordTabs nav nav-tabs visible-md visible-lg">
+        <ul class="recordTabs nav nav-tabs visible-md visible-lg" role="tablist">
           <?php foreach ($this->tabs as $tab => $obj): ?>
             <?php
               $desc = $obj->getDescription();
-              $tabName = preg_replace("/\W/", "-", strtolower($tab));
-              $tabClasses = [ 'record-tab', $tabName ];
+              $tabName = preg_replace("/\W/", '-', strtolower($tab));
+              $tabClasses = [ 'nav-item', 'record-tab', $tabName ];
+              $linkClasses = [ 'nav-link', $tabName ];
               if (0 === strcasecmp($this->activeTab, $tab)) {
                 if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
-                    $tabClasses[] = 'active';
+                    $linkClasses[] = 'active';
                 }
                 $tabClasses[] = 'initiallyActive';
                 $activeTabObj = $obj;
               }
-              if (!$obj->isVisible()) { $tabClasses[] = 'hidden'; }
-              if (!$obj->supportsAjax()) { $tabClasses[] = 'noajax'; }
-              if (strtolower($tab) == 'details') { $tabClasses[] = 'hidden-xs tab-right'; }
+              if (!$obj->isVisible()) {
+                $tabClasses[] = 'hidden';
+              }
+              if (!$obj->supportsAjax()) {
+                $tabClasses[] = 'noajax';
+              }
+              if (strtolower($tab) == 'details') {
+                $tabClasses[] = 'hidden-xs tab-right';
+              }
             ?>
-            <li class="<?=implode(' ', $tabClasses)?>" data-tab="<?=$tabName?>">
-            <a class="<?=$this->escapeHtmlAttr(strtolower($tab)) ?>" aria-label="<?=$this->escapeHtmlAttr($this->transEsc($desc))?>"
+            <li role="presentation" id="record-tab-<?=$this->escapeHtmlAttr($tabName)?>" class="<?=implode(' ', $tabClasses)?>" data-tab="<?=$tabName?>">
+            <a role="tab" class="<?=implode(' ', $linkClasses)?>" aria-label="<?=$this->escapeHtmlAttr($this->transEsc($desc))?>"
               href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $tab))?>#tabnav" data-lightbox-ignore<?php if ($obj->supportsAjax() && in_array($tab, $this->backgroundTabs)):?>
               data-background<?php endif ?>>
-              <?php if (strtolower($tab) == 'details'): ?><i class="fa fa-lg fa-<?=$this->escapeHtmlAttr($tab)?>"></i><?php endif; ?>
-              <?php if (strtolower($tab) != 'details'): ?><?=$this->transEsc($desc)?><?php endif; ?><?php if (strtolower($tab) == 'usercomments') : ?> (<span class="count"><?= count($this->driver->getComments()) ?></span>)<?php endif; ?>
+              <?php if (strtolower($tab) == 'details'): ?><?=$this->icon('staff-view', 'staff-view-icon') ?><?php endif; ?>
+              <?php if (strtolower($tab) != 'details'): ?><?=$this->transEsc($desc)?><?php endif; ?><?php if (strtolower($tab) == 'usercomments') : ?> (<span class="count"><?= count($this->record($this->driver)->getComments()) ?></span>)<?php endif; ?>
             </a>
             </li>
           <?php endforeach; ?>
@@ -193,7 +185,7 @@
         <?php endif; ?>
     <?php endif; ?>
 
-    <div class="tab-content collectionDetails<?=$tree ? 'Tree' : ''?>">
+    <div class="tab-content collectionDetails<?=$tree ? 'Tree' : ''?>" tabindex="0">
       <?php if (!$this->loadInitialTabWithAjax || !isset($activeTabObj) || !$activeTabObj->supportsAjax()): ?>
         <div class="tab-pane active <?=$this->escapeHtmlAttr($this->activeTab) ?>-tab">
           <?=isset($activeTabObj) ? $this->record($this->driver)->getTab($activeTabObj) : '' ?>
@@ -202,42 +194,49 @@
     </div>
 
     <div class="record-accordions">
-     <?php foreach ($this->tabs as $accordion => $obj): ?>
-       <?php
-         $desc = $obj->getDescription();
-         $accordion_classes = [
-           'accordion',
-           'accordion-' . preg_replace("/\W/", "-", strtolower($accordion))
-         ];
-         if (0 === strcasecmp($this->activeTab, $accordion)) {
-           if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
-             $accordion_classes[] = 'active';
-           }
-           $accordion_classes[] = 'initiallyActive';
-         }
-         if (!$obj->isVisible()) { $accordion_classes[] = 'hidden'; }
-         if (!$obj->supportsAjax()) { $accordion_classes[] = 'noajax'; }
-       ?>
-       <div class="<?=implode(' ', $accordion_classes)?>">
-         <div class="accordion-toggle">
-           <a data-tab="<?=$this->escapeHtmlAttr(strtolower($accordion)) ?>" class="accordion-title"
-             href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $accordion))?>#tabnav"<?php if ($obj->supportsAjax() && in_array($accordion, $this->backgroundTabs)):?>
-             data-background<?php endif ?>
-           >
-             <span class="title"><?=$this->transEsc($desc)?><?php if (strtolower($accordion) == 'usercomments') : ?> (<span class="count"><?= count($this->driver->getComments()) ?></span>)<?php endif; ?></span>
-             <i class="icon"></i>
-           </a>
-         </div>
-       </div>
-     <?php endforeach; ?>
+      <?php foreach ($this->tabs as $accordion => $obj): ?>
+        <?php
+          $desc = $obj->getDescription();
+          $accordion_classes = [
+            'accordion',
+            'accordion-' . preg_replace("/\W/", '-', strtolower($accordion)),
+          ];
+          if (0 === strcasecmp($this->activeTab, $accordion)) {
+            if (!$this->loadInitialTabWithAjax || !$obj->supportsAjax()) {
+              $accordion_classes[] = 'active';
+            }
+            $accordion_classes[] = 'initiallyActive';
+          }
+          if (!$obj->isVisible()) {
+            $accordion_classes[] = 'hidden';
+          }
+          if (!$obj->supportsAjax()) {
+            $accordion_classes[] = 'noajax';
+          }
+        ?>
+        <div class="<?=implode(' ', $accordion_classes)?>">
+          <div class="accordion-toggle">
+            <a data-tab="<?=$this->escapeHtmlAttr(strtolower($accordion)) ?>" class="accordion-title"
+              href="<?=$this->escapeHtmlAttr($this->recordLinker()->getTabUrl($this->driver, $accordion))?>#tabnav"<?php if ($obj->supportsAjax() && in_array($accordion, $this->backgroundTabs)):?>
+              data-background<?php endif ?>
+            >
+              <span class="title"><?=$this->transEsc($desc)?><?php if (strtolower($accordion) == 'usercomments') : ?> (<span class="count"><?= count($this->record($this->driver)->getComments()) ?></span>)<?php endif; ?></span>
+              <i class="icon"></i>
+            </a>
+          </div>
+        </div>
+      <?php endforeach; ?>
     </div>
 
-    <?=$this->driver->supportsCoinsOpenURL()?'<span class="Z3988" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenURL()) . '"></span>':''?>
+    <?=$this->driver->supportsCoinsOpenURL() ? '<span class="Z3988" aria-hidden="true" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenURL()) . '"></span>' : ''?>
   </div>
 
 </div>
+  <div class="sidebar large-image-sidebar <?php if (!$largeImageLayout):?>visible-xs visible-sm <?php endif;?>">
+    <?= $this->render('record/sidebar-contents.phtml'); ?>
+  </div>
 </div>
 <?=$this->record($this->driver)->renderTemplate('toolbar_mobile.phtml') ?>
 <div>
-<?=$this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, '$(document).ready(recordDocReady);', 'SET') ?>
+<?=$this->assetManager()->outputInlineScriptString('$(document).ready(recordDocReady);') ?>
 <!-- END of: finna - collection/view.phtml -->

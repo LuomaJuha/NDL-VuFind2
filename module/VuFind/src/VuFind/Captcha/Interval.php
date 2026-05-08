@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Interval CAPTCHA (requires an interval between actions or from start of session).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  CAPTCHA
@@ -25,13 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Captcha;
 
-use Laminas\Config\Config;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\Session\Container as SessionContainer;
+use VuFind\Config\Config;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\I18n\Translator\TranslatorAwareTrait;
+
+use function intval;
 
 /**
  * Interval CAPTCHA (requires an interval between actions or from start of session).
@@ -47,35 +51,35 @@ class Interval extends AbstractBase implements TranslatorAwareInterface
     use TranslatorAwareTrait;
 
     /**
-     * Session data container
+     * Session data container.
      *
      * @var SessionContainer
      */
     protected $sessionData;
 
     /**
-     * Minimum action interval in seconds
+     * Minimum action interval in seconds.
      *
      * @var int
      */
     protected $actionInterval;
 
     /**
-     * Minimum time from session start to first action
+     * Minimum time from session start to first action.
      *
      * @var int
      */
     protected $timeFromSessionStart;
 
     /**
-     * Verification error message
+     * Verification error message.
      *
      * @var string
      */
     protected $errorMessage = '';
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param SessionContainer $sc     Session data container
      * @param Config           $config VuFind main configuration
@@ -90,7 +94,7 @@ class Interval extends AbstractBase implements TranslatorAwareInterface
     }
 
     /**
-     * Pull the captcha field from controller params and check them for accuracy
+     * Pull the captcha field from controller params and check them for accuracy.
      *
      * @param Params $params Controller params
      *
@@ -112,7 +116,7 @@ class Interval extends AbstractBase implements TranslatorAwareInterface
             $this->errorMessage = $this->translate(
                 'interval_captcha_not_passed',
                 [
-                    '%%delay%%' => max($requiredInterval - $timePassed, 1)
+                    '%%delay%%' => max($requiredInterval - $timePassed, 1),
                 ]
             );
             return false;

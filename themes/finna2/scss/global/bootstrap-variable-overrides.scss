@@ -1,0 +1,411 @@
+//
+// Finna Bootstrap Variable Overrides
+// --------------------------------------------------
+
+@use "sass:color";
+@use "sass:math";
+
+
+//== Colors
+//
+//## Gray and brand colors for use across Bootstrap.
+
+$gray: #2b2b2b !default;
+
+$gray-darker:           #000 !default;
+$gray-dark:             #121212 !default;
+$gray-light:            #595959 !default;
+$gray-slightly-lighter: #757575 !default;
+$gray-mid-light:        #919191 !default;
+$gray-lighter:          #d1d1d1 !default;
+$gray-ultralight:       #f7f7f7 !default;
+
+// Brand Colors
+$primary:               #007c90 !default;
+$secondary:             #007c90 !default;
+$third:                 #007c90 !default;
+$fourth:                #007c90 !default;
+$success:               #33843B !default;
+$warning:               #9E943D !default;
+$danger:                #a94442 !default;
+$info:                  #007c90 !default;
+$info-bg-subtle:        #d9edf7 !default;
+
+
+//== Custom Finna styling
+$background-color:      $gray-light !default;
+$warning-bg-subtle:     tint-color($warning, 75%) !default;
+$enable-shadows:        true !default;
+$btn-box-shadow:        none !default;
+$btn-focus-box-shadow:  none !default;
+$focus-ring-width:      .25rem !default;
+$focus-ring-color:      $primary !default;
+$focus-ring-opacity:    0.5 !default;
+$focus-ring-blur:       0 !default;
+
+// These are not in Bootstrap 5, but we need them for our custom box shadow:
+$focus-ring-inner-opacity:      1 !default;
+$focus-ring-inner-blur:         $focus-ring-blur !default;
+$focus-ring-inner-width:        1px;
+$focus-ring-inner-color:        rgba(#fff, $focus-ring-inner-opacity) !default;
+
+// Dual box shadow intended to provide sufficient contrast in all situations:
+$focus-ring-box-shadow: 0 0 $focus-ring-inner-blur $focus-ring-inner-width $focus-ring-inner-color, 0 0 $focus-ring-blur $focus-ring-width $focus-ring-color !default;
+$focus-ring-light-box-shadow: $focus-ring-box-shadow;
+
+//-- Z-index master list
+//
+// Warning: Avoid customizing these values. They're used for a bird's eye view
+// of components dependent on the z-axis and are designed to all work together.
+//
+// Note: These variables are not generated into the Customizer.
+
+//$zindex-navbar:            1000 !default;
+$zindex-dropdown:          1001 !default;
+$zindex-popover:           1010 !default;
+// By default tooltip has a higher z-index which allows it to pop over the navbar.
+// Use the following value only if you can ensure that it doesn't get obscured by
+// the navbar.
+//$zindex-tooltip:           1020 !default;
+//$zindex-navbar-fixed:      1030 !default;
+//$zindex-modal-background:  1040 !default;
+//$zindex-modal:             1050 !default;
+
+//== Scaffolding
+//
+// ## Settings for some of the most global styles.
+
+$body-bg: #fff !default;
+$text-color: $gray-dark !default;
+$body-color: $text-color !default;
+$link-color:  #007c90 !default; // defines all link color, also for linked icons
+$link-hover-color: $link-color !default;
+$link-decoration: none !default;
+$link-hover-decoration: none !default;
+$padding-base-vertical: 6px !default;
+$padding-base-horizontal: 12px !default;
+$padding-large-vertical: 10px !default;
+$padding-large-horizontal: 16px !default;
+$padding-small-vertical: 5px !default;
+$padding-small-horizontal: 10px !default;
+$line-height-large: 1.33 !default;
+$line-height-small: 1.5 !default;
+$component-active-bg: $primary !default;
+
+
+//== Navbar
+//
+//##
+
+// Basics of a navbar
+$navbar-height:                    64px !default;
+$navbar-margin-bottom:             0px !default;
+$navbar-padding-vertical:          5px !default;
+$navbar-padding-x:                 0px !default;
+$navbar-padding-y:                 $navbar-padding-vertical !default;
+$navbar-collapse-max-height:       auto !default;
+$navbar-default-bg:                #fff !default;
+$navbar-toggler-focus-width:       0;
+//$navbar-light-color:               $primary !default;
+//$navbar-light-active-color:        $primary !default;
+//$navbar-light-brand-color:         $primary !default;
+//$navbar-light-brand-hover-color:   $primary !default;
+
+// Navbar links
+$navbar-default-link-color:        $text-color !default;  // Color of link texts in navbar
+$navbar-nav-link-padding-x:        1rem !default;
+
+
+//== Navs
+//
+//##
+
+//=== Shared nav styles
+//$nav-link-padding:                          0px 15px !default;
+$nav-link-padding-y:                        1rem !default;
+$nav-link-font-weight:                      500;
+$nav-link-hover-bg:                         rgba(255,255,255,0.2) !default;
+$nav-tabs-border-color:                     $gray-mid-light !default;
+
+//== Typography
+//
+//## Font, line-height, and color for body text, headings, and more.
+
+$font-family-sans-serif:    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol" !default;
+$font-family-serif:         PT Serif !default;
+$font-family-monospace:     Monaco !default;
+$font-family-base:          $font-family-sans-serif !default;
+$font-size-base:            1rem !default;
+$font-size-large:           $font-size-base * 1.3 !default;
+$font-size-small:           $font-size-base * 0.85 !default;
+$font-size-h1:              $font-size-base * 2.6 !default;
+$font-size-h2:              $font-size-base * 1.76 !default;
+$font-size-h3:              $font-size-base * 1.6 !default;
+$font-size-h4:              $font-size-base * 1.3 !default;
+$font-size-h5:              $font-size-base !default;
+$font-size-h6:              $font-size-base * 0.85 !default;
+$line-height-base:          1.5 !default;
+$line-height-computed:      math.floor(($font-size-base * $line-height-base)) !default;
+$headings-font-family:      $font-family-base !default;
+$headings-line-height:      1.1 !default;
+$headings-color:            inherit !default;
+$headings-font-weight:      700 !default;
+
+$h1-font-size:              $font-size-h1;
+$h2-font-size:              $font-size-h2;
+$h3-font-size:              $font-size-h3;
+$h4-font-size:              $font-size-h4;
+$h5-font-size:              $font-size-h5;
+$h6-font-size:              $font-size-h6;
+
+
+//-- Iconography
+//
+//## Specify custom locations of the include Glyphicons icon font. Useful for those including Bootstrap via Bower.
+
+$icon-font-path:          "../../finna/css/fonts/" !default;
+$icon-font-name:          "finnaicons" !default;
+$icon-font-svg-id:        "finnaicons" !default;
+
+
+//== Components
+//
+//## Define common padding and border radius sizes and more. Values based on 14px text and 1.428 line-height (~20px to start).
+
+$border-radius-base:        4px !default;
+$border-radius-large:       10px !default;
+$border-radius-small:       2px !default;
+
+
+//== Tables
+//
+//##
+
+$table-bg-accent:               $gray-ultralight !default;    // Defines color for striped tables used in record details and holdings
+//** Border color for table and cell borders.
+$table-border-color:            transparent !default;
+
+
+//== Buttons
+//
+//## For each of Bootstrap's buttons, define text, background and border color.
+
+$btn-font-weight: 600 !default;
+$btn-default-color: $text-color !default;
+$btn-default-bg: #fff !default;
+$btn-default-border: #ccc !default;
+$btn-primary-color: #fff !default;
+$btn-primary-bg: $primary !default;
+$btn-primary-border: color.adjust($btn-primary-bg, $lightness: -0% /*, $space: hsl*/) !default;
+$btn-success-color: #fff !default;
+$btn-success-bg: $success !default;
+$btn-success-border: color.adjust($btn-success-bg, $lightness: -5% /*, $space: hsl*/) !default;
+$btn-warning-color: $gray-light !default;
+$btn-warning-bg: $warning !default;
+$btn-warning-border: color.adjust($btn-warning-bg, $lightness: -5% /*, $space: hsl*/) !default;
+$btn-danger-color: #fff !default;
+$btn-danger-bg: $danger !default;
+$btn-danger-border: color.adjust($btn-danger-bg, $lightness: -5% /*, $space: hsl*/) !default;
+$btn-info-color: #fff !default;
+$btn-info-bg: $info !default;
+$btn-info-border: color.adjust($btn-info-bg, $lightness: -5% /*, $space: hsl*/) !default;
+$btn-link-disabled-color: $gray-light !default;
+
+
+//== Forms
+//
+//##
+
+$input-border-color: #666 !default;
+$input-border-radius: $border-radius-small !default;
+$input-bg: #fff !default;
+
+
+//== Dropdowns
+//
+//## Dropdown menu container and contents.
+
+$dropdown-bg: $body-bg !default;
+$dropdown-border: color.mix($body-bg, contrast($dropdown-bg), 80%) !default;
+$dropdown-divider-bg: #e5e5e5 !default;
+$dropdown-link-active-color: #fff !default;
+$dropdown-link-active-bg: $component-active-bg !default;
+$dropdown-link-color: $text-color !default;
+$dropdown-link-hover-color: color.adjust($text-color, $lightness: -7% /*, $space: hsl*/) !default;
+$dropdown-link-hover-bg: rgba(1,1,1,0.1) !default;
+$dropdown-link-disabled-color: $gray-light !default;
+$dropdown-header-color: $gray-light !default;
+$dropdown-caret-color: #000 !default;
+$dropdown-fallback-border: none !default;
+$dropdown-item-padding-x: 0rem !default;
+$dropdown-item-padding-y: 0rem !default;
+$dropdown-header-padding-x: 1rem !default;
+
+
+//== Pagination
+//
+//##
+
+$pagination-color:                     $link-color !default;
+$pagination-bg:                        $body-bg !default;
+$pagination-border-color:              transparent !default;
+
+$pagination-hover-color:               $primary !default;
+$pagination-hover-bg:                  #f5f5f5 !default;
+$pagination-hover-border:              transparent !default;
+
+$pagination-active-color:              #fff !default;
+$pagination-active-bg:                 $primary !default;
+$pagination-active-border:             transparent !default;
+
+$pagination-font-size:                 1.1em;
+
+//== Pager
+//
+//##
+
+$pager-bg:                             $primary !default;
+$pager-hover-bg:                       color.adjust($primary, $lightness: -0.5% /*, $space: hsl*/) !default;
+$pager-disabled-color:                 $gray-mid-light !default;
+
+
+//== Form states and alerts
+//
+//## Define colors for form feedback states and, by default, alerts.
+
+$state-success-text:             #2d4821 !default;
+
+
+//== Tooltips
+//
+//##
+
+//** Tooltip max width
+$tooltip-max-width:           300px !default;
+//** Tooltip text color
+$tooltip-color:               $text-color !default;
+//** Tooltip background color
+$tooltip-bg:                  $body-bg !default;
+$tooltip-opacity:             1 !default;
+
+//** Tooltip arrow width
+//$tooltip-arrow-width:         6px !default;
+//** Tooltip arrow color
+$tooltip-arrow-color:         $primary !default;
+$tooltip-header-color:        color.mix($tooltip-arrow-color, contrast($tooltip-arrow-color), 5%) !default;
+
+
+//== Modals
+//
+//##
+
+$modal-content-bg:            $body-bg !default;
+$modal-md:                    768px !default;
+$modal-lg:                    900px !default;
+
+
+//== Alerts
+//
+//## Define alert colors, border radius, and padding.
+
+$alert-padding:               10px !default;
+
+
+//== List group
+//
+//##
+
+//** Background color on `.list-group-item`
+$list-group-bg: $body-bg !default;
+$list-group-link-color: $text-color !default;
+
+
+//== Panels
+//
+//##
+$panel-border-radius:         0px !default;
+
+
+//== thumbnail
+//
+//##
+
+$thumbnail-border:            none !default;
+
+
+//== Badges
+//
+//##
+
+$badge-color:                 color.adjust($text-color, $lightness: 18% /*, $space: hsl*/) !default;
+//** Linked badge text color on hover
+$badge-link-hover-color:      #fff !default;
+$badge-bg:                    none !default;
+$badge-font-weight:           400 !default;
+$badge-font-size:             0.9rem !default;
+
+
+//== Breadcrumbs
+//
+//##
+
+//** Breadcrumb background color
+$breadcrumb-bg                : #fff !default;
+//** Breadcrumb text color
+$breadcrumb-color             : $gray-light !default;
+//** Text color of current page in the breadcrumb
+$breadcrumb-active-color      : $gray-dark !default;
+$breadcrumb-padding-y         : 0.5rem !default;
+$breadcrumb-padding-x         : 0 !default;
+
+
+//== Wells
+//
+//##
+
+$well-bg:                     color.mix($body-bg, contrast($body-bg), 95%) !default;
+$well-border:                 color.mix($body-bg, contrast($body-bg), 80%) !default;
+
+
+//== Miscellaneous
+//
+//##
+
+//** Horizontal line color.
+$hr-border:                   rgba(255,255,255,0.2) !default;
+
+$cursor-disabled: pointer !default;
+$progress-border-radius: none !default;
+$panel-heading-padding: 0 !default;
+$panel-footer-padding: 0 !default;
+
+// Disable !important utilities by default:
+$enable-important-utilities:        false !default;
+
+// Disable several default icons:
+$accordion-button-active-icon:      none !default;
+$accordion-button-active-icon-dark: none !default;
+$accordion-button-icon:             none !default;
+$accordion-button-icon-dark:        none !default;
+$form-select-indicator:             none !default;
+$form-select-indicator-dark:        none !default;
+$form-switch-bg-image:              none !default;
+$form-switch-bg-image-dark:         none !default;
+$navbar-dark-toggler-icon-bg:       none !default;
+$navbar-light-toggler-icon-bg:      none !default;
+
+$pagination-active-bg:              $primary !default;
+$pagination-active-border:          $primary !default;
+
+$link-hover-decoration:             underline !default;
+$icon-link-underline-offset:        inherit !default;
+
+// Disable dark mode for now:
+$enable-dark-mode:                  false !default;
+
+// Disable smooth scroll for now (doesn't interact well with Mink tests):
+$enable-smooth-scroll:              false !default;
+
+// Disable validation icons that take a lot of room e.g. in select fields:
+$enable-validation-icons:           false !default;
+$form-select-indicator-padding:     .75rem !default;

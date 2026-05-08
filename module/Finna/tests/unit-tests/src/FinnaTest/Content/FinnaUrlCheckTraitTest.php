@@ -1,8 +1,9 @@
 <?php
+
 /**
- * FinnaUrlCheckTrait Test Class
+ * FinnaUrlCheckTrait Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace FinnaTest\Content;
 
 /**
- * FinnaUrlCheckTrait Test Class
+ * FinnaUrlCheckTrait Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -36,28 +38,24 @@ namespace FinnaTest\Content;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
-class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
+class FinnaUrlCheckTraitTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * Test with empty configuration
+     * Test with empty configuration.
      *
      * @return void
      */
     public function testEmptyConfig()
     {
-        $loader = $this->getMockBuilder(MockDriver::class)
-            ->addMethods(['getConfig'])->getMock();
-        $loader->expects($this->exactly(2))->method('getConfig')
-            ->willReturn(new \Laminas\Config\Config([]));
-
-        $this->assertTrue($loader->check('http://localhost'));
-        $this->assertTrue($loader->check('https://localhost'));
-        $this->assertFalse($loader->check('ftp://localhost'));
-        $this->assertFalse($loader->check('foo'));
+        $tester = $this->getMockCheckTestClass();
+        $this->assertTrue($tester->check('http://localhost'));
+        $this->assertTrue($tester->check('https://localhost'));
+        $this->assertFalse($tester->check('ftp://localhost'));
+        $this->assertFalse($tester->check('foo'));
     }
 
     /**
-     * Test with full configuration
+     * Test with full configuration.
      *
      * @return void
      */
@@ -78,8 +76,8 @@ class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
                     '/^172\./',
                     '/\.images$/',
                     '::2',
-                ]
-            ]
+                ],
+            ],
         ];
         $ipv4map = [
             'foo4' => '192.168.0.1',
@@ -90,42 +88,29 @@ class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
             'foo6.image' => '::3',
         ];
 
-        $loader = $this->getMockBuilder(MockDriver::class)
-            ->onlyMethods(['getIPv4Address', 'getIPv6Address'])
-            ->addMethods(['getConfig'])
-            ->getMock();
-        $loader->expects($this->any())->method('getConfig')
-            ->willReturn(new \Laminas\Config\Config($config));
-        $loader->expects($this->any())->method('getIPv4Address')
-            ->willReturnCallback(function ($host) use ($ipv4map) {
-                return $ipv4map[$host] ?? '';
-            });
-        $loader->expects($this->any())->method('getIPv6Address')
-            ->willReturnCallback(function ($host) use ($ipv6map) {
-                return $ipv6map[$host] ?? '';
-            });
+        $tester = $this->getMockCheckTestClass($config, $ipv4map, $ipv6map);
 
-        $this->assertFalse($loader->check('http://127.0.0.1/img'));
-        $this->assertFalse($loader->check('http://localhost/img'));
-        $this->assertFalse($loader->check('https://localhost/img'));
-        $this->assertFalse($loader->check('http://[::1]/img'));
-        $this->assertFalse($loader->check('http://unknown/img'));
-        $this->assertFalse($loader->check('http://1.172.0.1/img'));
-        $this->assertFalse($loader->check('http://1.172.0.1/img'));
-        $this->assertFalse($loader->check('http://imageserver2/img'));
-        $this->assertFalse($loader->check('http://foo4.image/img'));
-        $this->assertFalse($loader->check('http://foo6.image/img'));
+        $this->assertFalse($tester->check('http://127.0.0.1/img'));
+        $this->assertFalse($tester->check('http://localhost/img'));
+        $this->assertFalse($tester->check('https://localhost/img'));
+        $this->assertFalse($tester->check('http://[::1]/img'));
+        $this->assertFalse($tester->check('http://unknown/img'));
+        $this->assertFalse($tester->check('http://1.172.0.1/img'));
+        $this->assertFalse($tester->check('http://1.172.0.1/img'));
+        $this->assertFalse($tester->check('http://imageserver2/img'));
+        $this->assertFalse($tester->check('http://foo4.image/img'));
+        $this->assertFalse($tester->check('http://foo6.image/img'));
 
-        $this->assertTrue($loader->check('http://172.0.0.1/img'));
-        $this->assertTrue($loader->check('http://imageserver/img'));
-        $this->assertTrue($loader->check('http://s1.images/img'));
-        $this->assertTrue($loader->check('http://s2.images/img'));
-        $this->assertTrue($loader->check('http://foo4/img'));
-        $this->assertTrue($loader->check('http://foo6/img'));
+        $this->assertTrue($tester->check('http://172.0.0.1/img'));
+        $this->assertTrue($tester->check('http://imageserver/img'));
+        $this->assertTrue($tester->check('http://s1.images/img'));
+        $this->assertTrue($tester->check('http://s2.images/img'));
+        $this->assertTrue($tester->check('http://foo4/img'));
+        $this->assertTrue($tester->check('http://foo6/img'));
     }
 
     /**
-     * Test disallowed report only mode
+     * Test disallowed report only mode.
      *
      * @return void
      */
@@ -140,33 +125,22 @@ class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
                 'allowed_external_hosts' => [
                     '127.0.0.2',
                     'imageserver',
-                ]
-            ]
+                ],
+            ],
         ];
 
-        $loader = $this->getMockBuilder(MockDriver::class)
-            ->onlyMethods(['getIPv4Address', 'getIPv6Address'])
-            ->addMethods(['getConfig', 'logWarning'])
-            ->getMock();
-        $loader->expects($this->any())->method('getConfig')
-            ->willReturn(new \Laminas\Config\Config($config));
-        $loader->expects($this->once())->method('logWarning')
-            ->with(
-                'URL check: http://127.0.0.2/img would be blocked (record foo.bar)'
-            )
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv4Address')
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv6Address')
-            ->willReturn('');
-
-        $this->assertTrue($loader->check('http://127.0.0.2/img', 'foo.bar'));
-        $this->assertFalse($loader->check('http://image2/img', 'foo.bar'));
-        $this->assertTrue($loader->check('http://imageserver/img', 'foo.bar'));
+        $tester = $this->getMockCheckTestClass($config);
+        $this->assertTrue($tester->check('http://127.0.0.2/img', 'foo.bar'));
+        $this->assertFalse($tester->check('http://image2/img', 'foo.bar'));
+        $this->assertTrue($tester->check('http://imageserver/img', 'foo.bar'));
+        $this->assertEquals(
+            'URL check: http://127.0.0.2/img would be blocked (record foo.bar)',
+            $tester->getWarning()
+        );
     }
 
     /**
-     * Test allowed report only mode
+     * Test allowed report only mode.
      *
      * @return void
      */
@@ -181,32 +155,21 @@ class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
                     'imageserver',
                 ],
                 'allowed_external_hosts_mode' => 'report',
-            ]
+            ],
         ];
 
-        $loader = $this->getMockBuilder(MockDriver::class)
-            ->onlyMethods(['getIPv4Address', 'getIPv6Address'])
-            ->addMethods(['getConfig', 'logWarning'])
-            ->getMock();
-        $loader->expects($this->any())->method('getConfig')
-            ->willReturn(new \Laminas\Config\Config($config));
-        $loader->expects($this->once())->method('logWarning')
-            ->with(
-                'URL check: http://image3/img would not be allowed (record foo.bar)'
-            )
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv4Address')
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv6Address')
-            ->willReturn('');
-
-        $this->assertFalse($loader->check('http://127.0.0.3/img', 'foo.bar'));
-        $this->assertTrue($loader->check('http://image3/img', 'foo.bar'));
-        $this->assertTrue($loader->check('http://imageserver/img', 'foo.bar'));
+        $tester = $this->getMockCheckTestClass($config);
+        $this->assertFalse($tester->check('http://127.0.0.3/img', 'foo.bar'));
+        $this->assertTrue($tester->check('http://image3/img', 'foo.bar'));
+        $this->assertTrue($tester->check('http://imageserver/img', 'foo.bar'));
+        $this->assertEquals(
+            'URL check: http://image3/img would not be allowed (record foo.bar)',
+            $tester->getWarning()
+        );
     }
 
     /**
-     * Test disallowed enforcing report mode
+     * Test disallowed enforcing report mode.
      *
      * @return void
      */
@@ -221,31 +184,22 @@ class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
                 'allowed_external_hosts' => [
                     '127.0.0.4',
                     'imageserver',
-                ]
-            ]
+                ],
+            ],
         ];
 
-        $loader = $this->getMockBuilder(MockDriver::class)
-            ->onlyMethods(['getIPv4Address', 'getIPv6Address'])
-            ->addMethods(['getConfig', 'logWarning'])
-            ->getMock();
-        $loader->expects($this->any())->method('getConfig')
-            ->willReturn(new \Laminas\Config\Config($config));
-        $loader->expects($this->once())->method('logWarning')
-            ->with('URL check: http://127.0.0.4/img blocked (record n/a)')
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv4Address')
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv6Address')
-            ->willReturn('');
-
-        $this->assertFalse($loader->check('http://127.0.0.4/img'));
-        $this->assertFalse($loader->check('http://image4/img'));
-        $this->assertTrue($loader->check('http://imageserver/img'));
+        $tester = $this->getMockCheckTestClass($config);
+        $this->assertFalse($tester->check('http://127.0.0.4/img'));
+        $this->assertFalse($tester->check('http://image4/img'));
+        $this->assertTrue($tester->check('http://imageserver/img'));
+        $this->assertEquals(
+            'URL check: http://127.0.0.4/img blocked (record n/a)',
+            $tester->getWarning()
+        );
     }
 
     /**
-     * Test allowed enforcing report mode
+     * Test allowed enforcing report mode.
      *
      * @return void
      */
@@ -260,35 +214,143 @@ class FinnaUrlCheckTraitTest extends \VuFindTest\Unit\TestCase
                     'imageserver',
                 ],
                 'allowed_external_hosts_mode' => 'enforce-report',
-            ]
+            ],
         ];
 
-        $loader = $this->getMockBuilder(MockDriver::class)
-            ->onlyMethods(['getIPv4Address', 'getIPv6Address'])
-            ->addMethods(['getConfig', 'logWarning'])
-            ->getMock();
-        $loader->expects($this->any())->method('getConfig')
-            ->willReturn(new \Laminas\Config\Config($config));
-        $loader->expects($this->once())->method('logWarning')
-            ->with('URL check: http://image5/img not allowed (record n/a)')
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv4Address')
-            ->willReturn('');
-        $loader->expects($this->any())->method('getIPv6Address')
-            ->willReturn('');
-
-        $this->assertFalse($loader->check('http://127.0.0.5/img'));
-        $this->assertFalse($loader->check('http://image5/img'));
-        $this->assertTrue($loader->check('http://imageserver/img'));
+        $tester = $this->getMockCheckTestClass($config);
+        $this->assertFalse($tester->check('http://127.0.0.5/img'));
+        $this->assertFalse($tester->check('http://image5/img'));
+        $this->assertTrue($tester->check('http://imageserver/img'));
+        $this->assertEquals(
+            'URL check: http://image5/img not allowed (record n/a)',
+            $tester->getWarning()
+        );
     }
-}
 
-class MockDriver
-{
-    use \Finna\RecordDriver\Feature\FinnaUrlCheckTrait;
-
-    public function check($url, $id = '')
+    /**
+     * Get a test harness for the trait.
+     *
+     * @param array $config Configuration
+     * @param array $ip4Map IPv4 host to address map
+     * @param array $ip6Map IPv6 host to address map
+     *
+     * @return object
+     */
+    protected function getMockCheckTestClass(array $config = [], array $ip4Map = [], array $ip6Map = [])
     {
-        return $this->isUrlLoadable($url, $id);
+        return new class ($config, $ip4Map, $ip6Map) {
+            use \Finna\RecordDriver\Feature\FinnaUrlCheckTrait;
+
+            /**
+             * Configuration.
+             *
+             * @var array
+             */
+            protected $config;
+
+            /**
+             * IPv4 host to address map.
+             *
+             * @var array
+             */
+            protected $ip4Map;
+
+            /**
+             * IPv6 host to address map.
+             *
+             * @var array
+             */
+            protected $ip6Map;
+
+            /**
+             * Logged warning(s).
+             *
+             * @var string
+             */
+            protected $warning = '';
+
+            /**
+             * Constructor.
+             *
+             * @param array $config Configuration
+             * @param array $ip4Map IPv4 host to address map
+             * @param array $ip6Map IPv6 host to address map
+             */
+            public function __construct(array $config, array $ip4Map, array $ip6Map)
+            {
+                $this->config = $config;
+                $this->ip4Map = $ip4Map;
+                $this->ip6Map = $ip6Map;
+            }
+
+            /**
+             * Wrapper for isUrlLoadable for testing.
+             *
+             * @param string $url URL
+             * @param string $id  Record ID
+             *
+             * @return bool
+             */
+            public function check($url, $id = ''): bool
+            {
+                return $this->isUrlLoadable($url, $id);
+            }
+
+            /**
+             * Get any logged warning(s).
+             *
+             * @return string
+             */
+            public function getWarning(): string
+            {
+                return $this->warning;
+            }
+
+            /**
+             * Get configuration.
+             *
+             * @return \VuFind\Config\Config
+             */
+            protected function getConfig(): \VuFind\Config\Config
+            {
+                return new \VuFind\Config\Config($this->config);
+            }
+
+            /**
+             * Get the IPv4 address for a host.
+             *
+             * @param string $host Host
+             *
+             * @return string
+             */
+            protected function getIPv4Address(string $host): string
+            {
+                return $this->ip4Map[$host] ?? '';
+            }
+
+            /**
+             * Get the IPv6 address for a host.
+             *
+             * @param string $host Host
+             *
+             * @return string
+             */
+            protected function getIPv6Address(string $host): string
+            {
+                return $this->ip6Map[$host] ?? '';
+            }
+
+            /**
+             * Log a warning.
+             *
+             * @param string $warning Warning message
+             *
+             * @return void
+             */
+            protected function logWarning(string $warning): void
+            {
+                $this->warning .= $warning;
+            }
+        };
     }
 }

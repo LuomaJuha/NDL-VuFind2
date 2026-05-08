@@ -1,8 +1,9 @@
 <?php
+
 /**
- * API Controller
+ * API Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,10 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace VuFindApi\Controller;
 
+use function in_array;
+
 /**
- * API Controller
+ * API Controller.
  *
  * Controls the API functionality
  *
@@ -43,14 +47,14 @@ class ApiController extends \VuFind\Controller\AbstractBase
     use ApiTrait;
 
     /**
-     * Array of available API controllers
+     * Array of available API controllers.
      *
      * @var array
      */
     protected $apiControllers = [];
 
     /**
-     * Add an API controller to the list of available controllers
+     * Add an API controller to the list of available controllers.
      *
      * @param Laminas\Mvc\Controller\AbstractActionController $controller API
      * Controller
@@ -65,7 +69,7 @@ class ApiController extends \VuFind\Controller\AbstractBase
     }
 
     /**
-     * Index action
+     * Index action.
      *
      * Return API specification or redirect to Swagger UI
      *
@@ -76,7 +80,8 @@ class ApiController extends \VuFind\Controller\AbstractBase
         // Disable session writes
         $this->disableSessionWrites();
 
-        if (null === $this->getRequest()->getQuery('swagger')
+        if (
+            null === $this->getRequest()->getQuery('swagger')
             && null === $this->getRequest()->getQuery('openapi')
         ) {
             $urlHelper = $this->getViewRenderer()->plugin('url');
@@ -93,22 +98,26 @@ class ApiController extends \VuFind\Controller\AbstractBase
     }
 
     /**
-     * Get API specification JSON fragment for the root nodes
+     * Get API specification JSON fragment for the root nodes.
      *
      * @return string
      */
     protected function getApiSpecFragment()
     {
-        $config = $this->getConfig();
+        $config = $this->getConfigArray();
+        $this->initApiKeySettings($config['API_Keys'] ?? []);
         $params = [
             'config' => $config,
-            'version' => \VuFind\Config\Version::getBuildVersion()
+            'apiKeysEnabled' => $this->developerSettingsService?->apiKeysEnabled() ?? false,
+            'apiKeyHeaderField' => $this->apiKeyHeaderField,
+            'apiKeyMode' => $this->developerSettingsService?->getApiKeyMode(),
+            'version' => \VuFind\Config\Version::getBuildVersion(),
         ];
         return $this->getViewRenderer()->render('api/openapi', $params);
     }
 
     /**
-     * Merge specification fragments from all APIs to an array
+     * Merge specification fragments from all APIs to an array.
      *
      * @return array
      */
@@ -122,7 +131,7 @@ class ApiController extends \VuFind\Controller\AbstractBase
             if (null === $specs) {
                 throw new \Exception(
                     'Could not parse API spec fragment of '
-                    . get_class($controller) . ': ' . json_last_error_msg()
+                    . $controller::class . ': ' . json_last_error_msg()
                 );
             }
             foreach ($specs as $key => $spec) {

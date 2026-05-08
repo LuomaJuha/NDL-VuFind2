@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Mink link resolver test class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTest\Mink;
 
 use Behat\Mink\Element\Element;
@@ -37,7 +39,6 @@ use Behat\Mink\Element\Element;
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
- * @retry    4
  */
 class LinkResolverTest extends \VuFindTest\Integration\MinkTestCase
 {
@@ -55,7 +56,7 @@ class LinkResolverTest extends \VuFindTest\Integration\MinkTestCase
                 'resolver' => 'demo',
                 'embed' => '1',
                 'url' => 'https://vufind.org/wiki',
-            ]
+            ],
         ];
     }
 
@@ -148,9 +149,7 @@ class LinkResolverTest extends \VuFindTest\Integration\MinkTestCase
         );
 
         // Search for a known record:
-        $session = $this->getMinkSession();
-        $session->visit($this->getVuFindUrl() . '/Search/Home');
-        $page = $session->getPage();
+        $page = $this->getSearchHomePage();
         $this->findCss($page, '#searchForm_lookfor')
             ->setValue('id:testsample1');
         $this->clickCss($page, '.btn.btn-primary');
@@ -176,12 +175,7 @@ class LinkResolverTest extends \VuFindTest\Integration\MinkTestCase
         );
 
         // Search for a known record:
-        $session = $this->getMinkSession();
-        $session->visit($this->getVuFindUrl() . '/Search/Home');
-        $page = $session->getPage();
-        $this->findCss($page, '#searchForm_lookfor')
-            ->setValue('id:testsample1');
-        $this->clickCss($page, '.btn.btn-primary');
+        $page = $this->performSearch('id:testsample1');
 
         // Verify the OpenURL
         $this->assertOpenUrl($page, false /* do not click link */);
@@ -196,7 +190,7 @@ class LinkResolverTest extends \VuFindTest\Integration\MinkTestCase
     {
         // By default, no OpenURL on record page:
         $page = $this->setupRecordPage();
-        $this->assertNull($page->find('css', '.fulltext'));
+        $this->unFindCss($page, '.fulltext');
     }
 
     /**

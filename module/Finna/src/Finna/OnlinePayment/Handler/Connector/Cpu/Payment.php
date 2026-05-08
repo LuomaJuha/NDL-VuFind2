@@ -1,18 +1,64 @@
 <?php
+
+/**
+ * CPU Payment.
+ *
+ * PHP version 8
+ *
+ * This is free and unencumbered software released into the public domain.
+ *
+ * Anyone is free to copy, modify, publish, use, compile, sell, or
+ * distribute this software, either in source code form or as a compiled
+ * binary, for any purpose, commercial or non-commercial, and by any
+ * means.
+ *
+ * In jurisdictions that recognize copyright laws, the author or authors
+ * of this software dedicate any and all copyright interest in the
+ * software to the public domain. We make this dedication for the benefit
+ * of the public at large and to the detriment of our heirs and
+ * successors. We intend this dedication to be an overt act of
+ * relinquishment in perpetuity of all present and future rights to this
+ * software under copyright law.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * For more information, please refer to <https://unlicense.org>
+ *
+ * @category VuFind
+ * @package  OnlinePayment
+ * @author   MB <asiakastuki@cpu.fi>
+ * @license  https://unlicense.org The Unlicense
+ * @link     https://www.cpu.fi/
+ */
+
 // @codingStandardsIgnoreStart
+
 namespace Finna\OnlinePayment\Handler\Connector\Cpu;
+
+use function count;
+use function intval;
 
 /**
  * Payment data to be sent to CPU payment gateway.
  *
- * @since 2015-05-19 MB, Version 1.0 created
- * @version 1.0
+ * @category VuFind
+ * @package  OnlinePayment
+ * @author   MB <asiakastuki@cpu.fi>
+ * @license  https://unlicense.org The Unlicense
+ * @link     https://www.cpu.fi/
+ * @since    2015-05-19 MB, Version 1.0 created
  */
 class Payment
 {
     /**
-     * eCommerce integration.
-     * 3 = eCommerce
+     * E-Commerce integration.
+     * 3 = eCommerce.
      *
      * @var string
      */
@@ -99,7 +145,7 @@ class Payment
     public $LastName = null;
 
     /**
-     * UI Language
+     * UI Language.
      *
      * @var string
      */
@@ -119,9 +165,10 @@ class Payment
      * Adds product into payment data.
      * Checks validity of product data before including it.
      *
-     * @see Product::isValid()
      * @param Product $product Product
+     *
      * @return Payment
+     * @see    Product::isValid()
      */
     public function addProduct(Product $product)
     {
@@ -167,8 +214,9 @@ class Payment
      * Calculates sha256 signature.
      * Only mandatory properties and properties with values are used in calculation.
      *
-     * @param string $source Source identification given by CPU
+     * @param string $source     Source identification given by CPU
      * @param string $secret_key Secret Key identification given by CPU
+     *
      * @return string sha256 hash signature
      */
     public function calculateHash($source, $secret_key)

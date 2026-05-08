@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Unit tests for SOLR similar records query builder
+ * Unit tests for SOLR similar records query builder.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2016.
@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -28,12 +28,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindTest\Backend\Solr;
 
 use VuFindSearch\Backend\Solr\SimilarBuilder;
 
 /**
- * Unit tests for SOLR similar records query builder
+ * Unit tests for SOLR similar records query builder.
  *
  * @category VuFind
  * @package  Search
@@ -83,16 +84,16 @@ class SimilarBuilderTest extends \PHPUnit\Framework\TestCase
     {
         $config = [
             'MoreLikeThis' => [
-                'count' => 10
-            ]
+                'count' => 10,
+            ],
         ];
-        $sb = new SimilarBuilder(new \Laminas\Config\Config($config));
+        $sb = new SimilarBuilder(new \VuFind\Config\Config($config));
         $response = $sb->build('testrecord');
         $rows = $response->get('rows');
         $this->assertEquals(10, $rows[0]);
 
         $config['MoreLikeThis']['useMoreLikeThisHandler'] = true;
-        $sb = new SimilarBuilder(new \Laminas\Config\Config($config));
+        $sb = new SimilarBuilder(new \VuFind\Config\Config($config));
         $response = $sb->build('testrecord');
         $rows = $response->get('rows');
         $this->assertEquals(10, $rows[0]);
@@ -106,7 +107,7 @@ class SimilarBuilderTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals(null, $qt);
 
         $config['MoreLikeThis']['params'] = 'qf=title,topic';
-        $sb = new SimilarBuilder(new \Laminas\Config\Config($config));
+        $sb = new SimilarBuilder(new \VuFind\Config\Config($config));
         $response = $sb->build('testrecord');
         $q = $response->get('q');
         $this->assertEquals('{!mlt qf=title,topic}testrecord', $q[0]);

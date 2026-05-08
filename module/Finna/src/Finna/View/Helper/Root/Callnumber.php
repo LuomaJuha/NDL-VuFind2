@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Holdings callnumber view helper
+ * Holdings callnumber view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\View\Helper\Root;
 
 use Finna\LocationService\LocationService;
+use Finna\Wayfinder\WayfinderService;
 
 /**
- * Holdings callnumber view helper
+ * Holdings callnumber view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -48,26 +51,37 @@ class Callnumber extends \Laminas\View\Helper\AbstractHelper
     protected $locationService = null;
 
     /**
-     * Constructor
+     * Wayfinder service.
      *
-     * @param LocationService $locationService Location Service
-     * of Finland Location Service
+     * @var WayfinderService
      */
-    public function __construct(LocationService $locationService)
+    protected $wayfinderService;
+
+    /**
+     * Constructor.
+     *
+     * @param LocationService  $locationService  Location Service
+     * of Finland Location Service
+     * @param WayfinderService $wayfinderService Wayfinder service instance.
+     */
+    public function __construct(LocationService $locationService, WayfinderService $wayfinderService)
     {
         $this->locationService = $locationService;
+        $this->wayfinderService = $wayfinderService;
     }
 
     /**
      * Returns HTML for a holding callnumber.
      *
-     * @param string $source     Record source
-     * @param string $title      Record title
-     * @param string $callnumber Callnumber
-     * @param string $collection Collection
-     * @param string $location   Location
-     * @param string $language   Language
-     * @param string $page       Page (record|results)
+     * @param string  $source             Record source
+     * @param string  $title              Record title
+     * @param ?string $callnumber         Callnumber
+     * @param ?string $collection         Collection
+     * @param ?string $location           Location
+     * @param string  $language           Language
+     * @param string  $page               Page (record|results)
+     * @param array   $fields             Additional data fields
+     * @param bool    $useLocationService Whether to display location service links (if available)
      *
      * @return string
      */
@@ -78,44 +92,49 @@ class Callnumber extends \Laminas\View\Helper\AbstractHelper
         $collection,
         $location,
         $language,
-        $page = 'record'
+        $page = 'record',
+        $fields = [],
+        $useLocationService = true
     ) {
-        $params = [
-            'callnumber' => $callnumber, 'location' => $location, 'title' => $title,
-            'page' => $page, 'source' => $source
-        ];
-        // Set results-online to just results for qrCode config below
-        if ('results-online' === $page) {
-            $page = 'results';
-        }
-        $config = $this->locationService->getConfig(
+        $params = compact(
+            'callnumber',
+            'collection',
+            'location',
+            'title',
+            'page',
+            'source',
+            'fields'
+        );
+
+        $config = $useLocationService ? $this->locationService->getConfig(
             $source,
             $title,
             $callnumber,
             $collection,
             $location,
-            $language
-        );
+            $language,
+            $fields
+        ) : null;
 
         if ($config) {
-            $params['collection'] = $collection;
-            $params['location'] = $location;
-            $params['title'] = $title;
             $params['locationServiceUrl'] = $config['url'];
             $params['locationServiceModal'] = $config['modal'];
-            $params['qrCode']
-                = $config[$page == 'results' ? 'qrCodeResults' : 'qrCodeRecord'];
+            // Extract the page from something like 'results' or 'results-online':
+            [$basePage] = explode('-', $page);
+            $section = $basePage === 'results' ? 'qrCodeResults' : 'qrCodeRecord';
+            $params['qrCode'] = $config[$section];
         }
-        return $this->getView()->render(
-            'Helpers/holding-callnumber.phtml',
-            $params
-        );
+        if ($useLocationService && $this->wayfinderService->isEnabledForSource($source)) {
+            $params['wayfinderLocation'] = $this->wayfinderService->getLocationData($fields);
+        }
+
+        return $this->getView()->render('Helpers/holding-callnumber.phtml', $params);
     }
 
     /**
      * Check if QR-code option is enabled.
      *
-     * @return boolean
+     * @return bool
      */
     public function useQrCode()
     {

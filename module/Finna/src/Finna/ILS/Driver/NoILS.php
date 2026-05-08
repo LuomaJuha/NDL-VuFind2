@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Driver for offline/missing ILS.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  ILS_Drivers
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:ils_drivers Wiki
  */
+
 namespace Finna\ILS\Driver;
 
 use VuFind\Exception\ILS as ILSException;
@@ -41,7 +43,7 @@ use VuFind\Exception\ILS as ILSException;
 class NoILS extends \VuFind\ILS\Driver\NoILS
 {
     /**
-     * Get Status
+     * Get Status.
      *
      * This is responsible for retrieving the status information of a certain
      * record.
@@ -57,7 +59,7 @@ class NoILS extends \VuFind\ILS\Driver\NoILS
         $result = parent::getStatus($id);
 
         $useStatus = $this->config['settings']['useStatus'] ?? 'none';
-        if ($useStatus == "custom") {
+        if ($useStatus == 'custom') {
             if ($url = $this->config['Status']['locationhref'] ?? '') {
                 $result[0]['locationhref'] = $url;
             }
@@ -67,13 +69,13 @@ class NoILS extends \VuFind\ILS\Driver\NoILS
     }
 
     /**
-     * Get Holding
+     * Get Holding.
      *
      * This is responsible for retrieving the holding information of a certain
      * record.
      *
      * @param string $id      The record id to retrieve the holdings for
-     * @param array  $patron  Patron data
+     * @param ?array $patron  Patron data
      * @param array  $options Extra options (not currently used)
      *
      * @throws ILSException
@@ -83,13 +85,13 @@ class NoILS extends \VuFind\ILS\Driver\NoILS
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    public function getHolding($id, array $patron = null, array $options = [])
+    public function getHolding($id, ?array $patron = null, array $options = [])
     {
         $result = parent::getHolding($id, $patron, $options);
 
         $useHoldings = $this->config['settings']['useHoldings'] ?? 'none';
 
-        if ($useHoldings == "custom") {
+        if ($useHoldings == 'custom') {
             if ($url = $this->config['Holdings']['locationhref'] ?? '') {
                 $result[0]['locationhref'] = $url;
             }

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Abstract base custom element
+ * Abstract base custom element.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  CustomElements
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\View\CustomElement;
 
 use Exception;
@@ -34,8 +36,11 @@ use PHPHtmlParser\Dom;
 use PHPHtmlParser\Dom\Node\HtmlNode;
 use PHPHtmlParser\Options;
 
+use function array_key_exists;
+use function is_string;
+
 /**
- * Abstract base custom element
+ * Abstract base custom element.
  *
  * @category VuFind
  * @package  CustomElements
@@ -46,28 +51,28 @@ use PHPHtmlParser\Options;
 abstract class AbstractBase implements CustomElementInterface
 {
     /**
-     * Regex for matching valid element names
+     * Regex for matching valid element names.
      *
      * @var string
      */
     protected $validNameRegex = '/^([A-Za-z][A-Za-z0-9]*)-[A-Za-z0-9-]+$/';
 
     /**
-     * Element name
+     * Element name.
      *
      * @var string
      */
     protected $name;
 
     /**
-     * Element name prefix
+     * Element name prefix.
      *
      * @var string
      */
     protected $prefix;
 
     /**
-     * Options
+     * Options.
      *
      * The base class supports the following options:
      * - attributes
@@ -82,21 +87,21 @@ abstract class AbstractBase implements CustomElementInterface
     protected $options;
 
     /**
-     * Attributes
+     * Attributes.
      *
      * @var array
      */
     protected $attributes;
 
     /**
-     * DOM object for the custom element if outerHTML is provided in options
+     * DOM object for the custom element if outerHTML is provided in options.
      *
      * @var Dom
      */
     protected $dom = null;
 
     /**
-     * View model for server-side rendering
+     * View model for server-side rendering.
      *
      * @var ModelInterface
      */
@@ -133,7 +138,8 @@ abstract class AbstractBase implements CustomElementInterface
                     ->setCleanupInput(false)
                     ->setRemoveDoubleSpace(false)
             );
-            if ($dom->countChildren() !== 1
+            if (
+                $dom->countChildren() !== 1
                 || $dom->firstChild()->getTag()->name() !== $this->getName()
             ) {
                 throw new Exception('Element outerHTML is not valid');
@@ -156,9 +162,7 @@ abstract class AbstractBase implements CustomElementInterface
         $variables = static::getDefaultVariables();
 
         // Try to set variable values from attributes, if defined by subclass.
-        foreach (static::getAttributeToVariableMap()
-            as $attributeName => $variableName
-        ) {
+        foreach (static::getAttributeToVariableMap() as $attributeName => $variableName) {
             if (array_key_exists($attributeName, $attributes)) {
                 $variables[$variableName] = $attributes[$attributeName];
             }
@@ -201,7 +205,7 @@ abstract class AbstractBase implements CustomElementInterface
             self::ATTRIBUTES => array_fill_keys(
                 array_keys(static::getAttributeToVariableMap()),
                 'CDATA'
-            )
+            ),
         ];
     }
 
@@ -353,7 +357,8 @@ abstract class AbstractBase implements CustomElementInterface
         $parent->removeChild($element->id());
 
         // If the parent is an empty p element, remove the parent also.
-        if (!$parent->hasChildren()
+        if (
+            !$parent->hasChildren()
             && $parent->getTag()->name() === 'p'
         ) {
             $parent->getParent()->removeChild($parent->id());

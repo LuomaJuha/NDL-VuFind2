@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Base class for session handling
+ * Base class for session handling.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010,
  *               Leipzig University Library <info@ub.uni-leipzig.de> 2018.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Session_Handlers
@@ -27,12 +28,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:session_handlers Wiki
  */
+
 namespace VuFind\Session;
 
-use Laminas\Config\Config;
+use VuFind\Config\Config;
+use VuFind\Db\Service\DbServiceAwareTrait;
+use VuFind\Db\Service\ExternalSessionServiceInterface;
+use VuFind\Db\Service\SearchServiceInterface;
 
 /**
- * Base class for session handling
+ * Base class for session handling.
  *
  * @category VuFind
  * @package  Session_Handlers
@@ -43,12 +48,13 @@ use Laminas\Config\Config;
  */
 abstract class AbstractBase implements HandlerInterface
 {
-    use \VuFind\Db\Table\DbTableAwareTrait {
-        getDbTable as getTable;
-    }
+    // Note that we intentionally omit the DbServiceAwareInterface above; the service
+    // manager is injected by AbstractBaseFactory explicitly for compatibility with
+    // the secure delegator factory, so we don't need to auto-inject it.
+    use DbServiceAwareTrait;
 
     /**
-     * Session lifetime in seconds
+     * Session lifetime in seconds.
      *
      * @var int
      */
@@ -56,19 +62,19 @@ abstract class AbstractBase implements HandlerInterface
 
     /**
      * Whether writes are disabled, i.e. any changes to the session are not written
-     * to the storage
+     * to the storage.
      *
      * @var bool
      */
     protected $writesDisabled = false;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param Config $config Session configuration ([Session] section of
+     * @param ?Config $config Session configuration ([Session] section of
      * config.ini)
      */
-    public function __construct(Config $config = null)
+    public function __construct(?Config $config = null)
     {
         if (isset($config->lifetime)) {
             $this->lifetime = $config->lifetime;
@@ -76,7 +82,7 @@ abstract class AbstractBase implements HandlerInterface
     }
 
     /**
-     * Enable session writing (default)
+     * Enable session writing (default).
      *
      * @return void
      */
@@ -86,7 +92,7 @@ abstract class AbstractBase implements HandlerInterface
     }
 
     /**
-     * Disable session writing, i.e. make it read-only
+     * Disable session writing, i.e. make it read-only.
      *
      * @return void
      */
@@ -127,7 +133,7 @@ abstract class AbstractBase implements HandlerInterface
      * session_destroy() and takes the session id as its only parameter.
      *
      * IMPORTANT:  The functionality defined in this method is global to all session
-     *             mechanisms.  If you override this method, be sure to still call
+     *             mechanisms. If you override this method, be sure to still call
      *             parent::destroy() in addition to any new behavior.
      *
      * @param string $sessId The session ID to destroy
@@ -136,10 +142,8 @@ abstract class AbstractBase implements HandlerInterface
      */
     public function destroy($sessId): bool
     {
-        $searchTable = $this->getTable('Search');
-        $searchTable->destroySession($sessId);
-        $sessionTable = $this->getTable('ExternalSession');
-        $sessionTable->destroySession($sessId);
+        $this->getDbService(SearchServiceInterface::class)->destroySession($sessId);
+        $this->getDbService(ExternalSessionServiceInterface::class)->destroySession($sessId);
         return true;
     }
 
@@ -149,12 +153,11 @@ abstract class AbstractBase implements HandlerInterface
      *
      * @param int $sessMaxLifetime Maximum session lifetime.
      *
-     * @return bool
+     * @return int|false
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    #[\ReturnTypeWillChange]
-    public function gc($sessMaxLifetime)
+    public function gc($sessMaxLifetime): int|false
     {
         // how often does this get called (if at all)?
 
@@ -167,7 +170,7 @@ abstract class AbstractBase implements HandlerInterface
         // Anecdotal testing Today and Yesterday seems to indicate destroy()
         //   is called by the garbage collector and everything is good.
         // Something to keep in mind though.
-        return true;
+        return 0;
     }
 
     /**

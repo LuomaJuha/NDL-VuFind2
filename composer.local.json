@@ -2,26 +2,43 @@
     "__comment__": [
         "See https://github.com/wikimedia/composer-merge-plugin for more details."
     ],
-    "require": {
-        "ezyang/htmlpurifier": "4.12.0",
-        "jaybizzle/crawler-detect": "^1.2.111",
-        "league/mime-type-detection": "1.9.0",
-        "natlibfi/php-html-parser": "4.0.1",
-        "paytrail/paytrail-php-sdk": "1.1.0",
-        "picqer/php-barcode-generator": "2.0.1",
-        "natlibfi/besimple-soap": "2.0.0",
-        "swen100/geophp": "^1.0.8"
-    },
-    "extra": {
-        "merge-plugin": {
-            "include": [
-                "composer.components.json"
-            ]
+    "autoload": {
+        "psr-4": {
+            "Finna\\": ["module/Finna/src/Finna", "module/Finna"],
+            "FinnaApi\\": ["module/FinnaApi/src/FinnaApi", "module/FinnaApi"],
+            "FinnaConsole\\": ["module/FinnaConsole/src/FinnaConsole", "module/FinnaConsole"],
+            "FinnaCustom\\": "module/FinnaCustom/src/FinnaCustom",
+            "FinnaSearch\\": ["module/FinnaSearch/src/FinnaSearch", "module/FinnaSearch"],
+            "FinnaTheme\\": ["module/FinnaTheme/src/FinnaTheme", "module/FinnaTheme"]
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "FinnaTest\\": ["module/Finna/src/FinnaTest", "module/Finna/tests/unit-tests/src/FinnaTest"]
+        }
+    },
+    "require": {
+        "defuse/php-encryption": "^2.4",
+        "league/mime-type-detection": "1.9.0",
+        "natlibfi/besimple-soap": "3.0.1",
+        "natlibfi/finna-code-sets": "0.5.2",
+        "natlibfi/finna-xml": "1.6.0",
+        "natlibfi/php-html-parser": "5.0.1",
+        "phpoffice/phpspreadsheet": "^2.0",
+        "picqer/php-barcode-generator": "2.0.1",
+        "swen100/geophp": "^1.0.8"
+    },
     "scripts": {
-        "create-translation-files": "touch local/languages/finna/fi-datasources.ini; touch local/languages/finna/sv-datasources.ini; touch local/languages/finna/en-gb-datasources.ini",
+        "create-translation-files": "touch local/languages/finna/fi-datasources.ini; touch local/languages/finna/sv-datasources.ini; touch local/languages/finna/en-gb-datasources.ini; touch local/languages/finna/se-datasources.ini;",
         "post-install-cmd": ["@phing-install-dependencies", "@create-translation-files"],
-        "post-update-cmd": ["@phing-install-dependencies", "@create-translation-files"]
+        "post-update-cmd": ["@phing-install-dependencies", "@create-translation-files"],
+        "update-npm-deps": [
+            "cd themes/finna2 && npm run updateDeps"
+        ],
+        "install-build-deps": [
+            "[ $COMPOSER_DEV_MODE -eq 0 ] || npm install --ignore-scripts",
+            "cd themes/bootstrap5 && npm run installBuildDeps",
+            "cd themes/finna2 && npm run installBuildDeps"
+        ]
     }
 }

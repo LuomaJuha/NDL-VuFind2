@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Field group builder for record driver data formatting view helper
+ * Field group builder for record driver data formatting view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2020.
+ * Copyright (C) The National Library of Finland 2020-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root\RecordDataFormatter;
 
 /**
- * Field group builder for record driver data formatting view helper
+ * Field group builder for record driver data formatting view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -64,7 +66,10 @@ class FieldGroupBuilder
      * @param array  $options  Additional group options (optional):
      *                         - context
      *                         Context array containing data made available to
-     *                         templates.
+     *                         group templates.
+     *                         - lineContext
+     *                         Context array containing data made available to
+     *                         field templates.
      *                         - skipGroup
      *                         Set to true to skip rendering of the group. This
      *                         can e.g. be used to skip rendering unused lines.
@@ -73,13 +78,25 @@ class FieldGroupBuilder
      */
     public function addGroup($label, $lines, $template, $options = [])
     {
-        $options['label'] = $label;
-        $options['lines'] = $lines;
-        $options['template'] = $template;
-        if (!isset($options['context'])) {
-            $options['context'] = [];
+        $options['context'] ??= [];
+        $options['lineContext'] ??= [];
+        $options['skipGroup'] ??= false;
+
+        if (!empty($options['lineContext'])) {
+            foreach ($lines as &$line) {
+                $line['context'] = array_merge_recursive(
+                    $line['context'] ?? [],
+                    $options['lineContext']
+                );
+            }
         }
-        $this->groups[] = $options;
+
+        $this->groups[] = [
+            'label' => $label,
+            'lines' => $lines,
+            'template' => $template,
+            'options' => $options,
+        ];
     }
 
     /**
@@ -92,8 +109,8 @@ class FieldGroupBuilder
      *                              will be appended as their own group.
      * @param string $template      Default group template to use if not
      *                              specified for a group.
-     * @param array  $options       Additional options to use if not specified
-     *                              for a group (optional). See
+     * @param array  $options       Additional options to be merged with group
+     *                              specific additional options (optional). See
      *                              FieldGroupBuilder::addGroup() for details.
      * @param array  $unusedOptions Additional options for the unused lines group
      *                              (optional). See FieldGroupBuilder::addGroup()
@@ -106,8 +123,9 @@ class FieldGroupBuilder
         $lines,
         $template,
         $options = [],
-        $unusedOptions = []
+        $unusedOptions = null
     ) {
+        $unusedOptions ??= $options;
         $allUsed = [];
         foreach ($groups as $group) {
             if (!isset($group['lines'])) {
@@ -115,7 +133,10 @@ class FieldGroupBuilder
             }
             $groupLabel = $group['label'] ?? false;
             $groupTemplate = $group['template'] ?? $template;
-            $groupOptions = $group['options'] ?? $options;
+            $groupOptions = array_merge_recursive(
+                $options,
+                $group['options'] ?? []
+            );
 
             // Get group lines from provided lines array and use group spec
             // array order for line pos values.
@@ -127,8 +148,19 @@ class FieldGroupBuilder
                 }
                 $pos += 100;
                 $groupLine['pos'] = $pos;
+
+                // If there is a group line context, merge it here since we are
+                // already looping through the lines.
+                if (!empty($groupOptions['lineContext'])) {
+                    $groupLine['context'] = array_merge_recursive(
+                        $groupLine['context'] ?? [],
+                        $groupOptions['lineContext']
+                    );
+                }
+
                 $groupLines[$key] = $groupLine;
             }
+            unset($groupOptions['lineContext']);
 
             $allUsed = array_merge($allUsed, $groupLines);
             $this->addGroup($groupLabel, $groupLines, $groupTemplate, $groupOptions);

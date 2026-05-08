@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Holds Controller
+ * Holds Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2021.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -27,12 +28,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
 use Laminas\Cache\Storage\StorageInterface;
 use Laminas\ServiceManager\ServiceLocatorInterface;
+use VuFind\Db\Type\AuditEventSubtype;
+use VuFind\Db\Type\AuditEventType;
 use VuFind\Exception\ILS as ILSException;
 use VuFind\Validator\CsrfInterface;
+
+use function count;
+use function in_array;
+use function is_array;
 
 /**
  * Controller for the user holds area.
@@ -50,14 +58,14 @@ class HoldsController extends AbstractBase
     use \VuFind\Cache\CacheTrait;
 
     /**
-     * CSRF validator
+     * CSRF validator.
      *
      * @var CsrfInterface
      */
     protected $csrf;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm    Service locator
      * @param CsrfInterface           $csrf  CSRF validator
@@ -76,7 +84,7 @@ class HoldsController extends AbstractBase
     }
 
     /**
-     * Send list of holds to view
+     * Send list of holds to view.
      *
      * @return mixed
      */
@@ -93,11 +101,22 @@ class HoldsController extends AbstractBase
         // Process cancel requests if necessary:
         $cancelStatus = $catalog->checkFunction('cancelHolds', compact('patron'));
         $view = $this->createViewModel();
-        $view->cancelResults = $cancelStatus
-            ? $this->holds()->cancelHolds($catalog, $patron) : [];
+        $view->cancelResults = $cancelStatus ? $this->holds()->cancelHolds($catalog, $patron) : [];
         // If we need to confirm
         if (!is_array($view->cancelResults)) {
             return $view->cancelResults;
+        }
+
+        if ($view->cancelResults) {
+            $this->getAuditEventService()->addEvent(
+                AuditEventType::ILS,
+                AuditEventSubtype::CancelHolds,
+                $this->getUser(),
+                data: [
+                    'username' => $patron['cat_username'],
+                    'results' => $view->cancelResults,
+                ]
+            );
         }
 
         // Process any update request results stored in the session:
@@ -137,7 +156,8 @@ class HoldsController extends AbstractBase
                 $cancelStatus,
                 $patron
             );
-            if ($cancelStatus && $cancelStatus['function'] !== 'getCancelHoldLink'
+            if (
+                $cancelStatus && $cancelStatus['function'] !== 'getCancelHoldLink'
                 && isset($current['cancel_details'])
             ) {
                 // Enable cancel form if necessary:
@@ -146,7 +166,8 @@ class HoldsController extends AbstractBase
 
             // Add update details if appropriate
             if (isset($current['updateDetails'])) {
-                if (empty($holdConfig['updateFields'])
+                if (
+                    empty($holdConfig['updateFields'])
                     || '' === $current['updateDetails']
                 ) {
                     unset($current['updateDetails']);
@@ -184,12 +205,19 @@ class HoldsController extends AbstractBase
     }
 
     /**
-     * Edit holds
+     * Edit holds.
      *
      * @return mixed
      */
     public function editAction()
     {
+        $this->ilsExceptionResponse = $this->createViewModel(
+            [
+                'selectedIDS' => [],
+                'fields' => [],
+            ]
+        );
+
         // Stop now if the user does not have valid catalog credentials available:
         if (!is_array($patron = $this->catalogLogin())) {
             return $patron;
@@ -209,7 +237,7 @@ class HoldsController extends AbstractBase
         }
         // If the user input contains a value not found in the session
         // legal list, something has been tampered with -- abort the process.
-        if ($this->holds()->validateIds($selectedIds)) {
+        if (!$this->holds()->validateIds($selectedIds)) {
             $this->flashMessenger()
                 ->addErrorMessage('error_inconsistent_parameters');
             return $this->inLightbox()
@@ -265,8 +293,19 @@ class HoldsController extends AbstractBase
                     );
                     $this->flashMessenger()->addErrorMessage($msg);
                 }
+
+                $this->getAuditEventService()->addEvent(
+                    AuditEventType::ILS,
+                    AuditEventSubtype::UpdateHolds,
+                    $this->getUser(),
+                    data: [
+                        'username' => $patron['cat_username'],
+                        'results' => $results,
+                    ]
+                );
+
                 return $this->inLightbox()
-                    ? $this->getRefreshResponse()
+                    ? $this->getRefreshResponse(true)
                     : $this->redirect()->toRoute('holds-list');
             }
         }
@@ -318,7 +357,8 @@ class HoldsController extends AbstractBase
                     } else {
                         $ids1 = array_column($pickupLocations, 'locationID');
                         $ids2 = array_column($locations, 'locationID');
-                        if (count($ids1) !== count($ids2) || array_diff($ids1, $ids2)
+                        if (
+                            count($ids1) !== count($ids2) || array_diff($ids1, $ids2)
                         ) {
                             $differences = true;
                             // Find out any common pickup locations:
@@ -353,7 +393,7 @@ class HoldsController extends AbstractBase
     }
 
     /**
-     * Get fields to update from details gathered from the user
+     * Get fields to update from details gathered from the user.
      *
      * @param array $holdConfig      Hold configuration from the driver
      * @param array $gatheredDetails Details gathered from the user
@@ -376,14 +416,15 @@ class HoldsController extends AbstractBase
             );
         }
         $dateValidationResults = [
-            'errors' => []
+            'errors' => [],
         ];
         $frozenThroughValidationResults = [
             'frozenThroughTS' => null,
             'errors' => [],
         ];
         // The dates are not required unless one of them is set, so check that first:
-        if (!empty($gatheredDetails['startDate'])
+        if (
+            !empty($gatheredDetails['startDate'])
             || !empty($gatheredDetails['requiredBy'])
         ) {
             $dateValidationResults = $this->holds()->validateDates(
@@ -450,12 +491,12 @@ class HoldsController extends AbstractBase
     {
         return new \Laminas\Session\Container(
             'hold_update',
-            $this->serviceLocator->get(\Laminas\Session\SessionManager::class)
+            $this->getService(\Laminas\Session\SessionManager::class)
         );
     }
 
     /**
-     * Get a unique cache id for a patron
+     * Get a unique cache id for a patron.
      *
      * @param array  $patron Patron
      * @param string $type   Type of cached data

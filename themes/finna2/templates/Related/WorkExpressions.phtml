@@ -15,17 +15,19 @@
           </a>
           <div class="details">
             <?=$this->record($data)->getFormatList();?>
-            <?php $authors = $data->getPrimaryAuthors(); if (!empty($authors)): ?>
-              <br/><?=$this->transEsc('by')?>: <?=$this->escapeHtml($authors[0]);?><?php if (count($authors) > 1): ?> <?=$this->transEsc('more_authors_abbrev')?><?php endif; ?>
+            <?php $authors = $data->getPrimaryAuthors();
+            if (!empty($authors)): ?>
+              <br><?=$this->transEsc('by')?>: <?=$this->escapeHtml($authors[0]);?><?php if (count($authors) > 1): ?> <?=$this->transEsc('more_authors_abbrev')?><?php endif; ?>
             <?php endif; ?>
-            <?php $pubDates = $data->getPublicationDates(); if (!empty($pubDates)): ?>
-              <br/><?=$this->transEsc('Published')?>: (<?=$this->escapeHtml($pubDates[0])?>)
+            <?php $pubDates = $data->getPublicationDates();
+            if (!empty($pubDates)): ?>
+              <br><?=$this->transEsc('Published')?>: (<?=$this->escapeHtml($pubDates[0])?>)
             <?php endif; ?>
           </div>
         </div>
       <?php endforeach; ?>
       <a class="more-link" href="<?=$this->url('search-results')?>?<?=$this->escapeHtmlAttr($this->related->getSearchUrlParams()) ?>&sort=main_date_str+desc" rel="nofollow">
-        <span class="text"><?=$this->transEsc('see all')?> <i class="fa fa-list" aria-hidden="true"></i></span>
+        <span class="text"><?=$this->transEsc('see all')?> <?=$this->icon('list') ?></span>
       </a>
     </div>
   </div>

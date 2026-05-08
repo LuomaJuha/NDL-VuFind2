@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Authentication strategy permission provider for VuFind.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2020.
  *
@@ -16,24 +17,28 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Authorization
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Role\PermissionProvider;
 
-use Finna\Auth\ILSAuthenticator;
 use Finna\Auth\Manager as AuthManager;
 use Finna\ILS\Connection as ILSConnection;
 use Laminas\Session\Container as SessionContainer;
+use VuFind\Auth\ILSAuthenticator;
 use VuFind\Exception\ILS as ILSException;
 use VuFind\Role\PermissionProvider\PermissionProviderInterface;
+
+use function in_array;
+use function is_callable;
 
 /**
  * Authentication strategy permission provider for VuFind.
@@ -43,40 +48,40 @@ use VuFind\Role\PermissionProvider\PermissionProviderInterface;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class AuthenticationStrategy implements PermissionProviderInterface
 {
     /**
-     * Authentication manager
+     * Authentication manager.
      *
      * @var AuthManager
      */
     protected $authManager;
 
     /**
-     * ILS authenticator
+     * ILS authenticator.
      *
      * @var ILSAuthenticator
      */
     protected $ilsAuth;
 
     /**
-     * ILS connection
+     * ILS connection.
      *
      * @var ILSConnection
      */
     protected $ils;
 
     /**
-     * Session storage
+     * Session storage.
      *
      * @var SessionContainer
      */
     protected $sessionContainer;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param AuthManager      $am      Authentication manager
      * @param ILSConnection    $ils     ILS connection
@@ -114,7 +119,8 @@ class AuthenticationStrategy implements PermissionProviderInterface
             return ['loggedin'];
         }
 
-        if (in_array($selected, ['ILS', 'MultiILS'])
+        if (
+            in_array($selected, ['ILS', 'MultiILS'])
             && in_array('ILS-statCode', $options)
         ) {
             // Check ILS stat group
@@ -123,7 +129,8 @@ class AuthenticationStrategy implements PermissionProviderInterface
             }
         }
 
-        if (in_array($selected, ['ILS', 'MultiILS'])
+        if (
+            in_array($selected, ['ILS', 'MultiILS'])
             && in_array('ILS-staff', $options)
         ) {
             // Check ILS for staff user
@@ -136,7 +143,7 @@ class AuthenticationStrategy implements PermissionProviderInterface
     }
 
     /**
-     * Get patron authorization status
+     * Get patron authorization status.
      *
      * @param bool $staff Whether to check staff or normal user authorization
      *
@@ -150,10 +157,10 @@ class AuthenticationStrategy implements PermissionProviderInterface
 
         $key = null;
         try {
-            if (($user = $this->authManager->isLoggedIn())
-                && !empty($user->cat_username)
+            if (
+                ($user = $this->authManager->getUserObject())
+                && !empty($key = $user->getCatUsername())
             ) {
-                $key = $user->cat_username;
                 if (!isset($this->sessionContainer->{$code})) {
                     $this->sessionContainer->{$code} = [];
                 }

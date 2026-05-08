@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Modified BeSimple Curl for VuFind HTTP Service
+ * Modified BeSimple Curl for VuFind HTTP Service.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  ILS_Drivers
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:ils_drivers Wiki
  */
+
 namespace Finna\ILS\Driver;
 
 use BeSimple\SoapClient\Curl;
 use VuFindHttp\HttpServiceInterface;
 
 /**
- * Modified BeSimple Curl for VuFind HTTP Service
+ * Modified BeSimple Curl for VuFind HTTP Service.
  *
  * @category VuFind
  * @package  ILS_Drivers
@@ -42,42 +44,42 @@ use VuFindHttp\HttpServiceInterface;
 class ProxyCurl extends Curl
 {
     /**
-     * HTTP Service
+     * HTTP Service.
      *
      * @var \VuFindHttp\HttpServiceInterface
      */
     protected $httpService;
 
     /**
-     * Response
+     * Response.
      *
      * @var \Laminas\Http\Response
      */
     protected $response = null;
 
     /**
-     * Last error code
+     * Last error code.
      *
      * @var int
      */
     protected $lastErrorCode = 0;
 
     /**
-     * Last error message
+     * Last error message.
      *
      * @var string
      */
     protected $lastErrorMessage = '';
 
     /**
-     * Last request headers
+     * Last request headers.
      *
      * @var string
      */
     protected $requestHeaders = '';
 
     /**
-     * Options
+     * Options.
      *
      * @var array
      */
@@ -111,7 +113,7 @@ class ProxyCurl extends Curl
     }
 
     /**
-     * Set a cURL option
+     * Set a cURL option.
      *
      * @param string $curlOption      Option
      * @param string $curlOptionValue Value
@@ -187,7 +189,7 @@ class ProxyCurl extends Curl
             $this->lastErrorMessage = $e->getMessage();
         }
 
-        return (false === $this->response) ? false : true;
+        return false !== $this->response;
     }
 
     /**

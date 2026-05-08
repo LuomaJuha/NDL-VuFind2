@@ -1,8 +1,9 @@
 <?php
+
 /**
  * XSLT importer support methods.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (c) Demian Katz 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Import_Tools
@@ -25,9 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/indexing Wiki
  */
+
 namespace VuFind\XSLT\Import;
 
 use DOMDocument;
+
+use function count;
+use function in_array;
+use function is_callable;
+use function strlen;
 
 /**
  * XSLT support class -- all methods of this class must be public and static;
@@ -43,7 +50,14 @@ use DOMDocument;
 class VuFind
 {
     /**
-     * Service locator
+     * ISO8601 date format string.
+     *
+     * @var string
+     */
+    protected const ISO8601_FORMAT = 'Y-m-d\TH:i:s\Z';
+
+    /**
+     * Service locator.
      *
      * @var ServiceLocatorInterface
      */
@@ -62,14 +76,14 @@ class VuFind
     }
 
     /**
-     * Get the change tracker table object.
+     * Get the change tracker service object.
      *
-     * @return \VuFind\Db\Table\ChangeTracker
+     * @return \VuFind\Db\Service\ChangeTrackerServiceInterface
      */
     public static function getChangeTracker()
     {
-        return static::$serviceLocator->get(\VuFind\Db\Table\PluginManager::class)
-            ->get('ChangeTracker');
+        return static::$serviceLocator->get(\VuFind\Db\Service\PluginManager::class)
+            ->get(\VuFind\Db\Service\ChangeTrackerServiceInterface::class);
     }
 
     /**
@@ -77,12 +91,11 @@ class VuFind
      *
      * @param string $config Configuration name
      *
-     * @return \Laminas\Config\Config
+     * @return \VuFind\Config\Config
      */
     public static function getConfig($config = 'config')
     {
-        return static::$serviceLocator->get(\VuFind\Config\PluginManager::class)
-            ->get($config);
+        return static::$serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject($config);
     }
 
     /**
@@ -98,8 +111,7 @@ class VuFind
     {
         $date = strtotime($date);
         $row = static::getChangeTracker()->index($core, $id, $date);
-        $iso8601 = 'Y-m-d\TH:i:s\Z';
-        return date($iso8601, strtotime($row->first_indexed));
+        return $row->getFirstIndexed()->format(self::ISO8601_FORMAT);
     }
 
     /**
@@ -115,8 +127,7 @@ class VuFind
     {
         $date = strtotime($date);
         $row = static::getChangeTracker()->index($core, $id, $date);
-        $iso8601 = 'Y-m-d\TH:i:s\Z';
-        return date($iso8601, strtotime($row->last_indexed));
+        return $row->getLastIndexed()->format(self::ISO8601_FORMAT);
     }
 
     /**
@@ -141,7 +152,7 @@ class VuFind
     }
 
     /**
-     * Read parser method from fulltext.ini
+     * Read parser method from fulltext.ini.
      *
      * @return string Name of parser to use (i.e. Aperture or Tika)
      */
@@ -169,7 +180,7 @@ class VuFind
     }
 
     /**
-     * Call parsing method based on parser setting in fulltext.ini
+     * Call parsing method based on parser setting in fulltext.ini.
      *
      * @param string $url URL to harvest
      *
@@ -179,18 +190,18 @@ class VuFind
     {
         $parser = static::getParser();
         switch (strtolower($parser)) {
-        case 'aperture':
-            return static::harvestWithAperture($url);
-        case 'tika':
-            return static::harvestWithTika($url);
-        default:
-            // Ignore unrecognized parser option:
-            return '';
+            case 'aperture':
+                return static::harvestWithAperture($url);
+            case 'tika':
+                return static::harvestWithTika($url);
+            default:
+                // Ignore unrecognized parser option:
+                return '';
         }
     }
 
     /**
-     * Generic method for building Aperture Command
+     * Generic method for building Aperture Command.
      *
      * @param string $input  name of input file | url
      * @param string $output name of output file
@@ -201,7 +212,7 @@ class VuFind
     public static function getApertureCommand(
         $input,
         $output,
-        $method = "webcrawler"
+        $method = 'webcrawler'
     ) {
         // get the path to our sh/bat from the config
         $settings = static::getConfig('fulltext');
@@ -211,7 +222,7 @@ class VuFind
         $cmd = $settings->Aperture->webcrawler;
 
         // if we're using another method - substitute that into the path
-        $cmd = ($method != "webcrawler")
+        $cmd = ($method != 'webcrawler')
             ? str_replace('webcrawler', $method, $cmd) : $cmd;
 
         // return the full command
@@ -234,7 +245,7 @@ class VuFind
     /**
      * Harvest the contents of a document file (PDF, Word, etc.) using Aperture.
      * This method will only work if Aperture is properly configured in the
-     * fulltext.ini file.  Without proper configuration, this will simply return an
+     * fulltext.ini file. Without proper configuration, this will simply return an
      * empty string.
      *
      * @param string $url    URL of file to retrieve.
@@ -242,7 +253,7 @@ class VuFind
      *
      * @return string        text contents of file.
      */
-    public static function harvestWithAperture($url, $method = "webcrawler")
+    public static function harvestWithAperture($url, $method = 'webcrawler')
     {
         // Build a filename for temporary XML storage:
         $xmlFile = tempnam('/tmp', 'apt');
@@ -274,7 +285,7 @@ class VuFind
     }
 
     /**
-     * Generic method for building Tika command
+     * Generic method for building Tika command.
      *
      * @param string $input  url | fileresource
      * @param string $output name of output file
@@ -294,17 +305,17 @@ class VuFind
         $descriptorspec = [
             0 => ['pipe', 'r'],
             1 => ['file', $output, 'w'],
-            2 => ['pipe', 'w']
+            2 => ['pipe', 'w'],
         ];
         return [
-            "java -jar $tika $arg -eUTF8 $input", $descriptorspec, []
+            "java -jar $tika $arg -eUTF8 $input", $descriptorspec, [],
         ];
     }
 
     /**
      * Harvest the contents of a document file (PDF, Word, etc.) using Tika.
      * This method will only work if Tika is properly configured in the
-     * fulltext.ini file.  Without proper configuration, this will simply return an
+     * fulltext.ini file. Without proper configuration, this will simply return an
      * empty string.
      *
      * @param string $url URL of file to retrieve.
@@ -312,7 +323,7 @@ class VuFind
      *
      * @return string     text contents of file.
      */
-    public static function harvestWithTika($url, $arg = "--text")
+    public static function harvestWithTika($url, $arg = '--text')
     {
         // Build a filename for temporary XML storage:
         $outputFile = tempnam('/tmp', 'tika');
@@ -343,7 +354,7 @@ class VuFind
      */
     public static function mapString($in, $filename)
     {
-        // Load the translation map and send back the appropriate value.  Note
+        // Load the translation map and send back the appropriate value. Note
         // that PHP's parse_ini_file() function is not compatible with SolrMarc's
         // style of properties map, so we are parsing this manually.
         $map = [];
@@ -375,7 +386,7 @@ class VuFind
             : strtolower(trim($in));
 
         foreach ($articles as $a) {
-            if (substr($text, 0, strlen($a) + 1) == ($a . ' ')) {
+            if (str_starts_with($text, $a . ' ')) {
                 $text = substr($text, strlen($a) + 1);
                 break;
             }
@@ -385,7 +396,138 @@ class VuFind
     }
 
     /**
-     * Convert provided nodes into XML and return as text.  This is useful for
+     * Strip accents from a string.
+     *
+     * @param string $str String to process.
+     *
+     * @return string     Processed string.
+     */
+    public static function stripAccents(string $str): string
+    {
+        $tl = \Transliterator::create('Latin-ASCII;');
+        return $tl->transliterate($str);
+    }
+
+    /**
+     * Strip punctuation from a string.
+     *
+     * @param string $str String to process.
+     *
+     * @return string     Processed string.
+     */
+    public static function stripPunctuation(string $str): string
+    {
+        // Convert strings of spaces and punctuation into single spaces, for
+        // consistency with SolrMarc behavior.
+        return preg_replace('/[[:punct:]\s]+/', ' ', $str);
+    }
+
+    /**
+     * Remove single square bracket characters if they are the start and/or end
+     * chars (matched or unmatched) and are the only square bracket chars in the
+     * string.
+     *
+     * Ported from SolrMarc's DataUtil class.
+     *
+     * @param string $str Text string with possible enclosing brackets
+     *
+     * @return string     Processed string with the brackets removed.
+     */
+    public static function removeOuterBrackets(string $str): string
+    {
+        $result = trim($str);
+        if (strlen($result) > 0) {
+            $openBracketFirst = str_starts_with($result, '[');
+            $closeBracketLast = str_ends_with($result, ']');
+            $totalLefts = substr_count($result, '[');
+            $totalRights = substr_count($result, ']');
+            if ($openBracketFirst && $closeBracketLast && $totalLefts === 1 && $totalRights === 1) {
+                // only square brackets are at beginning and end
+                $result = substr($result, 1, strlen($result) - 2);
+            } elseif ($openBracketFirst && $totalRights === 0) {
+                // starts with '[' but no ']'; remove open bracket
+                $result = substr($result, 1);
+            } elseif ($closeBracketLast && $totalLefts === 0) {
+                // ends with ']' but no '['; remove close bracket
+                $result = substr($result, 0, strlen($result) - 1);
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * Port of logic from SolrMarc's DataUtil::cleanData method.
+     *
+     * @param string $str String to process.
+     *
+     * @return string     Processed string.
+     */
+    public static function solrMarcStyleCleanData(string $str): string
+    {
+        $needsPeriodStripping = function ($strToCheck) {
+            $noStrippingRegex = [
+                '/.*[JS]r\.$/', // don't strip period off of Jr. or Sr.
+            ];
+            $strippingRegex = [
+                '/.*\w\w\.$/',
+                '/.*\p{L}\p{L}\.$/',
+                // The following regex is unsupported by PHP but retained for reference:
+                //'/.*\w\p{InCombiningDiacriticalMarks}?\w\p{InCombiningDiacriticalMarks}?\.$/u',
+                '/.*\p{P}\.$/u',
+            ];
+            foreach ($noStrippingRegex as $regex) {
+                if (preg_match($regex, $strToCheck)) {
+                    return false;
+                }
+            }
+            foreach ($strippingRegex as $regex) {
+                if (preg_match($regex, $strToCheck)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $current = $str;
+        do {
+            $previous = $current;
+            $current = trim($current);
+            $current = preg_replace('|\s*([,/;:])$|', '', $current);
+            if (str_ends_with($current, '.')) {
+                if ($needsPeriodStripping($current)) {
+                    $current = mb_substr($current, 0, mb_strlen($current, 'UTF-8') - 1, 'UTF-8');
+                }
+            }
+            $current = static::removeOuterBrackets($current);
+            if (strlen($current) === 0) {
+                return $current;
+            }
+        } while ($current !== $previous);
+        return $current;
+    }
+
+    /**
+     * Perform text processing roughly equivalent to SolrMarc's titleSortLower
+     * feature to allow consistent indexing into the title_sort field.
+     *
+     * @param string $str String to process.
+     *
+     * @return string     Processed string.
+     */
+    public static function titleSortLower(string $str): string
+    {
+        return mb_strtolower(
+            static::solrMarcStyleCleanData(
+                static::stripPunctuation(
+                    static::stripAccents($str)
+                )
+            ),
+            'UTF-8'
+        );
+    }
+
+    /**
+     * Convert provided nodes into XML and return as text. This is useful for
      * populating the fullrecord field with the raw input XML.
      *
      * @param array $in array of DOMElement objects.
@@ -412,7 +554,7 @@ class VuFind
 
     /**
      * Remove a given tag from the provided nodes, then convert
-     * into XML and return as text.  This is useful for
+     * into XML and return as text. This is useful for
      * populating the fullrecord field with the raw input XML but
      * allow for removal of certain elements (eg: full text field).
      *
@@ -547,7 +689,7 @@ class VuFind
     }
 
     /**
-     * Invert "Firstname Lastname" authors into "Lastname, Firstname."
+     * Invert "Firstname Lastname" authors into "Lastname, Firstname.".
      *
      * @param string $rawName Raw name
      *

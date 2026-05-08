@@ -1,8 +1,9 @@
 <?php
+
 /**
- * AuthorityRecommend Recommendations Module
+ * AuthorityRecommend Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2012.
  * Copyright (C) The National Library of Finland 2019.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -26,13 +27,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Recommend;
 
 use Finna\Search\Solr\AuthorityHelper;
 use VuFindSearch\Backend\Exception\RequestErrorException;
 
+use function in_array;
+
 /**
- * AuthorityRecommend Module
+ * AuthorityRecommend Module.
  *
  * This class provides recommendations based on Authority records.
  * i.e. searches for a pseudonym will provide the user with a link
@@ -50,63 +54,63 @@ use VuFindSearch\Backend\Exception\RequestErrorException;
 class AuthorityRecommend extends \VuFind\Recommend\AuthorityRecommend
 {
     /**
-     * Authority ids
+     * Authority ids.
      *
      * @var array
      */
     protected $authorIds = null;
 
     /**
-     * Authority roles
+     * Authority roles.
      *
      * @var array
      */
     protected $roles = null;
 
     /**
-     * Authority helper
+     * Authority helper.
      *
      * @var \Finna\Search\Solr\AuthorityHelper
      */
     protected $authorityHelper = null;
 
     /**
-     * Session
+     * Session.
      *
      * @var \Laminas\Session\Container
      */
     protected $session = null;
 
     /**
-     * Cookie manager
+     * Cookie manager.
      *
      * @var \VuFind\Cookie\CookieManager
      */
     protected $cookieManager = null;
 
     /**
-     * Config
+     * Config.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config = null;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \VuFind\Search\Results\PluginManager $results         Results
      * plugin manager
      * @param \Finna\Search\Solr\AuthorityHelper   $authorityHelper Authority helper
      * @param \Laminas\Session\Container           $session         Session
      * @param \VuFind\Cookie\CookieManager         $cookieManager   Cookiemanager
-     * @param \Laminas\Config\Config               $config          Configuration
+     * @param \VuFind\Config\Config                $config          Configuration
      */
     public function __construct(
         \VuFind\Search\Results\PluginManager $results,
         \Finna\Search\Solr\AuthorityHelper $authorityHelper,
         \Laminas\Session\Container $session,
         \VuFind\Cookie\CookieManager $cookieManager,
-        \Laminas\Config\Config $config
+        \VuFind\Config\Config $config
     ) {
         $this->resultsManager = $results;
         $this->authorityHelper = $authorityHelper;
@@ -167,7 +171,7 @@ class AuthorityRecommend extends \VuFind\Recommend\AuthorityRecommend
     /**
      * Should authority info be rendered as collapsed?
      *
-     * @return boolean
+     * @return bool
      */
     public function collapseAuthorityInfo()
     {
@@ -207,7 +211,8 @@ class AuthorityRecommend extends \VuFind\Recommend\AuthorityRecommend
             // Detect if authority filters have been changed and switch active
             // authority recommendation tab accordingly.
             $idsWithRoles = $params->getAuthorIdFilter(true);
-            if ($this->session->idsWithRoles
+            if (
+                $this->session->idsWithRoles
                 && $this->session->idsWithRoles !== $idsWithRoles
             ) {
                 $added = array_values(
@@ -247,7 +252,7 @@ class AuthorityRecommend extends \VuFind\Recommend\AuthorityRecommend
     }
 
     /**
-     * Called after the Search Results object has performed its main search.  This
+     * Called after the Search Results object has performed its main search. This
      * may be used to extract necessary information from the Search Results object
      * or to perform completely unrelated processing.
      *
@@ -267,7 +272,8 @@ class AuthorityRecommend extends \VuFind\Recommend\AuthorityRecommend
         }
 
         // Check result limit before proceeding...
-        if ($this->resultLimit > 0
+        if (
+            $this->resultLimit > 0
             && $this->resultLimit < $results->getResultTotal()
         ) {
             return;

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Header view helper
+ * Header view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2014-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -27,12 +28,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\View\Helper\Root;
 
+use Finna\RecordDriver\RenderContext;
 use Laminas\View\Helper\Url;
 
+use function func_get_args;
+
 /**
- * Header view helper
+ * Header view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -44,14 +49,14 @@ use Laminas\View\Helper\Url;
 class RecordImage extends \Laminas\View\Helper\AbstractHelper
 {
     /**
-     * Record view helper
+     * Record view helper.
      *
      * @var Record
      */
     protected $record;
 
     /**
-     * Url helper
+     * Url helper.
      *
      * @var Url
      */
@@ -227,7 +232,7 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Returns an array containing all the high resolution images for record image
+     * Returns an array containing all the high resolution images for record image.
      *
      * @param int $index Record image index
      *
@@ -240,7 +245,7 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
     }
 
     /**
-     * Get all images as Cover links
+     * Get all images as Cover links.
      *
      * @param string $language   Language for copyright information
      * @param array  $params     Optional array of image parameters as an
@@ -266,9 +271,7 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
         }
         $imageParams = $this->getImageParams($params);
         foreach ($images as &$image) {
-            foreach (array_intersect_key($imageParams, $image['urls'] ?? [])
-                as $size => $values
-            ) {
+            foreach (array_keys(array_intersect_key($imageParams, $image['urls'] ?? [])) as $size) {
                 $image['urls'][$size] = ($this->urlHelper)('cover-show') . '?' .
                     http_build_query(
                         array_merge(
@@ -340,6 +343,8 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
         $imageToRecord = $extraParams['imageToRecord'] ?? false;
 
         $view = $this->getView();
+        $renderContext = RenderContext::fromView($type);
+        $this->record->getDriver()->tryMethod('setRenderContext', [$renderContext->value]);
         $images = $this->getAllImagesAsCoverLinks(
             $view->layout()->userLang,
             $params,
@@ -347,7 +352,8 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             true
         );
         // Get plausible model data
-        if (!in_array($type, ['list', 'list grid'])
+        if (
+            $renderContext === RenderContext::RECORD
             && $this->record->getDriver()->tryMethod('getModels')
         ) {
             $images = $this->mergeModelDataToImages($images);
@@ -356,6 +362,10 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             // Limit combined results to a single image
             $images = [reset($images)];
         }
+
+        // Ensure that the array is a list so that image paginator can handle it properly:
+        $images = array_values($images);
+
         $context = [
             'type' => $type,
             'images' => $images,
@@ -363,7 +373,8 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             'imageToRecord' => $imageToRecord,
             'imageRightsLabel' => $imageRightsLabel,
             'numOfImages' => $numOfImages,
-            'displayIcon' => $displayIcon
+            'displayIcon' => $displayIcon,
+            'renderContext' => $renderContext,
         ];
 
         return $this->record->renderTemplate('record-image.phtml', $context);
@@ -386,31 +397,35 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
         $source = $this->record->getDriver()->getSourceIdentifier();
         $bgImage
             = $this->view->plugin('imageSrc')->getSourceAddress('3d-bg.jpg', true);
-        foreach ($models as $index => $model) {
-            foreach ($model as $format => $data) {
-                $modelData = [
-                    'urls' => [
-                        'small' => null,
-                        'medium' => null,
-                        'large' => $bgImage,
-                        'master' => null
-                    ],
-                    'type' => 'model',
-                    'format' => $format,
-                    'scripts' => '/themes/finna2/js/vendor/',
-                    'texture' => '/themes/finna2/images/',
-                    'params' => http_build_query(
-                        [
-                            'method' => 'getModel',
-                            'id' => $uniqueID,
-                            'index' => $index,
-                            'format' => $format,
-                            'source' => $source
-                        ]
-                    )
-                ];
-                $result[$index] = $modelData;
+        $template = [
+            // Mimic representation of an image.
+            'urls' => [
+                'small' => null,
+                'medium' => null,
+                'large' => $bgImage,
+                'master' => null,
+            ],
+            // Model only settings
+            'type' => 'model',
+            'scripts' => '/themes/finna2/js/vendor/',
+            'texture' => '/themes/finna2/images/',
+            'models' => [],
+        ];
+        foreach ($models as $index => $object) {
+            foreach ($object['models'] as &$model) {
+                if ('preview' !== $model['type']) {
+                    continue;
+                }
+                $model['params'] = http_build_query([
+                        'method' => 'getModel',
+                        'id' => $uniqueID,
+                        'index' => $index,
+                        'format' => $model['format'],
+                        'source' => $source,
+                    ]);
             }
+            unset($model);
+            $result[$index] = array_merge($template, $object);
         }
         return $result;
     }
@@ -430,7 +445,7 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
         foreach ($models as $ind => $model) {
             if (!isset($images[$ind])) {
                 $images[$ind] = [
-                    'rights' => []
+                    'rights' => [],
                 ];
             }
             if ($modelSettings['previewImages'] ?? false) {
@@ -440,11 +455,13 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             }
             $images[$ind]['type'] = 'model';
         }
+        // Sort the array to ensure correct order:
+        ksort($images);
         return $images;
     }
 
     /**
-     * Get image with index as cover links
+     * Get image with index as cover links.
      *
      * @param int $index Index of the image array to get.
      *
@@ -459,9 +476,7 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             return [];
         }
         $imageParams = $this->getImageParams();
-        foreach (array_intersect_key($imageParams, $image['urls'] ?? [])
-            as $size => $values
-        ) {
+        foreach (array_keys(array_intersect_key($imageParams, $image['urls'] ?? [])) as $size) {
             $image['urls'][$size] = ($this->urlHelper)('cover-show') . '?' .
                 http_build_query(
                     array_merge(
@@ -471,6 +486,36 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
                 );
         }
         return $image;
+    }
+
+    /**
+     * Function to return images for a bot.
+     * 4 images maximum and prefers [large, medium, small] sizes.
+     *
+     * @param array $images Images to render
+     *
+     * @return array
+     */
+    public function getImagesForBotUser(array $images = []): array
+    {
+        $results = [];
+
+        $i = 0;
+        $image = [];
+        do {
+            foreach (['large', 'medium', 'small'] as $size) {
+                if (empty($image['urls'][$size])) {
+                    continue;
+                }
+                $results[] = [
+                    'url' => $image['urls'][$size],
+                    'pdf' => !empty($image['pdf']),
+                    'id' => $i++,
+                ];
+                break;
+            }
+        } while ($i < 4 && $image = array_shift($images));
+        return $results;
     }
 
     /**
@@ -486,7 +531,7 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             'small' => [],
             'medium' => [],
             'large' => [],
-            'master' => []
+            'master' => [],
         ];
         $source = $this->record->getDriver()->getSourceIdentifier();
         foreach ($imageParams as $size => &$value) {

@@ -1,0 +1,27 @@
+<?php
+  /**
+   * A tooltip button with an icon and/or label.
+   *
+   * @param ?string   ariaLabel  Value for aria-label attribute. Not used if there is
+   *                             a label.
+   * @param ?iterable attributes Additional attributes
+   * @param ?string   content    Tooltip content HTML
+   * @param ?string   iconClass  Icon class
+   * @param ?string   label      Label
+   * @param ?string   placement  Tooltip placement. Defaults to 'bottom'.
+   */
+  $__attributes = $this->htmlAttributes($attributes ?? []);
+  $__attributes->set([
+    'type' => 'button',
+    'data-bs-toggle' => 'tooltip',
+    'data-html' => 'true',
+    'data-placement' => $placement ?? 'bottom',
+    'data-original-title' => $content ?? '',
+  ]);
+  if (!isset($label) && isset($ariaLabel)) {
+    $__attributes['aria-label'] = $ariaLabel;
+  }
+?>
+<button<?= $__attributes->add('class', 'finna-tooltip-btn') ?>>
+  <?php if (isset($iconClass)): ?><i class="<?= $iconClass ?>" aria-hidden="true"></i> <?php endif; ?><?= $label ?? '' ?>
+</button>

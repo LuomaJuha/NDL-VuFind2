@@ -1,1 +1,11 @@
-<?php // No ending line feed ?><?=$this->url($this->searchAction ?: $this->searchOptions($this->driver->getSourceIdentifier())->getSearchAction(), [], ['query' => ['filter[]' => $this->filter]])?>
+<?php
+  $searchBackendId = $this->driver->getSearchBackendIdentifier();
+  $options = $this->searchOptions($searchBackendId);
+  $searchRoute = $this->searchAction ?: $options->getSearchAction();
+  $query = ['filter[]' => $this->filter];
+  if (($limit = $this->searchMemory()->getLastLimit($searchBackendId))
+    && $limit !== $options->getDefaultLimit()
+  ) {
+    $query['limit'] = $limit;
+  }
+  echo $this->url($searchRoute, [], compact('query'));

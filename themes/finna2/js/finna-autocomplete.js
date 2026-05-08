@@ -1,9 +1,16 @@
 /* global VuFind, finna, extractClassParams */
 finna.autocomplete = (function finnaAutocomplete() {
+  /**
+   * Get state of "preserve filters" toggle
+   * @returns {boolean} Should filters be preserved
+   */
   function getPreserveFiltersMode() {
     return $(".searchFormKeepFilters").is(":checked");
   }
 
+  /**
+   * Setup the autocomplete element
+   */
   function setupAutocomplete() {
     $('.searchForm').on('submit', function onSubmitSearchForm() {
       if ($('.autocomplete-finna').autocompleteFinna.element !== false) {
@@ -15,7 +22,7 @@ finna.autocomplete = (function finnaAutocomplete() {
     $('.autocomplete-finna').each(function initAutocompleteFields(i, op) {
       var searcher = extractClassParams(op);
       $(op).autocompleteFinna({
-        loadingString: VuFind.translate('loading_ellipsis'),
+        loadingString: VuFind.loading(),
         suggestions: searcher.suggestions !== '0',
         handler: function handleAutocomplete(query, cb) {
           if (searcher.suggestions === '0') {

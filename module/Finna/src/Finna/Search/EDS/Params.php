@@ -1,8 +1,9 @@
 <?php
+
 /**
- * EDS API Params
+ * EDS API Params.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2017.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  EBSCO
@@ -25,10 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\EDS;
 
 /**
- * EDS API Params
+ * EDS API Params.
  *
  * @category VuFind
  * @package  EBSCO
@@ -39,50 +41,4 @@ namespace Finna\Search\EDS;
 class Params extends \VuFind\Search\EDS\Params
 {
     use \Finna\Search\FinnaParams;
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @var bool
-     */
-    protected $checkboxFacetCounts = false;
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @return bool
-     */
-    public function getCheckboxFacetCounts()
-    {
-        return $this->checkboxFacetCounts;
-    }
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @param bool $value Enable or disable
-     *
-     * @return void
-     */
-    public function setCheckboxFacetCounts($value)
-    {
-        $this->checkboxFacetCounts = $value;
-    }
-
-    /**
-     * Get the full facet settings stored by addFacet -- these may include extra
-     * parameters needed by the search results class.
-     *
-     * @return array
-     */
-    public function getFullFacetSettings()
-    {
-        $result = $this->fullFacetSettings;
-
-        if ($this->checkboxFacetCounts && !empty($this->checkboxFacets)) {
-            $result = array_merge($result, array_keys($this->checkboxFacets));
-        }
-
-        return $result;
-    }
 }

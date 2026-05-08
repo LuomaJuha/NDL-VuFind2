@@ -1,0 +1,89 @@
+section.main.template-dir-search.template-name-results.browse {
+    > .container.main-content {
+        padding-top: 20px;
+        margin-top: 0px;
+    }
+}
+
+// Alpha & list Browse
+
+section.template-dir-browse {
+    .browse.list-group {
+        a.list-group-item:hover {
+            text-decoration: underline;
+        }
+        &:first-child {
+            margin-top: 20px;
+        }
+        &:last-child {
+            margin-bottom: 25px;
+        }
+        a.list-group-item {
+            display: inline-block;
+        }
+        .widen {
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 3px;
+            background: $gray-ultralight;
+            a {
+                background-color: $gray-ultralight;
+            }
+            a.list-group-item.active {
+                background-color: $primary;
+            }
+        }
+        .list-group-item.view-record {
+            padding: 12px 15px;
+        }
+    }
+    #list2 {
+        margin-bottom: 20px;
+    }
+    #list3 {
+        a {
+            min-width: 45px;
+            margin-bottom: 2px;
+            text-align: center;
+        }
+    }
+    #list4 {
+        a.list-group-item {
+            display: block;
+            width: 100%;
+            margin-bottom: 2px;
+        }
+    }
+}
+@include media-breakpoint-down(sm) {
+    section.template-dir-browse {
+        .browse.list-group {
+            margin-top: 20px;
+        }
+    }
+}
+@include media-breakpoint-up(sm) {
+    section.template-dir-browse {
+        .browse.list-group {
+            #list3 {
+                float: left;
+                width: 50%;
+            }
+            #list4 {
+                float: right;
+                width: 50%;
+            }
+        }
+    }
+}
+
+/* --- Browse --- */
+.browse.list-group .list-group-item {
+    word-wrap: break-word;
+    &.view-record {
+        padding: 2px 4px;
+        font-size: 85%;
+        text-align: right;
+        border-top: 0px;
+    }
+}

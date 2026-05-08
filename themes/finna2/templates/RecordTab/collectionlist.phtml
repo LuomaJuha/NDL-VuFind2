@@ -3,33 +3,37 @@
   // Get search results
   $results = $this->tab->getResults();
   $params = $this->tab->getParams();
-  $searchDetails = ['results' => $results, 'params' => $params, 'indexStart' => 1, 'isCollection' => $this->driver->isCollection()];
+  $searchDetails = ['results' => $results, 'params' => $params, 'indexStart' => 1, 'isCollection' => true, 'context' => 'CollectionList'];
 ?>
+<div class="collection-list-controls">
+  <div class="filter-input">
+    <form method="get" name="keywordFilterForm" id="keywordFilterForm" action="#tabnav">
+      <div class="input-group">
+        <input id="keywordFilter_lookfor" type="text" name="lookfor" aria-label="<?=$this->transEscAttr('Search from collection')?>" value="<?=$this->escapeHtmlAttr($params->getDisplayQuery())?>" class="form-control">
+          <?php foreach ($params->getFilterList(true) as $field => $filters): ?>
+            <?php foreach ($filters as $filter): ?>
+              <input type="hidden" name="filter[]" value="<?=$this->escapeHtmlAttr($filter['field'])?>:&quot;<?=$this->escapeHtmlAttr($filter['value'])?>&quot;">
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+          <input type="hidden" name="view" value="<?=$this->escapeHtmlAttr($params->getView()) ?>">
+          <input type="hidden" name="sort" value="<?=$this->escapeHtmlAttr($params->getSort()) ?>">
+          <button class="btn btn-primary" type="submit" name="submitButton" >
+            <?=$this->icon('search')?>
+            <span><?=$this->transEsc('Find')?></span>
+          </button>
+      </div>
+    </form>
+  </div>
+  <div class="sort-and-view-buttons">
+    <?=$this->render('search/controls/view.phtml', $searchDetails)?>
+    <?=$this->render('search/controls/sort.phtml', $searchDetails)?>
+  </div>
+</div>
+
 <div class="mainbody left">
   <?php foreach ($results->getRecommendations('top') as $current): ?>
     <?=$this->recommend($current)?>
   <?php endforeach; ?>
-
-  <div class="collection-list-controls">
-    <div class="filter-input">
-      <span class="hidden-xs"><?=$this->transEsc('Search from collection')?></span>
-      <form class="form-inline" role="form" method="get" name="keywordFilterForm" id="keywordFilterForm">
-        <div class="input-group">
-          <input id="keywordFilter_lookfor" type="text" name="lookfor" aria-label="<?=$this->transEscAttr('Search from collection')?>" placeholder="<?=$this->transEscAttr('Search from collection')?>" value="<?=$this->escapeHtmlAttr($params->getDisplayQuery())?>" class="form-control"/>
-            <?php foreach ($params->getFilterList(true) as $field => $filters): ?>
-              <?php foreach ($filters as $filter): ?>
-                <input type="hidden" name="filter[]" value="<?=$this->escapeHtmlAttr($filter['field'])?>:&quot;<?=$this->escapeHtmlAttr($filter['value'])?>&quot;" />
-              <?php endforeach; ?>
-            <?php endforeach; ?>
-            <input type="hidden" name="view" value="<?=$this->escapeHtmlAttr($params->getView()) ?>" />
-            <input type="hidden" name="sort" value="<?=$this->escapeHtmlAttr($params->getSort()) ?>" />
-          <span class="input-group-btn"><button class="btn btn-primary" type="submit" name="submit"><span class="sr-only"><?=$this->transEsc('Search')?></span><i class="fa fa-search"></i></button></span>
-        </div>
-      </form>
-    </div>
-    <?=$this->render('search/controls/view.phtml', $searchDetails)?>
-    <?=$this->render('search/controls/sort.phtml', $searchDetails)?>
-  </div>
 
   <?php
     $filterList = $params->getFilterList(true);
@@ -52,16 +56,16 @@
               'options' => $options,
               'params' => $params,
               'urlQuery' => $results->getUrlQuery(),
-              'isCollectionTab' => true
+              'isCollectionTab' => true,
           ]
       )
     ?>
   <?php endif; ?>
 
   <?php if (($recordTotal = $results->getResultTotal()) > 0): // only display these at very top if we have results ?>
-    <div class="finna-search-filter-toggle-trigger visible-xs hidden-print"></div>
-    <div class="finna-search-filter-toggle visible-xs hidden-print">
-      <div class="btn btn-primary btn-search-filter">
+    <div class="mobile-nav-toggle-trigger visible-xs hidden-print"></div>
+    <div class="mobile-nav-toggle visible-xs hidden-print">
+      <div role="button" class="btn btn-primary btn-mobile-nav" tabindex="0">
         <?=$this->transEsc('Filter Collection')?>
         <?php if ($filterCount > 0): ?>
           <span class="active-filter-count">(<?=$filterCount?>)</span>
@@ -70,20 +74,20 @@
     </div>
     <?=$this->paginationControl($results->getPaginator(), 'Sliding', 'search/pagination_simple.phtml', ['results' => $results])?>
 
-    <form class="form-inline" method="post" name="bulkActionForm" action="<?=$this->url('cart-searchresultsbulk')?>">
+    <form class="form-inline" method="post" name="bulkActionForm" action="<?=$this->url('cart-searchresultsbulk')?>" id="search-cart-form">
       <?=$this->context($this)->renderInContext('search/bulk-action-buttons.phtml', $searchDetails + ['idPrefix' => ''])?>
     </form>
     <div class="results result-view-<?=$this->escapeHtmlAttr($params->getView()) == 'grid' ? 'grid' : $this->escapeHtmlAttr($params->getView());?>">
       <?=$this->render('search/list-' . $results->getParams()->getView() . '.phtml', $searchDetails)?>
     </div>
     <div class="text-center">
-      <?=$this->paginationControl($results->getPaginator(), 'Sliding', 'search/pagination.phtml', ['results' => $results])?>
+      <?=$this->paginationControl($results->getPaginator(), 'Sliding', 'Helpers/pagination.phtml', ['params' => ['results' => $this->results]])?>
     </div>
   <?php else: ?>
     <h4><?=$this->transEsc($params->getDisplayQuery() || $filterCount > 0 ? 'nohit_heading' : 'collection_empty')?></h4><br><br>
   <?php endif; ?>
 </div>
-<div class="sidebar right">
+<div class="sidebar search-facets right">
   <?php foreach ($results->getRecommendations('side') as $current): ?>
     <?=$this->recommend($current)?>
   <?php endforeach; ?>

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Admin Social Statistics Controller
+ * Admin Social Statistics Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,7 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFindAdmin\Controller;
+
+use VuFind\Db\Service\CommentsServiceInterface;
+use VuFind\Db\Service\RatingsServiceInterface;
+use VuFind\Db\Service\UserResourceServiceInterface;
+use VuFind\Tags\TagsService;
 
 /**
  * Class controls VuFind social statistical data.
@@ -39,7 +46,7 @@ namespace VuFindAdmin\Controller;
 class SocialstatsController extends AbstractAdmin
 {
     /**
-     * Social statistics reporting
+     * Social statistics reporting.
      *
      * @return \Laminas\View\Model\ViewModel
      */
@@ -47,10 +54,10 @@ class SocialstatsController extends AbstractAdmin
     {
         $view = $this->createViewModel();
         $view->setTemplate('admin/socialstats/home');
-        $view->comments = $this->getTable('comments')->getStatistics();
-        $view->ratings = $this->getTable('ratings')->getStatistics();
-        $view->favorites = $this->getTable('userresource')->getStatistics();
-        $view->tags = $this->getTable('resourcetags')->getStatistics();
+        $view->comments = $this->getDbService(CommentsServiceInterface::class)->getStatistics();
+        $view->ratings = $this->getDbService(RatingsServiceInterface::class)->getStatistics();
+        $view->favorites = $this->getDbService(UserResourceServiceInterface::class)->getStatistics();
+        $view->tags = $this->getService(TagsService::class)->getStatistics();
         return $view;
     }
 }

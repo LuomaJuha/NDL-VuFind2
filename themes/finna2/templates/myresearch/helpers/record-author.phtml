@@ -1,7 +1,7 @@
 <!-- START of: finna - myresearch/helpers/record-author.phtml -->
 <?php
   $author = null;
-  $authors = $record->tryMethod('getNonPresenterAuthors', [], false);
+  $authors = $record->tryMethod('getPrimaryAuthorsExtended') ?? $record->tryMethod('getNonPresenterAuthors', [], false);
   if (!empty($authors[0])) {
     $author = $authors[0];
   } else {
@@ -12,14 +12,14 @@
   }
   if (null !== $author):
 ?>
-  <?=$this->record($record)->getLinkedFieldElement('author', $author['name'], $author, ['authorityType' => $author['type'] ?? null])?><br/>
+  <?=$this->record($record)->getLinkedFieldElement('author', $author['name'], $author, ['authorityType' => $author['type'] ?? null])?><br>
 <?php elseif (false === $authors):?>
   <?php
     // Fallback for missing records that don't support getNonPresenterAuthors/getPresenters
     $listAuthor = $record->tryMethod('getPrimaryAuthor');
     if (!empty($listAuthor)):
   ?>
-    <a href="<?=$this->record($record)->getLink('author', $listAuthor)?>"><?=$this->escapeHtml($listAuthor)?></a><br/>
+    <a href="<?=$this->record($record)->getLink('author', $listAuthor)?>"><?=$this->escapeHtml($listAuthor)?></a><br>
   <?php endif; ?>
 <?php endif; ?>
 <!-- END of: finna - myresearch/helpers/record-author.phtml -->

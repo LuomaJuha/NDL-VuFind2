@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Feed support trait
+ * Feed support trait.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -27,13 +28,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
-use Laminas\Config\Config;
 use Laminas\View\Renderer\RendererInterface;
+use VuFind\Config\Config;
+
+use function is_string;
 
 /**
- * Feed support trait
+ * Feed support trait.
  *
  * @category VuFind
  * @package  AJAX
@@ -68,6 +72,8 @@ trait FeedTrait
         $items = $feed['items'];
         $config = $feed['config'];
         $modal = $feed['modal'];
+        $contentNavigation = $feed['contentNavigation'];
+        $nextArticles = $feed['nextArticles'];
 
         $images
             = $config->content['image'] ?? true;
@@ -96,12 +102,13 @@ trait FeedTrait
             'modal' => $modal,
         ];
 
-        if (isset($config->title)) {
-            if ($config->title == 'rss') {
-                $feed['title'] = $channel->getTitle();
-            } else {
-                $feed['translateTitle'] = $config->title;
-            }
+        $title = $config->title ?? 'rss';
+        if ('rss' === $title) {
+            $feed['title'] = $channel->getTitle();
+            $feed['translateTitle'] = false;
+        } else {
+            $feed['title'] = $title;
+            $feed['translateTitle'] = true;
         }
 
         if (isset($config->description)) {
@@ -116,18 +123,28 @@ trait FeedTrait
             $feed['visualItems'] = $config->visualItems;
         }
 
-        $template = strpos($type, 'carousel') !== false ? 'carousel' : $type;
+        $isCarouselStyle = str_contains($type, 'carousel') || $type === 'slider';
+        $template = $isCarouselStyle ? 'carousel' : $type;
         $html = $viewRenderer->partial("ajax/feed-$template.phtml", $feed);
 
         $settings = [
             'type' => $type,
-            'modal' => $modal
+            'modal' => $modal,
         ];
         if (isset($config->height)) {
             $settings['height'] = $config->height;
         }
+        if (isset($config->stackedHeight)) {
+            $settings['stackedHeight'] = $config->stackedHeight;
+        }
+        if (isset($config->backgroundColor)) {
+            $settings['backgroundColor'] = $config->backgroundColor;
+        }
+        if (isset($config->imagePlacement)) {
+            $settings['imagePlacement'] = $config->imagePlacement;
+        }
 
-        if ('carousel' === $type || 'carousel-vertical' === $type) {
+        if ($isCarouselStyle) {
             $settings['images'] = $images;
             $settings['autoplay']
                 = $config->autoplay ?? false;
@@ -136,18 +153,21 @@ trait FeedTrait
             $settings['scrollSpeed']
                 = $config->scrollSpeed ?? 750;
             $breakPoints = [
-                'desktop' => 4, 'desktop-small' => 3, 'tablet' => 2, 'mobile' => 1
+                'desktop' => 4, 'desktop-small' => 3, 'tablet' => 2, 'mobile' => 1,
             ];
+            if ('slider' === $type) {
+                $settings['slidesToShow']['desktop'] = $settings['scrolledItems']['desktop'] = 1;
+            } else {
+                foreach ($breakPoints as $breakPoint => $default) {
+                    $settings['slidesToShow'][$breakPoint]
+                        = isset($config->itemsPerPage[$breakPoint])
+                        ? (int)$config->itemsPerPage[$breakPoint] : $default;
 
-            foreach ($breakPoints as $breakPoint => $default) {
-                $settings['slidesToShow'][$breakPoint]
-                    = isset($config->itemsPerPage[$breakPoint])
-                    ? (int)$config->itemsPerPage[$breakPoint] : $default;
-
-                $settings['scrolledItems'][$breakPoint]
-                    = isset($config->scrolledItems[$breakPoint])
-                    ? (int)$config->scrolledItems[$breakPoint]
-                    : $settings['slidesToShow'][$breakPoint];
+                    $settings['scrolledItems'][$breakPoint]
+                        = isset($config->scrolledItems[$breakPoint])
+                        ? (int)$config->scrolledItems[$breakPoint]
+                        : $settings['slidesToShow'][$breakPoint];
+                }
             }
 
             if ('carousel' === $type) {

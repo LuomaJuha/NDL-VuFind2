@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Relais: Check item availability using a generic patron ID
+ * Relais: Check item availability using a generic patron ID.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
 
 /**
- * Relais: Check item availability using a generic patron ID
+ * Relais: Check item availability using a generic patron ID.
  *
  * @category VuFind
  * @package  AJAX
@@ -63,9 +65,10 @@ class RelaisAvailability extends AbstractRelaisAction
 
         // Search
         $responseText = $this->relais->search($oclcNumber, $authorizationId);
-        if (strpos($responseText, 'error') !== false
-            || strpos($responseText, 'ErrorMessage') !== false
-            || strpos($responseText, 'false') !== false
+        if (
+            str_contains($responseText, 'error')
+            || str_contains($responseText, 'ErrorMessage')
+            || str_contains($responseText, 'false')
         ) {
             $result = 'no';
         } else {

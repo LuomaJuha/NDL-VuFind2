@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Proxy URL view helper
+ * Proxy URL view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland.
  *
@@ -16,65 +17,71 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
-use Laminas\Config\Config;
+use Laminas\Cache\Storage\StorageInterface as CacheAdapter;
+use VuFind\Config\Config;
 use VuFind\Net\IpAddressUtils;
 
+use function in_array;
+
 /**
- * Proxy URL view helper
+ * Proxy URL view helper.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class ProxyUrl extends \VuFind\View\Helper\Root\ProxyUrl
 {
     /**
-     * IP address utils
+     * IP address utils.
      *
      * @var IpAddressUtils
      */
     protected $ipAddressUtils;
 
     /**
-     * Permissions configuration
+     * Permissions configuration.
      *
      * @var Config
      */
     protected $permissions;
 
     /**
-     * Cached value for IP check
+     * Cached value for IP check.
      *
      * @var null|bool
      */
     protected $ipInRange = null;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config $config      VuFind configuration
-     * @param \Laminas\Config\Config $permissions Permissions configuration
-     * @param IpAddressUtils         $ipUtils     IP address utils
+     * @param \VuFind\Config\Config $config      VuFind configuration
+     * @param CacheAdapter          $cache       Cache for web service responses
+     * @param \VuFind\Config\Config $permissions Permissions configuration
+     * @param IpAddressUtils        $ipUtils     IP address utils
      */
     public function __construct(
         Config $config,
+        CacheAdapter $cache,
         Config $permissions,
         IpAddressUtils $ipUtils
     ) {
-        parent::__construct($config);
+        parent::__construct($config, $cache);
 
         $this->ipAddressUtils = $ipUtils;
         $this->permissions = $permissions;
@@ -94,7 +101,8 @@ class ProxyUrl extends \VuFind\View\Helper\Root\ProxyUrl
             return $url;
         }
         $config = $this->config->EZproxy;
-        if (isset($config->proxy_known_ip_addresses)
+        if (
+            isset($config->proxy_known_ip_addresses)
             && !$config->proxy_known_ip_addresses
             && $this->getIpInRange()
         ) {
@@ -143,7 +151,8 @@ class ProxyUrl extends \VuFind\View\Helper\Root\ProxyUrl
         }
 
         // Check for source specific filters
-        if (!empty($config->include_source)
+        if (
+            !empty($config->include_source)
             || !empty($config->include_datasource)
             || !empty($config->exclude_datasource)
         ) {
@@ -177,7 +186,7 @@ class ProxyUrl extends \VuFind\View\Helper\Root\ProxyUrl
 
     /**
      * Check if the requester's IP is in any known IP address range and cache the
-     * result
+     * result.
      *
      * @return bool
      */
@@ -196,7 +205,7 @@ class ProxyUrl extends \VuFind\View\Helper\Root\ProxyUrl
                 continue;
             }
             $ranges = [];
-            foreach ($permission['ipRange']->toArray() as $range) {
+            foreach ($permission['ipRange'] as $range) {
                 [$ip] = explode('#', $range, 2);
                 $ranges = array_merge($ranges, array_map('trim', explode(',', $ip)));
             }

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Relais: Order an item.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
@@ -52,7 +54,7 @@ class RelaisOrder extends AbstractRelaisAction
         $this->disableSessionWrites();  // avoid session write timing bug
         $oclcNumber = $params->fromQuery('oclcNumber');
 
-        $lin = $this->user['cat_username'] ?? null;
+        $lin = $this->user?->getCatUsername();
 
         // Authenticate
         $authorizationId = $this->relais->authenticatePatron($lin);
@@ -66,7 +68,7 @@ class RelaisOrder extends AbstractRelaisAction
         // Place order
         $result = $this->relais
             ->placeRequest($oclcNumber, $authorizationId, $lin);
-        if (strpos($result, 'error') !== false) {
+        if (str_contains($result, 'error')) {
             return $this->formatResponse($result, self::STATUS_HTTP_ERROR);
         }
         return $this->formatResponse(compact('result'));

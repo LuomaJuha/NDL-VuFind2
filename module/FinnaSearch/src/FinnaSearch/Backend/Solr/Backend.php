@@ -1,8 +1,9 @@
 <?php
+
 /**
  * SOLR backend.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2016.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -27,11 +28,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace FinnaSearch\Backend\Solr;
 
 use VuFindSearch\ParamBag;
 use VuFindSearch\Query\AbstractQuery;
+use VuFindSearch\Query\WorkKeysQuery;
 use VuFindSearch\Response\RecordCollectionInterface;
+
+use function sprintf;
 
 /**
  * SOLR backend.
@@ -51,7 +56,7 @@ class Backend extends \VuFindSearch\Backend\Solr\Backend
      * @param AbstractQuery $query  Search query
      * @param int           $offset Search offset
      * @param int           $limit  Search limit
-     * @param ParamBag      $params Search backend parameters
+     * @param ?ParamBag     $params Search backend parameters
      *
      * @return RecordCollectionInterface
      */
@@ -59,7 +64,7 @@ class Backend extends \VuFindSearch\Backend\Solr\Backend
         AbstractQuery $query,
         $offset,
         $limit,
-        ParamBag $params = null
+        ?ParamBag $params = null
     ) {
         // Enforce a hard limit to avoid problems due to bad configuration
         if ($params->get('cursorMark')) {
@@ -75,34 +80,31 @@ class Backend extends \VuFindSearch\Backend\Solr\Backend
     /**
      * Return similar records.
      *
-     * @param string   $id            Id of record to compare with
-     * @param ParamBag $defaultParams Search backend parameters
+     * @param string    $id            Id of record to compare with
+     * @param ?ParamBag $defaultParams Search backend parameters
      *
      * @return RecordCollectionInterface
      */
-    public function similar($id, ParamBag $defaultParams = null)
+    public function similar($id, ?ParamBag $defaultParams = null)
     {
         // Hack to work around Solr bugs in the MLT Handlers
         if ($this->getSimilarBuilder()->mltHandlerActive()) {
             // Fetch record first
-            $params = new ParamBag();
-            $this->injectResponseWriter($params);
-            $response = $this->connector->retrieve($id, $params);
+            $retrieveParams = new ParamBag();
+            $this->injectResponseWriter($retrieveParams);
+            $response = $this->connector->retrieve($id, $retrieveParams);
             $results = json_decode($response, true);
             if (!empty($results['response']['docs'][0])) {
                 $params = $defaultParams ? clone $defaultParams : new ParamBag();
                 $this->injectResponseWriter($params);
-                $params->mergeWith(
-                    $this->getSimilarBuilder()
-                        ->buildInterestingTermQuery($results['response']['docs'][0])
-                );
+                $this->getSimilarBuilder()->buildInterestingTermQuery($results['response']['docs'][0], $params);
                 $params->add('fq', sprintf('-id:"%s"', addcslashes($id, '"')));
                 $response = $this->connector->search($params);
             }
         } else {
             $params = $defaultParams ? clone $defaultParams : new ParamBag();
             $this->injectResponseWriter($params);
-            $params->mergeWith($this->getSimilarBuilder()->build($id, $params));
+            $params->mergeWith($this->getSimilarBuilder()->build($id));
             $response = $this->connector->similar($id, $params);
         }
         $collection = $this->createRecordCollection($response);
@@ -113,14 +115,19 @@ class Backend extends \VuFindSearch\Backend\Solr\Backend
     /**
      * Return work expressions.
      *
-     * @param string   $id            Id of record to compare with
-     * @param array    $workKeys      Work identification keys
-     * @param ParamBag $defaultParams Search backend parameters
+     * @param WorkKeysQuery $query         Search query
+     * @param int           $offset        Search offset
+     * @param int           $limit         Search limit
+     * @param ?ParamBag     $defaultParams Search backend parameters
      *
      * @return RecordCollectionInterface
      */
-    public function workExpressions($id, $workKeys, ParamBag $defaultParams = null)
-    {
+    protected function workKeysSearch(
+        WorkKeysQuery $query,
+        int $offset,
+        int $limit,
+        ?ParamBag $defaultParams = null
+    ): RecordCollectionInterface {
         $params = $defaultParams ? clone $defaultParams
             : new \VuFindSearch\ParamBag();
 
@@ -128,6 +135,6 @@ class Backend extends \VuFindSearch\Backend\Solr\Backend
             $params->add('sort', 'main_date_str desc, title_sort asc');
         }
 
-        return parent::workExpressions($id, $workKeys, $params);
+        return parent::workKeysSearch($query, $offset, $limit, $params);
     }
 }

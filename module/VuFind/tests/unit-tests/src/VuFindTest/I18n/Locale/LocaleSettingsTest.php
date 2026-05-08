@@ -1,10 +1,12 @@
 <?php
+
 /**
- * LocaleSettings Test Class
+ * LocaleSettings Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2021.
+ * Copyright (C) The National Library of Finland 2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,26 +18,29 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
  * @author   Demian Katz <demian.katz@villanova.edu>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\I18n\Locale;
 
-use Laminas\Config\Config;
+use VuFind\Config\Config;
 use VuFind\I18n\Locale\LocaleSettings;
 
 /**
- * LocaleSettings Test Class
+ * LocaleSettings Test Class.
  *
  * @category VuFind
  * @package  Tests
  * @author   Demian Katz <demian.katz@villanova.edu>
+ * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
@@ -80,7 +85,7 @@ class LocaleSettingsTest extends \PHPUnit\Framework\TestCase
             )
         );
         $this->assertTrue($settings->browserLanguageDetectionEnabled());
-        $this->assertEquals(['en'], $settings->getFallbackLocales());
+        $this->assertSame(['en'], $settings->getFallbackLocales());
     }
 
     /**
@@ -139,5 +144,73 @@ class LocaleSettingsTest extends \PHPUnit\Framework\TestCase
         $this->assertFalse($settings->isLocaleInitialized('en'));
         $settings->markLocaleInitialized('en');
         $this->assertTrue($settings->isLocaleInitialized('en'));
+    }
+
+    /**
+     * Data provider for testFallbackLocalConfigs.
+     *
+     * @return \Iterator
+     */
+    public static function fallbackLocalConfigsProvider(): \Iterator
+    {
+        yield [
+            ['en'],
+            'en',
+            null,
+        ];
+        yield [
+            ['en'],
+            'en',
+            '',
+        ];
+        yield [
+            ['fi', 'en'],
+            'fi',
+            null,
+        ];
+        yield [
+            ['fi', 'en'],
+            'en',
+            'fi',
+        ];
+        yield [
+            ['fi', 'en'],
+            'en',
+            'fi, en',
+        ];
+        yield [
+            ['de', 'fi', 'en'],
+            'en',
+            'de,fi',
+        ];
+        yield [
+            ['de', 'fi', 'sv', 'en'],
+            'sv',
+            'de,fi',
+        ];
+    }
+
+    /**
+     * Confirm default settings for nearly-empty configuration.
+     *
+     * @param array   $expected          Expected results
+     * @param string  $language          Default language
+     * @param ?string $fallbackLanguages Fallback languages or null for no setting
+     *
+     * @return void
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('fallbackLocalConfigsProvider')]
+    public function testFallbackLocaleConfigs(array $expected, string $language, ?string $fallbackLanguages): void
+    {
+        $config = [
+            'Site' => ['language' => $language],
+            'Languages' => [$language => 'Test'],
+        ];
+        if (null !== $fallbackLanguages) {
+            $config['Site']['fallback_languages'] = $fallbackLanguages;
+        }
+
+        $settings = new LocaleSettings(new Config($config));
+        $this->assertEquals($expected, $settings->getFallbackLocales());
     }
 }

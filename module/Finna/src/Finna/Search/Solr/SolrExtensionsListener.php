@@ -3,9 +3,9 @@
 /**
  * Finna Solr extensions listener.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2013-2016.
+ * Copyright (C) The National Library of Finland 2013-2024.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,14 +26,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Solr;
 
 use Laminas\EventManager\EventInterface;
-
 use Laminas\EventManager\SharedEventManagerInterface;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use VuFindSearch\Query\Query;
-use VuFindSearch\Query\QueryGroup;
+
+use function count;
+use function in_array;
+use function is_array;
+use function sprintf;
 
 /**
  * Finna Solr extensions listener.
@@ -46,6 +50,21 @@ use VuFindSearch\Query\QueryGroup;
  */
 class SolrExtensionsListener
 {
+    /**
+     * Terms filter prefix for a filter (%s is the field name).
+     *
+     * @var string
+     */
+    public const TERMS_FILTER_PREFIX = "{!terms f=%s separator=\"\u{001f}\" method=docValuesTermsFilter}";
+
+    /**
+     * Terms filter prefix for a source filter.
+     *
+     * @var string
+     */
+    public const TERMS_FILTER_PREFIX_SOURCE
+        = "{!terms f=source_str_mv separator=\"\u{001f}\" method=docValuesTermsFilter}";
+
     /**
      * Backend identifier.
      *
@@ -134,11 +153,12 @@ class SolrExtensionsListener
             $this->addDataSourceFilter($event);
             $context = $command->getContext();
             if (in_array($context, ['search', 'getids', 'workExpressions'])) {
-                $this->addHiddenComponentPartFilter($event);
+                $this->handleHiddenComponentPartFilter($event);
                 $this->handleAvailabilityFilters($event);
             }
             if ('search' === $context) {
                 $this->addGeoFilterBoost($event);
+                $this->addAuthorIdAlternatives($event);
             }
         }
         return $event;
@@ -171,25 +191,21 @@ class SolrExtensionsListener
      */
     protected function addDataSourceFilter(EventInterface $event)
     {
+        $command = $event->getParam('command');
+        $params = $command->getSearchParameters();
+        // Don't add the filter if requested so (e.g. AIPA encapsulated records) or we're fetching a single record (to
+        // be able to link to encapsulated records):
+        if ($params->get('finna.ignore_source_filter') || $command->getContext() === 'retrieve') {
+            $params->remove('finna.ignore_source_filter');
+            return;
+        }
         if ($recordSources = $this->getActiveSources($event)) {
-            $sources = array_map(
-                function ($input) {
-                    return '"' . addcslashes($input, '"') . '"';
-                },
-                $recordSources
-            );
-            $params = $event->getParam('command')->getSearchParameters();
-            if ($params) {
-                $params->add(
-                    'fq',
-                    'source_str_mv:(' . implode(' OR ', $sources) . ')'
-                );
-            }
+            $params->add('fq', static::TERMS_FILTER_PREFIX_SOURCE . implode("\u{001f}", $recordSources));
         }
     }
 
     /**
-     * Get a list of active sources
+     * Get a list of active sources.
      *
      * @param EventInterface $event Event
      *
@@ -215,9 +231,8 @@ class SolrExtensionsListener
         }
         // Not in params, check config:
         if (null === $sources) {
-            $config = $this->serviceLocator
-                ->get(\VuFind\Config\PluginManager::class);
-            $searchConfig = $config->get($this->searchConfig);
+            $configManager = $this->serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class);
+            $searchConfig = $configManager->getConfigObject($this->searchConfig);
             $sources = $searchConfig->Records->sources ?? null;
         }
 
@@ -228,7 +243,8 @@ class SolrExtensionsListener
         $sources = explode(',', $sources);
 
         // Finally, check for an API exclusion list:
-        if (getenv('VUFIND_API_CALL')
+        if (
+            getenv('VUFIND_API_CALL')
             && isset($searchConfig->Records->apiExcludedSources)
         ) {
             $sources = array_diff(
@@ -241,7 +257,7 @@ class SolrExtensionsListener
     }
 
     /**
-     * Add a boost query for boosting the geo filter
+     * Add a boost query for boosting the geo filter.
      *
      * @param EventInterface $event Event
      *
@@ -288,38 +304,115 @@ class SolrExtensionsListener
     }
 
     /**
-     * Add hidden component part filter per search config.
+     * Add alternative authority IDs to authority search.
      *
      * @param EventInterface $event Event
      *
      * @return void
      */
-    protected function addHiddenComponentPartFilter(EventInterface $event)
+    protected function addAuthorIdAlternatives(EventInterface $event)
     {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class);
-        $searchConfig = $config->get($this->searchConfig);
-        if (isset($searchConfig->General->hide_component_parts)
-            && $searchConfig->General->hide_component_parts
-        ) {
-            $command = $event->getParam('command');
-            $params = $command->getSearchParameters();
-            if ($params) {
-                // Check that search is not for a known record id
-                $query = method_exists($command, 'getQuery')
-                    ? $command->getQuery()
-                    : null;
-                if (!$query
-                    || $query instanceof QueryGroup
-                    || ($query instanceof Query && $query->getHandler() !== 'id')
-                ) {
-                    $params->add('fq', '-hidden_component_boolean:true');
+        $params = $event->getParam('command')->getSearchParameters();
+        if ($params) {
+            $filters = $params->get('fq');
+            if (null !== $filters) {
+                $loader = null;
+                $helper = null;
+                $newFilters = [];
+                foreach ($filters as $filter) {
+                    $parts = explode(':', $filter, 2);
+                    $field = $parts[0];
+                    $value = $parts[1] ?? null;
+                    if (AuthorityHelper::AUTHOR2_ID_FACET === $field && $value) {
+                        $loader ??= $this->serviceLocator->get(\VuFind\Record\Loader::class);
+                        $helper ??= $this->serviceLocator->get(\Finna\Search\Solr\AuthorityHelper::class);
+                        $record = $loader->load(trim($value, '"'), 'SolrAuth', true);
+                        $identifiers = $helper->getIdentifiersForAuthority($record);
+                        if (count($identifiers) > 1) {
+                            $newFilters[] = $helper->getRecordsByAuthorityQuery(
+                                $identifiers,
+                                AuthorityHelper::AUTHOR2_ID_FACET
+                            );
+                            continue;
+                        }
+                    }
+                    $newFilters[] = $filter;
                 }
+                $params->set('fq', $newFilters);
             }
         }
     }
 
     /**
-     * Display debug information about the query
+     * Handle hidden component part filter (finna.include_hidden_parts) per search config.
+     *
+     * @param EventInterface $event Event
+     *
+     * @return void
+     */
+    protected function handleHiddenComponentPartFilter(EventInterface $event)
+    {
+        $hideHiddenComponentsPart = null;
+        $command = $event->getParam('command');
+        $params = $command->getSearchParameters();
+        if (!$params) {
+            return;
+        }
+
+        // Remove finna.include_hidden_parts from any facet fields:
+        if ($facetFields = $params->get('facet.field')) {
+            $newFields = [];
+            foreach ($facetFields as $field) {
+                if (strstr($field, 'finna.include_hidden_parts') === false) {
+                    $newFields[] = $field;
+                }
+            }
+            $params->set('facet.field', $newFields);
+        }
+
+        // Check that search is not for a known record id
+        $query = method_exists($command, 'getQuery') ? $command->getQuery() : null;
+        if ($query instanceof Query && $query->getHandler() === 'id') {
+            return;
+        }
+
+        if ($fq = $params->get('fq')) {
+            // Check for a filter parameter:
+            $optionMappings = [
+                'finna.include_hidden_parts:"1"' => false,
+                'finna.include_hidden_parts:"0"' => true,
+            ];
+            foreach ($optionMappings as $filter => $value) {
+                if (false !== ($key = array_search($filter, $fq))) {
+                    $hideHiddenComponentsPart = $value;
+                    unset($fq[$key]);
+                    $params->set('fq', $fq);
+                }
+            }
+        }
+
+        // Check for config:
+        $configManager = $this->serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class);
+        $searchConfig = $configManager->getConfigObject($this->searchConfig);
+        if (null === $hideHiddenComponentsPart) {
+            $hideHiddenComponentsPart = $searchConfig->General->hide_component_parts ?? false;
+        }
+
+        // Add the parameter if needed:
+        if ($hideHiddenComponentsPart) {
+            if ($componentPartFilter = $searchConfig->General->displayable_component_part_filter ?? null) {
+                $params->add(
+                    'fq',
+                    $componentPartFilter . ' OR (*:* -hidden_component_boolean:true)'
+                );
+            } else {
+                $params->add('fq', '-hidden_component_boolean:true');
+            }
+        }
+    }
+
+    /**
+     * Display debug information about the query.
      *
      * @param EventInterface $event Event
      *
@@ -337,7 +430,7 @@ class SolrExtensionsListener
         echo "<!--\n";
         echo 'Raw query string: ' . $debugInfo['rawquerystring'] . "\n\n";
         echo 'Query string: ' . $debugInfo['querystring'] . "\n\n";
-        echo 'Parsed query: ' . $debugInfo['parsedquery'] . "\n\n";
+        echo 'Parsed query: ' . var_export($debugInfo['parsedquery'], true) . "\n\n";
         echo 'Query parser: ' . $debugInfo['QParser'] . "\n\n";
         if (!empty($debugInfo['altquerystring'])) {
             echo 'Alt query string: ' . $debugInfo['altquerystring'] . "\n\n";
@@ -358,7 +451,7 @@ class SolrExtensionsListener
         }
         echo "\n\n";
         echo "Timing:\n";
-        echo "  Total: " . $debugInfo['timing']['time'] . "\n";
+        echo '  Total: ' . $debugInfo['timing']['time'] . "\n";
         echo "  Prepare:\n";
         foreach ($debugInfo['timing']['prepare'] ?? [] as $key => $value) {
             echo "    $key: ";
@@ -405,7 +498,7 @@ class SolrExtensionsListener
     }
 
     /**
-     * Process availability checkbox filters
+     * Process availability checkbox filters.
      *
      * Changes the following filters if deduplication is enabled:
      *
@@ -422,31 +515,26 @@ class SolrExtensionsListener
      */
     protected function handleAvailabilityFilters(EventInterface $event)
     {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class);
-        $searchConfig = $config->get($this->searchConfig);
+        $configManager = $this->serviceLocator->get(\VuFind\Config\ConfigManagerInterface::class);
+        $searchConfig = $configManager->getConfigObject($this->searchConfig);
         if (!empty($searchConfig->Records->sources)) {
             $params = $event->getParam('command')->getSearchParameters();
             $filters = $params->get('fq');
             if (null !== $filters) {
                 $sources = explode(',', $searchConfig->Records->sources);
-                $sources = array_map(
-                    function ($s) {
-                        return "\"$s\"";
-                    },
-                    $sources
-                );
 
                 if (!empty($searchConfig->Records->deduplication)) {
                     $prefixes = [
-                        'online', 'free_online', 'hires_images'
+                        'online', 'free_online', 'hires_images',
                     ];
                     foreach ($prefixes as $prefix) {
                         foreach ($filters as $key => $value) {
                             if ($value === $prefix . '_boolean:"1"') {
                                 unset($filters[$key]);
-                                $filter = $prefix . '_str_mv:('
-                                    . implode(' OR ', $sources) . ')';
-                                $filters[] = $filter;
+                                $filters[] = sprintf(
+                                    static::TERMS_FILTER_PREFIX,
+                                    $prefix . '_str_mv'
+                                ) . implode("\u{001f}", $sources);
                                 $params->set('fq', $filters);
                                 break;
                             }
@@ -457,8 +545,7 @@ class SolrExtensionsListener
                 foreach ($filters as $key => $value) {
                     if ($value === 'source_available_str_mv:*') {
                         $buildings = [];
-                        $buildingRegExp
-                            = '/\{!tag=building_filter\}building:\(building:(".*")/';
+                        $buildingRegExp = '/\{!tag=building_filter\}building:\(building:"(.*)"/';
                         foreach ($filters as $value2) {
                             if (preg_match($buildingRegExp, $value2, $matches)) {
                                 $buildings[] = $matches[1];
@@ -466,11 +553,15 @@ class SolrExtensionsListener
                         }
                         unset($filters[$key]);
                         if ($buildings) {
-                            $filter = 'building_available_str_mv:('
-                                . implode(' OR ', $buildings) . ')';
+                            $filter = sprintf(
+                                static::TERMS_FILTER_PREFIX,
+                                'building_available_str_mv'
+                            ) . implode("\u{001f}", $buildings);
                         } else {
-                            $filter = 'source_available_str_mv:('
-                                . implode(' OR ', $sources) . ')';
+                            $filter = sprintf(
+                                static::TERMS_FILTER_PREFIX,
+                                'source_available_str_mv'
+                            ) . implode("\u{001f}", $sources);
                         }
                         $filters[] = $filter;
                         $params->set('fq', $filters);

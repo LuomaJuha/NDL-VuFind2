@@ -4,8 +4,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get the type of the video, iFrame | video
-   *
-   * @return {string}
+   * @returns {string} Video type
    */
   get type() {
     return (this.getAttribute('type') || '').toLowerCase();
@@ -13,7 +12,6 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set the type of the video, iFrame | video
-   *
    * @param {string} value iFrame | video
    */
   set type(value) {
@@ -22,8 +20,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get the parent element to which the video player is being embedded into.
-   *
-   * @return {string|undefined}
+   * @returns {string|undefined} Parent element id or undefined
    */
   get embedParent() {
     return this.getAttribute('embed-parent') || undefined;
@@ -32,7 +29,6 @@ class VideoElement extends HTMLElement {
   /**
    * Set the parent element to which the video player is being embedded into.
    * Omit to display in a new popup.
-   *
    * @param {string|undefined} value Parent element id or undefined.
    */
   set embedParent(value) {
@@ -41,8 +37,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get the source of the video.
-   *
-   * @return {string}
+   * @returns {string} Source of the video
    */
   get source() {
     return this.getAttribute('source') || '';
@@ -50,7 +45,6 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set the source of the video.
-   *
    * @param {string} value The video source
    */
   set source(value) {
@@ -59,8 +53,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get the video sources as an object.
-   *
-   * @return {object}
+   * @returns {object} Object containing video sources
    */
   get videoSources() {
     return this.getAttribute('video-sources') ? JSON.parse(this.getAttribute('video-sources')) : {};
@@ -68,8 +61,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set the video sources as an object.
-   *
-   * @param {object} value
+   * @param {object} value Video sources object
    */
   set videoSources(value) {
     this.setAttribute('video-sources', JSON.stringify(value || {}));
@@ -77,8 +69,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get the poster url to display in viewer.
-   *
-   * @return {string}
+   * @returns {string} Poster url
    */
   get posterUrl() {
     return this.getAttribute('poster-url') || '';
@@ -86,8 +77,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set the poster url to display in viewer.
-   *
-   * @param {string} value
+   * @param {string} value Poster url
    */
   set posterUrl(value) {
     this.setAttribute('poster-url', value);
@@ -95,8 +85,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get the identity for the popup group.
-   *
-   * @return {string}
+   * @returns {string} Id of the popup group
    */
   get popupId() {
     return this.getAttribute('popup-id') || '';
@@ -104,8 +93,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set the identity for the popup group.
-   *
-   * @param {string} value
+   * @param {string} value Id of the popup group
    */
   set popupId(value) {
     this.setAttribute('popup-id', value);
@@ -113,8 +101,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get consent service required for the video.
-   *
-   * @return {string}
+   * @returns {string} Consent service accepted to display this video
    */
   get consentService() {
     return this.getAttribute('consent-service') || '';
@@ -122,8 +109,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get consent service required for the video.
-   *
-   * @return {string}
+   * @param {string} value Consent service accepted to display this video
    */
   set consentService(value) {
     this.setAttribute('consent-service', value);
@@ -131,8 +117,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get consent categories required for the video.
-   *
-   * @return {string}
+   * @returns {string} Consent categories
    */
   get consentCategories() {
     return this.getAttribute('consent-categories') || '';
@@ -140,8 +125,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set consent categories required for the video.
-   *
-   * @param {string} value
+   * @param {string} value Consent categories
    */
   set consentCategories(value) {
     this.setAttribute('consent-categories', value);
@@ -149,8 +133,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Get index.
-   *
-   * @return {string}
+   * @returns {string} Index of this video element
    */
   get index() {
     return this.getAttribute('index') || '';
@@ -158,7 +141,6 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set index.
-   *
    * @param {number} value Value
    */
   set index(value) {
@@ -168,8 +150,7 @@ class VideoElement extends HTMLElement {
   /**
    * Get if the video should be activated on load.
    * return true if the value is 'true' as a string.
-   *
-   * @return {boolean}
+   * @returns {boolean} Is active?
    */
   get active() {
     return this.getAttribute('active') === 'true';
@@ -177,6 +158,7 @@ class VideoElement extends HTMLElement {
 
   /**
    * Set if the video should be activated on load.
+   * @param {boolean} value Is active?
    */
   set active(value) {
     this.setAttribute('active', value);
@@ -187,10 +169,16 @@ class VideoElement extends HTMLElement {
    */
   constructor() {
     super();
-    this.videoModal = `<video class="video-js vjs-big-play-centered video-popup" controls></video>`;
-    this.iFrameModal = `<div style="height:100%">
-    <iframe class="player finna-popup-iframe" frameborder="0" allowfullscreen></iframe>
-    </div>`;
+    this.modals = {
+      video: `<video class="video-js vjs-big-play-centered video-popup" controls></video>`,
+      iframe: `<div class="popup-iframe-wrapper">
+      <iframe class="player finna-popup-iframe" frameborder="0" scrolling="no" allowfullscreen></iframe>
+      </div>`,
+      audio: `<div class="audio-player-wrapper">
+      <audio controls preload="auto">
+      </audio>
+      </div>`
+    };
 
     this.translations = {
       close: VuFind.translate('close'),
@@ -215,11 +203,23 @@ class VideoElement extends HTMLElement {
     // Check if this video is inside a record
     const record = this.closest('div.record');
     const self = this;
+    let classes = 'video-popup';
+    let modal = this.modals.video;
+    switch (this.type) {
+    case 'iframe':
+      classes = 'finna-iframe';
+      modal = this.modals.iframe;
+      break;
+    case 'audio':
+      classes = 'finna-audio';
+      modal = this.modals.audio;
+      break;
+    }
     const popupSettings = {
       id: this.popupId,
-      modal: this.type === 'iframe' ? this.iFrameModal : this.videoModal,
+      modal: modal,
       cycle: typeof this.embedParent !== 'undefined',
-      classes: this.type === 'iframe' ? 'finna-iframe' : 'video-popup',
+      classes: classes,
       parent: this.embedParent,
       translations: this.translations,
       onPopupInit: (t) => {
@@ -266,12 +266,19 @@ class VideoElement extends HTMLElement {
             }
           }
         }
-
         switch (self.type) {
         case 'video':
-          finna.scriptLoader.loadInOrder(self.scripts, self.subScripts, () => {
-            finna.videoPopup.initVideoJs('.video-popup', self.videoSources, self.posterUrl);
-          });
+          finna.scriptLoader.load(
+            self.scripts,
+            () => {
+              finna.scriptLoader.load(
+                self.subScripts,
+                () => {
+                  finna.videoPopup.initVideoJs('.video-popup', self.videoSources, self.posterUrl);
+                }
+              );
+            }
+          );
           break;
         case 'iframe':
           // If using Chrome + VoiceOver, Chrome crashes if vimeo player video settings button has aria-haspopup=true
@@ -279,6 +286,10 @@ class VideoElement extends HTMLElement {
             e.setAttribute('aria-haspopup', false);
           });
           this.content.find('iframe').attr('src', this.adjustEmbedLink(self.source));
+          break;
+        case 'audio':
+          this.content.css('height', '100%');
+          this.content.find('audio').attr('src', self.source);
           break;
         default:
           console.warn(`Unknown video type in video element: ${self.type}`);
@@ -318,9 +329,7 @@ class VideoElement extends HTMLElement {
   connectedCallback() {
     // Wait for the cookie consent to be initialized
     if (VuFind.cookie.getConsentConfig() === null) {
-      document.addEventListener('vf-cookie-consent-initialized', () => {
-        this.onConsentInitialized();
-      });
+      VuFind.listen('cookie-consent-initialized', () => this.onConsentInitialized(), {once: true});
     } else {
       this.onConsentInitialized();
     }

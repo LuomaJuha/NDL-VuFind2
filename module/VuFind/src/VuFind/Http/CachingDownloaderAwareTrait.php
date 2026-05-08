@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Lightweight caching downloader aware marker trait.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Http
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Http;
 
 /**
@@ -47,14 +49,29 @@ trait CachingDownloaderAwareTrait
     protected $downloaderCacheId = 'downloader';
 
     /**
-     * Caching downloader
+     * Cache Options Section. This can be overridden by child classes to declare
+     * a section in config.ini which will be parsed to override default settings.
+     * Note that the prefix "Cache_" will be prepended on this string.
+     *
+     * @var string
+     */
+    protected $cacheOptionsSection = null;
+
+    /**
+     * Cache Options file. This can be overridden by child classes to declare
+     * which .ini file contains the $cacheOptionsSection above.
+     */
+    protected $cacheOptionsFile = null;
+
+    /**
+     * Caching downloader.
      *
      * @var CachingDownloader
      */
     protected $cachingDownloader = null;
 
     /**
-     * Set caching downloader
+     * Set caching downloader.
      *
      * @param $cachingDownloader CachingDownloader
      *
@@ -63,6 +80,10 @@ trait CachingDownloaderAwareTrait
     public function setCachingDownloader(CachingDownloader $cachingDownloader)
     {
         $this->cachingDownloader = $cachingDownloader;
-        $this->cachingDownloader->setUpCache($this->downloaderCacheId);
+        $this->cachingDownloader->setUpCache(
+            $this->downloaderCacheId,
+            $this->cacheOptionsSection,
+            $this->cacheOptionsFile
+        );
     }
 }

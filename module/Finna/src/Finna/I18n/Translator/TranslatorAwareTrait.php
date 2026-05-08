@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Lightweight translator aware marker interface.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2017.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Translator
@@ -27,12 +28,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace Finna\I18n\Translator;
+
+use function count;
 
 /**
  * Lightweight translator aware marker interface (used as an alternative to
  * \Laminas\I18n\Translator\TranslatorAwareInterface, which requires an excessive
- * number of methods to be implemented).  If we switch to PHP 5.4 traits in the
+ * number of methods to be implemented). If we switch to PHP 5.4 traits in the
  * future, we can eliminate this interface in favor of the default Laminas version.
  *
  * @category VuFind
@@ -45,21 +49,27 @@ namespace Finna\I18n\Translator;
 trait TranslatorAwareTrait
 {
     /**
-     * Translate a string (or string-castable object)
+     * Translate a string (or string-castable object).
      *
-     * @param string|object|array $target  String to translate or an array of text
-     * domain and string to translate
-     * @param array               $tokens  Tokens to inject into the translated
-     * string
-     * @param string              $default Default value to use if no translation is
-     * found (null for no default).
-     *
-     * Finna: Added translation of hierarchical strings without the middle level.
+     * @param string|object|array $target          String to translate or an array of text
+     *                                             domain and string to translate
+     * @param array               $tokens          Tokens to inject into the translated string
+     * @param string              $default         Default value to use if no translation is
+     *                                             found (null for no default).
+     * @param bool                $useIcuFormatter Should we use an ICU message formatter instead
+     * of the default behavior?
+     * @param string[]            $fallbackDomains Text domains to check if no match is found in
+     * the domain specified in $target
      *
      * @return string
      */
-    public function translate($target, $tokens = [], $default = null)
-    {
+    public function translate(
+        $target,
+        $tokens = [],
+        $default = null,
+        $useIcuFormatter = false,
+        $fallbackDomains = []
+    ) {
         // Figure out the text domain for the string:
         [$domain, $str] = $this->extractTextDomain($target);
 
@@ -70,14 +80,12 @@ trait TranslatorAwareTrait
             }
             // On this pass, don't use the $default, since we want to fail over
             // to getDisplayString before giving up:
-            $translated = $this
-                ->translateString((string)$str, $tokens, null, $domain);
+            $translated = $this->translateString((string)$str, $tokens, null, $domain, $useIcuFormatter);
             if ($translated !== (string)$str) {
                 return $translated;
             }
 
-            $translated
-                = $this->translateHierarchicalString((string)$str, $domain, $tokens);
+            $translated = $this->translateHierarchicalString((string)$str, $domain, $tokens, $useIcuFormatter);
             if (null !== $translated) {
                 return $translated;
             }
@@ -90,25 +98,37 @@ trait TranslatorAwareTrait
             // least with hierarchical facets where translation key can be the exact
             // facet value (e.g. "0/Book/") or a displayable value (e.g. "Book").
             if ($str instanceof \VuFind\I18n\TranslatableStringInterface) {
-                return $this->translate($str, $tokens, $default);
+                return $this->translate($str, $tokens, $default, $useIcuFormatter);
             } else {
                 [$domain, $str] = $this->extractTextDomain($str);
             }
         }
 
         // Default case: deal with ordinary strings (or string-castable objects):
-        $defaultTranslation
-            = $this->translateString((string)$str, $tokens, $default, $domain);
+        $defaultTranslation = $this->translateString((string)$str, $tokens, $default, $domain, $useIcuFormatter);
 
-        if ($defaultTranslation !== (string)$str && $defaultTranslation !== $default
+        if (
+            $defaultTranslation !== (string)$str
+            && $defaultTranslation !== $default
         ) {
             return $defaultTranslation;
         }
 
-        $translated
-            = $this->translateHierarchicalString((string)$str, $domain, $tokens);
+        $translated = $this->translateHierarchicalString((string)$str, $domain, $tokens, $useIcuFormatter);
         if (null !== $translated) {
             return $translated;
+        }
+
+        // If we have fallback domains, apply them now:
+        while ($defaultTranslation === (string)($default ?? $str) && !empty($fallbackDomains)) {
+            $domain = array_shift($fallbackDomains);
+            $defaultTranslation = $this->translateString(
+                (string)$str,
+                $tokens,
+                $default,
+                $domain,
+                $useIcuFormatter
+            );
         }
 
         return $defaultTranslation;
@@ -117,16 +137,17 @@ trait TranslatorAwareTrait
     /**
      * Tries to translate a hierarchical string without the middle levels, bu only if
      * it looks like a hierarchical facet that starts with a number and ends with a
-     * slash
+     * slash.
      *
-     * @param string $str    String to translate
-     * @param string $domain Translation domain
-     * @param array  $tokens Tokens to inject into the translated
-     * string
+     * @param string $str             String to translate
+     * @param string $domain          Translation domain
+     * @param array  $tokens          Tokens to inject into the translated string
+     * @param bool   $useIcuFormatter Should we use an ICU message formatter instead
+     * of the default behavior?
      *
      * @return string|null Translation or null
      */
-    protected function translateHierarchicalString($str, $domain, $tokens)
+    protected function translateHierarchicalString($str, $domain, $tokens, $useIcuFormatter = false)
     {
         $parts = explode('/', (string)$str);
         $c = count($parts);
@@ -134,15 +155,13 @@ trait TranslatorAwareTrait
             // First attempt with the first meaningful level if we have enough levels
             if ($c > 4) {
                 $sub = $parts[0] . '/' . $parts[1] . '/*/' . $parts[$c - 2] . '/';
-                $translated = $this
-                    ->translateString($sub, $tokens, null, $domain);
+                $translated = $this->translateString($sub, $tokens, null, $domain, $useIcuFormatter);
                 if ($translated !== $sub) {
                     return $translated;
                 }
             }
             $sub = $parts[0] . '/*/' . $parts[$c - 2] . '/';
-            $translated = $this
-                ->translateString($sub, $tokens, null, $domain);
+            $translated = $this->translateString($sub, $tokens, null, $domain, $useIcuFormatter);
             if ($translated !== $sub) {
                 return $translated;
             }

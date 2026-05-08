@@ -1,7 +1,8 @@
-/*global VuFind, videojs, checkSaveStatuses, finna, initFacetTree, priorityNav */
+/*global VuFind, videojs, finna, priorityNav, bootstrap, unwrapJQuery, Popper */
 finna.layout = (function finnaLayout() {
-  var currentOpenTooltips = [];
-
+  /**
+   * Initialize a throttled resize listener
+   */
   function initResizeListener() {
     var intervalId = false;
     $(window).on('resize', function onResizeWindow(/*e*/) {
@@ -16,15 +17,22 @@ finna.layout = (function finnaLayout() {
     });
   }
 
+  /**
+   * Is touch screen supported
+   * @returns {boolean} Touch screen supported
+   */
   function isTouchDevice() {
     return (('ontouchstart' in window)
       || (navigator.maxTouchPoints > 0)
       || (navigator.msMaxTouchPoints > 0)); // IE10, IE11, Edge
   }
 
-  // Append current anchor (location.hash) to selected links
-  // in order to preserve the anchor when the link is clicked.
-  // This is used in top header language links.
+
+  /**
+   * Append current anchor (location.hash) to selected links
+   * in order to preserve the anchor when the link is clicked.
+   * This is used in top header language links.
+   */
   function initAnchorNavigationLinks() {
     $('a.preserve-anchor').each(function addAnchors() {
       var hash = location.hash;
@@ -35,25 +43,47 @@ finna.layout = (function finnaLayout() {
     });
   }
 
+  /**
+   * Initialize location service
+   * @param {jQuery} _holder Holder to find location-service-modal elements
+   */
   function initLocationService(_holder) {
     var holder = typeof _holder === 'undefined' ? $(document) : _holder;
 
     holder.find('a.location-service.location-service-modal').on('click', function onClickModalLink(/*e*/) {
-      var modal = $('#modal');
-      var dialog = modal.find('.modal-dialog');
-      modal.addClass('location-service');
-      dialog.addClass('modal-lg');
+      const modalEl = document.getElementById('modal');
+      if (!modalEl) {
+        return;
+      }
+      const modalDialogEl = modalEl.querySelector('.modal-dialog');
+      if (!modalDialogEl) {
+        return;
+      }
 
-      modal.one('hidden.bs.modal', function onHiddenModal() {
-        modal.removeClass('location-service location-service-qrcode');
-        dialog.removeClass('modal-lg');
-      });
-      VuFind.loadHtml(modal.find('.modal-body'), $(this).data('lightbox-href') + '&layout=lightbox');
-      modal.modal();
+      modalEl.classList.add('location-service');
+      modalDialogEl.classList.add('modal-lg');
+
+      modalEl.addEventListener(
+        'hidden.bs.modal',
+        () => {
+          modalEl.classList.remove('location-service');
+          modalEl.classList.remove('location-service-qrcode');
+          modalDialogEl.classList.remove('modal-lg');
+        },
+        {once: true}
+      );
+
+
+      VuFind.loadHtml('#modal .modal-body', this.dataset.lightboxHref + '&layout=lightbox');
+      bootstrap.Modal.getOrCreateInstance('#modal').show();
       return false;
     });
   }
 
+  /**
+   * Initialize truncating of fields
+   * @param {jQuery} _holder Holder to find truncate-field elements to truncate
+   */
   function initTruncate(_holder) {
     var holder = typeof _holder === 'undefined' ? $(document) : _holder;
 
@@ -88,9 +118,13 @@ finna.layout = (function finnaLayout() {
         var moreLabel = self.data('label') || VuFind.translate('show_more');
         var lessLabel = self.data('label') || VuFind.translate('show_less');
 
-        var moreLink = $('<button type="button" class="more-link" aria-hidden="true">' + moreLabel + ' <i class="fa fa-arrow-down" aria-hidden="true"></i></button>');
-        var lessLink = $('<button type="button" class="less-link" aria-hidden="true">' + lessLabel + ' <i class="fa fa-arrow-up" aria-hidden="true"></i></button>');
+        var moreLink = $('<button type="button" class="more-link" aria-hidden="true">' + moreLabel + VuFind.icon('show-more') + '</button>');
+        var lessLink = $('<button type="button" class="less-link" aria-hidden="true">' + lessLabel + VuFind.icon('show-less') + '</button>');
 
+        if (self.attr('tabindex') === '-1') {
+          moreLink.attr('tabindex', '-1');
+          lessLink.attr('tabindex', '-1');
+        }
         var linkClass = self.data('button-class') || '';
         if (linkClass) {
           moreLink.addClass(linkClass);
@@ -100,27 +134,33 @@ finna.layout = (function finnaLayout() {
           self.siblings('.less-link').hide();
           self.siblings('.more-link').show();
           self.css('height', truncation[index] - 1 + 'px');
+          self.blur();
+          self.siblings('.more-link').focus();
         });
         moreLink.on('click', function showMore() {
           self.siblings('.more-link').hide();
           self.siblings('.less-link').show();
           self.css('height', 'auto');
+          self.blur();
+          self.parent().focus();
         });
         lessLink.hide();
 
         if (self.data('button-placement') === 'top') {
           self.before([moreLink, lessLink]);
+        } else if (topLink) {
+          self.before(lessLink.addClass('top-button'));
+          self.after([moreLink]);
         } else {
-          if (topLink) {
-            self.before(lessLink.clone(true));
-          }
           self.after([moreLink, lessLink]);
         }
-        self.addClass('truncated');
       }
     });
   }
 
+  /**
+   * Initialize content navigation menu
+   */
   function initContentNavigation() {
     if ($('.content-navigation-menu')[0]) {
       $('.content-section').each(function initContentSection(index) {
@@ -136,17 +176,96 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Return the container for side facets
+   * @returns {Element} The side facet container
+   */
+  function getSideFacetsContainer() {
+    if (document.body.classList.contains('template-name-mylist')) {
+      return document.querySelector('.mylist-bar.mobile-sidebar-container');
+    } else if (document.body.classList.contains('template-name-displaylist')) {
+      return document.querySelector('.reservationlist-bar.mobile-sidebar-container');
+    }
+    return document.querySelector('.side-facets-container-ajax, .mobile-sidebar-container');
+  }
+
+  /**
+   * Check and keep focus within the search facet list
+   * @param {object} e Event object
+   */
+  function onFocusOutOfFacetContainer(e) {
+    const container = getSideFacetsContainer();
+    if (e.relatedTarget && !container.contains(e.relatedTarget)) {
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setTimeout(() => {
+        document.activeElement.blur();
+        container.focus();
+      },
+      200
+      );
+    }
+  }
+
+  /**
+   * Toggle visibility of sidebar on mobile
+   * @param {object} e Event object
+   */
+  function toggleMobileSidebar(e) {
+    e.stopImmediatePropagation();
+    const sidebar = !document.querySelector('.template-name-view') ? document.querySelector('.sidebar') : document.querySelector('.sidebar.search-facets');
+    if (sidebar) {
+      sidebar.classList.toggle('open');
+      const container = getSideFacetsContainer();
+      document.querySelector('body').classList.toggle('prevent-scroll');
+      if (container) {
+        if (sidebar.classList.contains('open')) {
+          container.addEventListener('focusout', onFocusOutOfFacetContainer, e);
+          container.role = 'dialog';
+          container.ariaModal = true;
+          container.tabIndex = '-1';
+          container.querySelector('h1').tabIndex = '0';
+          document.activeElement.blur();
+          container.querySelector('h1').focus();
+        } else {
+          container.removeEventListener('focusout', onFocusOutOfFacetContainer, e);
+          container.removeAttribute('role');
+          container.removeAttribute('aria-modal');
+          container.removeAttribute('tabindex');
+          container.querySelector('h1').removeAttribute('tabindex');
+          document.activeElement.blur();
+          document.querySelector('.mobile-nav-toggle .btn-mobile-nav').focus();
+        }
+      }
+    }
+  }
+
+  /**
+   * On keypress of mobile sidebar
+   * @param {object} e Event object
+   */
+  function onKeyPressMobileSidebar(e) {
+    if (e.which === 32 || e.which === 13) {
+      e.preventDefault();
+      toggleMobileSidebar(e);
+    }
+  }
+
+  /**
+   * Initialize mobile narrow search
+   */
   function initMobileNarrowSearch() {
-    $('.mobile-navigation .sidebar-navigation, .finna-search-filter-toggle .btn-search-filter, .sidebar .sidebar-close-btn, .sidebar .mylist-bar h1').off('click').on('click', function onClickMobileNav() {
-      $('.sidebar').toggleClass('open');
-      $('.mobile-navigation .sidebar-navigation i').toggleClass('fa-arrow-down');
-      $('body').toggleClass('prevent-scroll');
-    });
-    $('.mobile-navigation .sidebar-navigation .active-filters').off('click').on('click', function onClickMobileActiveFilters() {
-      $('.sidebar').scrollTop(0);
-    });
-    const narrowSearchMobileTrigger = document.querySelector('.finna-search-filter-toggle-trigger');
-    const narrowSearchMobile = document.querySelector('.finna-search-filter-toggle');
+    const container = getSideFacetsContainer();
+    if (container) {
+      document.querySelectorAll('.mobile-nav-toggle .btn-mobile-nav, .sidebar .sidebar-close-btn').forEach(el => {
+        el.addEventListener('click', toggleMobileSidebar);
+        el.addEventListener('keydown', function onKeyDownMobileFacets(e) {
+          onKeyPressMobileSidebar(e);
+        });
+      });
+    }
+    const narrowSearchMobileTrigger = document.querySelector('.mobile-nav-toggle-trigger');
+    const narrowSearchMobile = document.querySelector('.mobile-nav-toggle');
     if (narrowSearchMobileTrigger && narrowSearchMobile && ('IntersectionObserver' in window)) {
       const narrowSearchMobileObserver = new IntersectionObserver(
         ([e]) => narrowSearchMobile.classList.toggle('sticky', e.intersectionRatio < 1),
@@ -159,6 +278,29 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Set my account header as sticky
+   */
+  function setStickyMyaccountHeader() {
+    const toolbar = document.querySelector('.toolbar-sticky');
+    const finnaNavbar = document.querySelector('.finna-navbar');
+    const observedElement = document.querySelector('.myaccount-sticky-header');
+
+    if (toolbar && finnaNavbar && observedElement) {
+      const observer = new IntersectionObserver(entries => {
+        const intersecting = entries[0].isIntersecting;
+        toolbar.classList.toggle('isSticky', !intersecting);
+      }, {
+        rootMargin: `-${finnaNavbar.offsetHeight}px`,
+      });
+
+      observer.observe(observedElement);
+    }
+  }
+
+  /**
+   * Initialize mobile cart indicator buttons
+   */
   function initMobileCartIndicator() {
     $('.btn-bookbag-toggle a').on('click', function onClickMobileCart() {
       if ($(this).hasClass('cart-add')){
@@ -170,21 +312,9 @@ finna.layout = (function finnaLayout() {
     });
   }
 
-  function initCheckboxClicks() {
-    $('.template-name-mylist input.checkbox-select-item').on('click', function onClickCheckbox() {
-      var actions = $('.mylist-functions button, .mylist-functions select');
-      var aria = $('.mylist-functions .sr-only');
-      var noneChecked = $('.template-name-mylist input.checkbox-select-item:checked').length === 0;
-      if (noneChecked) {
-        actions.attr('disabled', true);
-        aria.removeAttr('aria-hidden');
-      } else {
-        actions.removeAttr('disabled');
-        aria.attr('aria-hidden', 'true');
-      }
-    });
-  }
-
+  /**
+   * Set scroll links
+   */
   function initScrollLinks() {
     $('.library-link').on('click', function onClickLibraryLink() {
       $('html, body').animate({
@@ -194,7 +324,7 @@ finna.layout = (function finnaLayout() {
     var feedbackBtn = $('.floating-feedback-btn');
     if (feedbackBtn.length) {
       var feedbackBtnOffset = feedbackBtn.offset().top;
-      $(window).scroll(function onScrollWindow(/*event*/) {
+      $(window).on("scroll", function onScrollWindow(/*event*/) {
         feedbackBtn.toggleClass('fixed', $(window).scrollTop() > feedbackBtnOffset);
       });
     }
@@ -206,6 +336,9 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Initialize search box functions
+   */
   function initSearchboxFunctions() {
     var searchForm = document.querySelector('.searchForm.navbar-form');
     if (searchForm) {
@@ -236,23 +369,25 @@ finna.layout = (function finnaLayout() {
       lfor.closest('.searchForm').find('.clear-button').toggleClass('hidden', lfor.val() === '');
     });
 
-    $('.clear-button').on('click', function onClickClear() {
-      var btn = $(this);
-      btn.closest('.searchForm').find('.searchForm_lookfor').val('').focus();
-      btn.addClass('hidden');
-    });
-
-    $('.searchForm_lookfor').bind('autocomplete:select', function onAutocompleteSelect() {
-      $('.navbar-form').submit();
+    $('.searchForm_lookfor').on('autocomplete:select', function onAutocompleteSelect() {
+      $('.navbar-form').trigger("submit");
     });
 
     $('.select-type').on('click', function onClickSelectType(event) {
       event.preventDefault();
       var dropdownToggle = $('.type-dropdown .dropdown-toggle');
+      var dropdownItems = $('.type-dropdown .dropdown-menu .dropdown-item');
 
       $('input[name=type]:hidden').val($(this).siblings().val());
-      dropdownToggle.find('span').text($(this).text());
-      dropdownToggle.attr('aria-label', ($(this).text()));
+      var itemText = $(this).text();
+      dropdownToggle.find('span:not(.icon)').text(itemText);
+      dropdownToggle.attr('aria-label', VuFind.translate('Narrow Search') + ': ' + (itemText) + ' ' + VuFind.translate('selected'));
+      dropdownItems.removeAttr('aria-description');
+      $.each (dropdownItems, function changeDescription(index, value) {
+        if (itemText === $(value).text()) {
+          $(value).attr('aria-description', 'selected');
+        }
+      });
       dropdownToggle.dropdown('toggle');
       dropdownToggle.focus();
     });
@@ -262,78 +397,230 @@ finna.layout = (function finnaLayout() {
     }
   }
 
-  function initToolTips(_holder) {
-    var holder = typeof _holder === 'undefined' ? $(document) : _holder;
-    // other tooltips
-    holder.find('[data-toggle="tooltip"]')
-      .on('show.bs.tooltip', function onShowTooltip() {
-        var self = $(this);
-        $(currentOpenTooltips).each(function hideOtherTooltips() {
-          if ($(this)[0] !== self[0]) {
-            $(this).tooltip('hide');
+  /**
+   * Initialize tooltips and popovers
+   * @param {HTMLElement} holder Holder to look for toggletip elements from
+   */
+  function initToggleTips(holder) {
+
+    /**
+     * Close a ToggleTip
+     * @param {HTMLElement} tipEl Tip container element
+     */
+    function closeToggleTip(tipEl) {
+      // Reset focus from any active element in the toggletip:
+      const activeElement = document.activeElement;
+      const parentEl = tipEl.closest('.finna-toggletip');
+      if (parentEl) {
+        const buttonEl = parentEl.querySelector('.finna-toggletip__button');
+        if (buttonEl) {
+          buttonEl.setAttribute('aria-expanded', 'false');
+          if (parentEl.contains(activeElement)) {
+            buttonEl.focus();
           }
-        });
-        currentOpenTooltips = [self];
-      })
-      .on('hidden.bs.tooltip', function onHideTooltip(e) {
-        $(e.target).data('bs.tooltip').inState.click = false;
-      })
-      .tooltip({trigger: 'click', viewport: '.container'});
-    // prevent link opening if tooltip is placed inside link element
-    holder.find('[data-toggle="tooltip"] > i').on('click', function onClickTooltip(event) {
-      event.preventDefault();
-    });
-    // close tooltip if user clicks anything else than tooltip button
-    $('html').on('click', function onClickHtml(e) {
-      if (typeof $(e.target).parent().data('original-title') == 'undefined' && typeof $(e.target).data('original-title') == 'undefined') {
-        $('[data-toggle="tooltip"]').tooltip('hide');
-        currentOpenTooltips = [];
+        }
       }
+
+      tipEl.classList.remove('show');
+      const tipInnerEl = tipEl.querySelector('.js-status-inner');
+      if (tipInnerEl) {
+        tipInnerEl.innerHTML = '';
+      }
+      // If focus was in the toggletip, return it to the button:
+    }
+
+    /**
+     * Click event handler that closes all toggletips not being clicked
+     * @param {object} e Event object
+     */
+    function closeToggleTipsOnClick(e) {
+      document.querySelectorAll('.finna-toggletip .js-status.show').forEach((tipEl) => {
+        if (tipEl !== e.target && !tipEl.contains(e.target)) {
+          closeToggleTip(tipEl);
+        }
+      });
+    }
+
+    /**
+     * Keydown event handler that closes all toggletips
+     * @param {object} e Event object
+     */
+    function closeToggleTipsOnEsc(e) {
+      if ((e.keyCode || e.which) === 27) {
+        document.querySelectorAll('.finna-toggletip .js-status.show').forEach((tipEl) => {
+          closeToggleTip(tipEl);
+        });
+      }
+    }
+
+    holder.querySelectorAll('[data-toggle="finna-toggletip"]').forEach(toggletip => {
+      if (toggletip.dataset.initialized) {
+        return;
+      }
+      toggletip.dataset.initialized = true;
+      // Get the message from the data-content element
+      const message = toggletip.dataset.toggletipContent || '';
+      const tipEl = toggletip.parentNode.querySelector('.js-status');
+      if (!tipEl) {
+        return;
+      }
+      const tipInnerEl = tipEl.querySelector('.js-status-inner');
+      if (!tipInnerEl) {
+        return;
+      }
+
+      const placement = toggletip.dataset.toggletipPlacement || 'bottom';
+      const popperInst = Popper.createPopper(
+        toggletip,
+        tipEl,
+        {
+          placement: placement,
+          modifiers: [
+            {
+              name: 'flip',
+              options: {
+                fallbackPlacements: ['top', 'bottom', 'left', 'right'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {}
+            }
+          ],
+        }
+      );
+      toggletip.addEventListener('click', () => {
+        if (tipEl.classList.contains('show')) {
+          closeToggleTip(tipEl);
+        } else {
+          window.setTimeout(() => {
+            tipInnerEl.innerHTML = message;
+            tipEl.classList.add('show');
+            popperInst.update();
+            toggletip.setAttribute('aria-expanded', 'true');
+          }, 100);
+        }
+      });
+
+      // Close on outside click
+      document.addEventListener('click', closeToggleTipsOnClick);
+
+      // Remove toggletip on Esc
+      document.addEventListener('keydown', closeToggleTipsOnEsc);
     });
   }
 
+  /**
+   * Hide all tooltips when Esc is pressed
+   * @param {Event} e Event
+   */
+  function tooltipKeyDownHandler(e) {
+    if (e.which === 27) {
+      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => bootstrap.Tooltip.getOrCreateInstance(el).hide());
+    }
+  }
+
+  /**
+   * Hide all tooltips with a click outside of a tooltip trigger
+   */
+  function tooltipClickHandler() {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => bootstrap.Tooltip.getOrCreateInstance(el).hide());
+  }
+
+  /**
+   * Initialize tooltips and popovers
+   * @param {jQuery} _holder Holder to look for tooltip elements from
+   */
+  function initToolTips(_holder) {
+    const holder = typeof _holder === 'undefined' ? document : unwrapJQuery(_holder);
+    // Supports also the old data-toggle attribute
+    holder.querySelectorAll('[data-bs-toggle="tooltip"],[data-bs-toggle="tooltip"],[data-toggle="tooltip-hover"]').forEach(el => {
+      if (null === el.dataset.bsToggle) {
+        el.dataset.bsToggle = 'tooltip';
+      }
+      if (el.dataset.originalTitle) {
+        el.dataset.bsTitle = el.dataset.originalTitle;
+        if (el.dataset.html) {
+          el.dataset.bsHtml = el.dataset.html;
+        }
+        if (!el.dataset.bsTrigger) {
+          el.dataset.bsTrigger = 'click';
+        }
+        if (el.dataset.position) {
+          el.dataset.bsPosition = el.dataset.position;
+        }
+      }
+      if (el.dataset.toggle === 'tooltip-hover') {
+        el.dataset.bsDelay = '{"show": 500, "hide": 200}';
+        el.dataset.bsToggle = 'tooltip';
+        el.dataset.bsTrigger = 'hover';
+      }
+
+      bootstrap.Tooltip.getOrCreateInstance(el);
+
+      // Prevent link from opening if tooltip is placed inside link element:
+      el.querySelectorAll(':scope > i, :scope > span').forEach((i) => {
+        i.addEventListener('click', (event) => event.preventDefault());
+      });
+    });
+
+    document.addEventListener('keydown', tooltipKeyDownHandler);
+    document.querySelector('html').addEventListener('click', tooltipClickHandler);
+
+    initToggleTips(holder);
+  }
+
+  /**
+   * Initialize modal tooltips
+   */
   function initModalToolTips() {
-    $('#modal').on('show.bs.modal', function onShowModal() {
-      initToolTips($(this));
-    });
+    const modalEl = document.getElementById('modal');
+    if (modalEl) {
+      modalEl.addEventListener('shown.bs.modal', () => {
+        initToolTips(modalEl);
+      });
+    }
   }
 
+  /**
+   * Initializes additional functionality for condensed styled lists.
+   * I.e search condensed, authority records record tab.
+   * @param {jQuery|undefined} _holder Element as jQuery to initialize.
+   *                                   If uninitialized, defaults to document.
+   */
   function initCondensedList(_holder) {
     var holder = typeof _holder === 'undefined' ? $(document) : _holder;
-
     holder.find('.condensed-collapse-toggle').off('click').on('click', function onClickCollapseToggle(event) {
       if ((event.target.nodeName) !== 'A' && (event.target.nodeName) !== 'MARK') {
         holder = $(this).parent().parent();
         holder.toggleClass('open');
-
+        VuFind.itemStatuses.init(holder);
         var onSlideComplete = null;
         if (holder.hasClass('open') && !holder.hasClass('opened')) {
           holder.addClass('opened');
-          VuFind.itemStatuses.check(holder);
-          finna.itemStatus.initDedupRecordSelection(holder);
         }
 
         $(this).nextAll('.condensed-collapse-data').first().slideToggle(120, 'linear', onSlideComplete);
-
-        var icon = $(this).find('.condensed-body > i');
-        if (icon.length === 0) {
-          icon = $(this).find('.condensed-col-title > i');
-        }
-        icon.toggleClass('fa-arrow-right').toggleClass('fa-arrow-down');
       }
     });
   }
 
+  /**
+   * Initialize touch device gallery
+   */
   function initTouchDeviceGallery() {
     if ($('.result-view-grid')[0] != null && isTouchDevice()) {
       $('.result-view-grid').addClass('touch-device');
     }
   }
 
+  /**
+   * Initialize building filter event on key up
+   */
   function initBuildingFilter() {
     $('#building_filter').on('keyup', function onKeyUpFilter() {
       var valThis = this.value.toLowerCase();
-      $('#facet_building>ul>li>a .text').each(function doBuildingSearch() {
+      $('#side-collapse-building > ul > li .facet-value').each(function doBuildingSearch() {
         var text = $(this).text().toLowerCase();
         if (text.indexOf(valThis) !== -1) {
           $(this).closest('li').show();
@@ -344,77 +631,38 @@ finna.layout = (function finnaLayout() {
     });
   }
 
-  function renderFacetSRLabel(tree) {
-    // Add count descriptor to every facet value node for accessibility
-    tree.find('.facet').each(function appendDescriptors() {
-      var badge = $(this).find('.badge');
-      if (badge.length === 0) {
-        return;
-      }
-      badge.attr('aria-hidden', 'true');
-      if ($(this).find('.facet-value .sr-only').length > 0) {
-        return;
-      }
-      $(this).find('.facet-value').append('<span class="sr-only">, ' + VuFind.translate('result_count', {'%%count%%': badge.text()}) + '</span>');
-    });
-  }
-
-  function addJSTreeListeners(treeNode) {
-    treeNode.on('ready.jstree', function onReadyJstree() {
-      var tree = $(this);
-      // if hierarchical facet contains 2 or less top level items, it is opened by default
-      if (tree.find('ul > li').length <= 2) {
-        tree.find('ul > li.jstree-node.jstree-closed > i.jstree-ocl').each(function openNode() {
-          tree.jstree('open_node', this, null, false);
-        });
-      }
-      // show filter if 15+ organisations
-      if (tree.parent().parent().attr('id') === 'side-panel-building' && tree.find('ul.jstree-container-ul > li').length > 15) {
-        $(this).before('<div class="building-filter"><label for="building_filter" class="sr-only">' + VuFind.translate('Organisation') + '</label><input type="search" class="form-control" id="building_filter" placeholder="' + VuFind.translate('Organisation') + '..."></input></div>');
-        initBuildingFilter();
-      }
-
-      renderFacetSRLabel(tree);
-
-      // open facet if it has children and it is selected
-      tree.find('.jstree-node.active.jstree-closed').each(function openNode() {
-        tree.jstree('open_node', this, null, false);
-      });
-    });
-
-    // Update screen reader labels when opening nodes
-    treeNode.on('after_open.jstree', function afterOpenJstree() {
-      renderFacetSRLabel($(this));
-    });
-  }
-
-  function initHierarchicalFacet(treeNode, inSidebar) {
-    addJSTreeListeners(treeNode);
-    initFacetTree(treeNode, inSidebar);
-  }
-
+  /**
+   * Initialize jump menus
+   * @param {jQuery} _holder Holder to look for jump menus to initialize
+   */
   function initJumpMenus(_holder) {
     var holder = typeof _holder === 'undefined' ? $('body') : _holder;
-    holder.find('select.jumpMenu').off('change').on('change', function onChangeJumpMenu() { $(this).closest('form').submit(); });
+    holder.find('select.jumpMenu').off('change').on('change', function onChangeJumpMenu() { $(this).closest('form').trigger("submit"); });
     holder.find('select.jumpMenuUrl').off('change').on('change', function onChangeJumpMenuUrl(e) { window.location.href = $(e.target).val(); });
   }
 
+  /**
+   * Initialize secondary login fields, BC only
+   */
   function initSecondaryLoginField() {
     // This function exists for back-compatibility only
   }
 
+  /**
+   * Initialize ILS password recovery link
+   * @param {object} links Object containing identifier and url for link href
+   * @param {string} idPrefix Prepend selector with idPrefix
+   * @deprecated Exists for back-compatibility with old implementation only
+   */
   function initILSPasswordRecoveryLink(links, idPrefix) {
-    var searchPrefix = idPrefix ? '#' + idPrefix : '#';
-    $(searchPrefix + 'target').on('change', function onChangeLoginTargetLink() {
-      var target = $(searchPrefix + 'target').val();
-      if (links[target]) {
-        $('#login_library_card_recovery').attr('href', links[target]).show();
-      } else {
-        $('#login_library_card_recovery').hide();
-      }
-    }).change();
+    VuFind.displayILSPasswordRecoveryLink(links, idPrefix);
   }
 
+  /**
+   * Initialize ILS self registration links
+   * @param {object} links Object containing identifier and url for link href
+   * @param {string} idPrefix Prepend selector with idPrefix
+   */
   function initILSSelfRegistrationLink(links, idPrefix) {
     var searchPrefix = idPrefix ? '#' + idPrefix : '#';
     $(searchPrefix + 'target').on('change', function onChangeLoginTargetLink() {
@@ -424,24 +672,27 @@ finna.layout = (function finnaLayout() {
       } else {
         $('#login_library_card_register').hide();
       }
-    }).change();
+    }).trigger("change");
   }
 
+  /**
+   * Initialize side facets
+   */
   function initSideFacets() {
     if (!document.addEventListener) {
       return;
     }
-    document.addEventListener('VuFind.sidefacets.loaded', function onSideFacetsLoaded() {
+    VuFind.listen('VuFind.sidefacets.loaded', function onSideFacetsLoaded() {
       finna.dateRangeVis.init();
       initToolTips($('.sidebar'));
       initMobileNarrowSearch();
       VuFind.lightbox.bind($('.sidebar'));
-    });
-    document.addEventListener('VuFind.sidefacets.treenodeloaded', function onTreeNodeLoaded(e) {
-      addJSTreeListeners(e.detail.node);
-    });
+    }, {once: true});
   }
 
+  /**
+   * Init Matomo(Piwik) popular searches container
+   */
   function initPiwikPopularSearches() {
     var $container = $('.piwik-popular-searches');
     if ($container.length === 0) {
@@ -458,6 +709,9 @@ finna.layout = (function finnaLayout() {
       });
   }
 
+  /**
+   * Initialize auto scroll touch
+   */
   function initAutoScrollTouch() {
     if (!navigator.userAgent.match(/iemobile/i) && isTouchDevice() && $(window).width() < 1025) {
       $('.search-query').on('click', function onClickSearchQuery() {
@@ -468,6 +722,9 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Initialize ipad check
+   */
   function initIpadCheck() {
     if (navigator.userAgent.match(/iPad/i)) {
       if (navigator.userAgent.match(/OS 6_\d(_\d) like Mac OS X/i)) {
@@ -476,6 +733,9 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Initialize record scrolling
+   */
   function initScrollRecord() {
     if (!$('section.main').is('.template-name-search, .template-name-results')) {
       return;
@@ -500,54 +760,74 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Initialize lightbox login events
+   */
   function initLightboxLogin() {
     if (!document.addEventListener) {
       return;
     }
-    document.addEventListener('VuFind.lightbox.login', function onLightboxLogin(e) {
-      if ($('body').hasClass('template-name-home') && !e.detail.formUrl.match(/catalogLogin/) && !e.detail.formUrl.match(/\Save/) && !e.detail.formUrl.match(/%2[fF]Save/)) {
+    // Lightbox passes an object as an event containing keys: {formUrl, originalUrl}
+    VuFind.listen('lightbox.login', function onLightboxLogin(e, cancelRefresh) {
+      if ($('body').hasClass('template-name-home') && !e.formUrl.match(/catalogLogin/) && !e.formUrl.match(/\/Save/) && !e.formUrl.match(/%2[fF]Save/)) {
         window.location.href = VuFind.path + '/MyResearch/Home';
-        e.preventDefault();
+        cancelRefresh();
       }
-    });
-    $('#modal').on('show.bs.modal', function onShowModal() {
-      if ($('#modal').find('#authcontainer').length > 0) {
-        $('#modal .modal-dialog').addClass('modal-lg modal-lg-dynamic');
-      }
-    });
-    $('#modal').on('hidden.bs.modal', function onHiddenModal() {
-      $('#modal .modal-dialog.modal-lg-dynamic').removeClass('modal-lg');
     });
   }
 
+  /**
+   * Display content after login from a lightbox
+   * @param {string} url Ajax url
+   */
   function showPostLoginLightbox(url) {
     VuFind.lightbox.ajax({url: url});
   }
 
-  function getOrganisationPageLink(organisation, organisationName, link, callback) {
+  /**
+   * Get organisation info page link for a single organisation, or links for a list of organisations
+   * @param {object}       organisation     Single organisation or a list of organisations
+   *                                        with keys 'id' and optional 'sector'
+   * @param {string | false} organisationName Organisation name, if any (single organisation only)
+   * @param {boolean}      renderLinks      Whether to return rendered links in the response
+   * @param {Function}     callback         Callback to call when done
+   *
+   * Note that the return format varies depending on whether a single organsation or multiple organisations
+   * were requested. For the single one, the result is just the content for it, but for multiple one it's
+   * keyed by organisation id.
+   */
+  function getOrganisationPageLink(organisation, organisationName, renderLinks, callback) {
     var params = {
       url: VuFind.path + '/AJAX/JSON?method=getOrganisationInfo',
-      dataType: 'json',
-      method: 'POST',
       data: {
         method: 'getOrganisationInfo',
-        'params[action]': 'lookup',
-        link: link ? '1' : '0',
-        parent: organisation
+        element: 'organisation-page-link',
+        renderLinks: renderLinks ? '1' : '0'
       }
     };
+    if (typeof organisation.id === 'undefined') {
+      params.data.organisations = JSON.stringify(organisation);
+    } else {
+      params.data.id = organisation.id;
+      params.data.sector = organisation.sector || '';
+    }
     if (organisationName) {
       params.data.parentName = String(organisationName);
     }
     $.ajax(params)
       .done(function onGetOrganisationInfoDone(response) {
-        callback(response.data);
+        // Filter out null values:
+        const data = Object.fromEntries(Object.entries(response.data).filter((item) => null !== item[1]));
+        callback(data);
       })
       .fail(function onGetOrganisationInfoFail() {
         callback(false);
       });
   }
 
+  /**
+   * Initialize organisation page links
+   */
   function initOrganisationPageLinks() {
     VuFind.observerManager.createIntersectionObserver(
       'OrganisationPageLinks',
@@ -559,10 +839,8 @@ finna.layout = (function finnaLayout() {
         var organisation = {'id': organisationId, 'sector': organisationSector};
         getOrganisationPageLink(organisation, organisationName, true, function organisationPageCallback(response) {
           holder.toggleClass('done', true);
-          if (response) {
-            $.each(response, function handleLinks(id, item) {
-              holder.html(item).closest('li.record-organisation').toggleClass('organisation-page-link-visible', true);
-            });
+          if (response && response.found) {
+            holder.html(response.html).closest('li.record-organisation').toggleClass('organisation-page-link-visible', true);
           }
         });
       },
@@ -570,6 +848,9 @@ finna.layout = (function finnaLayout() {
     );
   }
 
+  /**
+   * Initialize organisation info widgets
+   */
   function initOrganisationInfoWidgets() {
     $('.organisation-info[data-init="1"]').each(function setupOrganisationInfo() {
       var widget = finna.organisationInfoWidget;
@@ -578,6 +859,9 @@ finna.layout = (function finnaLayout() {
     });
   }
 
+  /**
+   * Initialize audio buttons
+   */
   function initAudioButtons() {
     var scripts = {
       'videojs': 'vendor/video.min.js',
@@ -592,42 +876,51 @@ finna.layout = (function finnaLayout() {
       var play = self.find('.play');
       var source = self.find('source');
       play.one('click', function onPlay() {
-        finna.scriptLoader.loadInOrder(
+        finna.scriptLoader.load(
           scripts,
-          subScripts,
-          function onVideoJsLoaded() {
-            self.find('.audio-player-wrapper').removeClass('hide');
-            var audio = self.find('audio');
-            audio.removeClass('hide').addClass('video-js');
-            source.attr('src', source.data('src'));
-            videojs(
-              audio.attr('id'),
-              { controlBar: { volumePanel: false, muteToggle: false } },
-              function onVideoJsInited() {}
+          () => {
+            finna.scriptLoader.load(
+              subScripts,
+              function onVideoJsLoaded() {
+                self.find('.audio-player-wrapper').removeClass('hide');
+                var audio = self.find('audio');
+                audio.removeClass('hide').addClass('video-js');
+                source.attr('src', source.data('src'));
+                videojs(
+                  audio.attr('id'),
+                  { controlBar: { volumePanel: false, muteToggle: false } },
+                  function onVideoJsInited() {}
+                );
+                play.remove();
+                self.find('.vjs-play-control').focus();
+              }
             );
-            play.remove();
           }
         );
       });
+      play.on('keydown', function onKeyDown(e) {
+        if (e.which === 13 || e.which === 32) {
+          e.preventDefault();
+          play.trigger('click');
+        }
+      });
     });
-  }
-
-  function initKeyboardNavigation() {
-    $(window).keyup(function onKeyUp(e) {
-      var $target = $(e.target);
-      // jsTree link target navigation
-      if ((e.which === 13 || e.which === 32)
-          && $target.hasClass('jstree-anchor') && $target.find('.main').length > 0
-      ) {
-        $target.find('.main').click();
+    $('finna-video').on('keydown', function onKeyDown(e) {
+      if (e.which === 13 || e.which === 32) {
         e.preventDefault();
-        return false;
+        $(this).trigger('click');
       }
-      return true;
     });
   }
 
+  /**
+   * Initialize priority navigation
+   */
   function initPriorityNav() {
+    const navWrapperEl = document.querySelector('.nav-wrapper');
+    if (!navWrapperEl || typeof navWrapperEl.dataset.disablePriorityNav !== 'undefined') {
+      return;
+    }
     priorityNav.init({
       mainNavWrapper: ".nav-wrapper",
       mainNav: ".nav-ul",
@@ -639,6 +932,9 @@ finna.layout = (function finnaLayout() {
     });
   }
 
+  /**
+   * Initialize filters toggle button events
+   */
   function initFiltersToggle () {
     var win = $(window);
 
@@ -658,21 +954,29 @@ finna.layout = (function finnaLayout() {
     $('.filters-toggle').on('click', function filterToggleClicked() {
       var button = $(this);
       var filters = button.closest('.finna-filters').find('.filters');
+      button.toggleClass('open');
 
-      function setState(setHidden, arrowClass, text) {
+      /**
+       * Set state of given text
+       * @param {boolean} setHidden Set text
+       * @param {string} text Set button text
+       */
+      function setState(setHidden, text) {
         filters.toggleClass('hidden', setHidden);
-        button.find('.fa').attr('class', arrowClass);
         button.find('.toggle-text').html(VuFind.translate(text));
       }
 
       if (filters.hasClass('hidden')) {
-        setState(false, 'fa fa-arrow-up', 'hide_filters');
+        setState(false, 'hide_filters');
       } else {
-        setState(true, 'fa fa-arrow-down', 'show_filters');
+        setState(true, 'show_filters');
       }
     });
   }
 
+  /**
+   * Initialize cookie consent events
+   */
   function initCookieConsent() {
     var state = finna.common.getCookie('cookieConsent');
     if ('undefined' === typeof state || !state) {
@@ -682,11 +986,15 @@ finna.layout = (function finnaLayout() {
       });
       $('.cookie-consent').removeClass('hidden');
     }
-    VuFind.listen('vf-cookie-consent-first-done', VuFind.refreshPage);
-    VuFind.listen('vf-cookie-consent-changed', VuFind.refreshPage);
+    VuFind.listen('cookie-consent-first-done', VuFind.refreshPage);
+    VuFind.listen('cookie-consent-changed', VuFind.refreshPage);
   }
 
-  // The accordion has a delicate relationship with the tabs. Handle with care!
+  /**
+   * Toggle login accordion.
+   * The accordion has a delicate relationship with the tabs. Handle with care!
+   * @param {string} tabId Current tab id
+   */
   function _toggleLoginAccordion(tabId) {
     var $accordionHeading = $('.login-accordion .accordion-heading a[data-tab="' + tabId + '"]').closest('.accordion-heading');
     var $loginTabs = $('.login-tabs');
@@ -696,7 +1004,7 @@ finna.layout = (function finnaLayout() {
       // Hide tab from accordion
       $loginTabs.find('.tab-pane.active').removeClass('active');
       // Deactivate any tab since it can't follow the state of a collapsed accordion
-      $loginTabs.find('.nav-tabs li.active').removeClass('active');
+      $loginTabs.find('.nav-tabs > li > a.active').removeClass('active');
       // Move tab content out from accordions
       $tabContent.insertAfter($('.login-accordion .accordion-heading').last());
     } else {
@@ -709,22 +1017,39 @@ finna.layout = (function finnaLayout() {
     }
   }
 
+  /**
+   * Activate a login tab
+   * @param {string} tabId Id of the tab to activate
+   */
   function _activateLoginTab(tabId) {
-    var $top = $('.login-tabs');
-    $top.find('.tab-pane.active').removeClass('active');
-    $top.find('li.' + tabId).tab('show');
-    $top.find('.' + tabId + '-tab').addClass('active');
+    const tabsEl = document.querySelector('.login-tabs');
+    if (tabsEl) {
+      const newTabEl = tabsEl.querySelector('li.' + tabId);
+      if (newTabEl) {
+        const triggerEl = newTabEl.querySelector('a');
+        bootstrap.Tab.getOrCreateInstance(triggerEl).show();
+      }
+    }
     _toggleLoginAccordion(tabId);
   }
 
+  /**
+   * Handle a login tab click
+   * @param {HTMLElement} linkEl Tab link
+   */
+  function handleLoginTabClick(linkEl)
+  {
+    const tabEl = linkEl.closest('li');
+    if (tabEl && tabEl.dataset.bsTab) {
+      _activateLoginTab(tabEl.dataset.bsTab);
+    }
+  }
+
+  /**
+   * Init login tabs
+   */
   function initLoginTabs() {
-    // Tabs
-    $('.login-tabs .nav-tabs a').on('click', function recordTabsClick() {
-      if (!$(this).closest('li').hasClass('active')) {
-        _activateLoginTab(this.className);
-      }
-      return false;
-    });
+    document.querySelectorAll('.login-tabs .nav-tabs a').forEach(linkEl => linkEl.addEventListener('click', () => handleLoginTabClick(linkEl)));
 
     // Accordion
     $('.login-accordion .accordion-toggle').on('click', function accordionClicked() {
@@ -734,6 +1059,9 @@ finna.layout = (function finnaLayout() {
     _activateLoginTab($('.login-tabs .accordion-heading.initiallyActive a').data('tab'));
   }
 
+  /**
+   * Set image paginator translations
+   */
   function setImagePaginatorTranslations() {
     $.fn.setPaginatorTranslations({
       image: VuFind.translate('Image'),
@@ -744,32 +1072,54 @@ finna.layout = (function finnaLayout() {
     });
   }
 
+  /**
+   * Initialize image paginators
+   */
   function initImagePaginators() {
     $('.image-popup-trigger.init').each(function initImages() {
       $(this).finnaPaginator($(this).data('settings'), $(this).data('images'));
     });
   }
 
-  // Used in custom themes
+  /**
+   * Initialize help tabs in custom themes
+   */
   function initHelpTabs() {
     if ($('.help-tabs')[0]) {
+      $('.help-tabs').removeAttr('role');
       $('.help-tab').each(function initHelpTab() {
-        if ($(this).hasClass('active')) {
-          $(this).focus();
+        const $li = $(this);
+        if ($li.hasClass('nav-item')) {
+          // Already converted
+          return;
         }
-        var url = $(this).data('url');
-        $(this).keydown(function onTabEnter(event) {
-          if (event.which === 13) {
-            window.location.href = url;
-          }
-        });
-        $(this).click(function onTabClick() {
-          window.location.href = url;
-        });
+
+        const tabContent = $li.text();
+        $li.html('')
+          .addClass('nav-item')
+          .attr('tabindex', '-1')
+          .removeAttr('aria-selected')
+          .removeAttr('role');
+
+        const url = $li.data('url');
+        const $a = $('<a>')
+          .attr('href', url)
+          .attr('class', 'nav-link')
+          .text(tabContent)
+          .appendTo($li);
+
+        if ($li.hasClass('active')) {
+          $a.addClass('active')
+            .attr('aria-current', 'page')
+            .trigger('focus');
+        }
       });
     }
   }
 
+  /**
+   * Initialize triggers to activate print procedure
+   */
   function initPrintTriggers() {
     $('[data-trigger-print]').off('click').on(
       'click',
@@ -780,13 +1130,49 @@ finna.layout = (function finnaLayout() {
     );
   }
 
+  /**
+   * Set select checkboxes in correct myresearch pages.
+   * @param {HTMLInputElement} element Checkbox element for which the change event occurs
+   */
+  function toggleButtonsForSelected(element) {
+    if (element.closest('form').id === 'renewals') {
+      var checkedRenewals = document.querySelector('form[name="renewals"] .checkbox input[type=checkbox]:checked');
+      var renewSelected = document.getElementById('renewSelected');
+      if (renewSelected) {
+        renewSelected.toggleAttribute('disabled', checkedRenewals === null);
+      }
+    } else if (element.closest('form').id === 'purge_history') {
+      var checkedHistory = document.querySelector('form[name="purge_history"] .result .checkbox input[type=checkbox]:checked');
+      var purgeSelected = document.getElementById('purgeSelected');
+      if (purgeSelected) {
+        purgeSelected.toggleAttribute('disabled', checkedHistory === null);
+      }
+    }
+  }
+
+  /**
+   * Initialize buttons to select all checkboxes
+   */
+  function initSelectAllButtonListeners() {
+    document.querySelectorAll('form[name="renewals"] .checkbox').forEach(element => {
+      element.addEventListener('change', function disableButtons() {
+        toggleButtonsForSelected(element);
+      });
+    });
+    document.querySelectorAll('form[name="purge_history"] .checkbox').forEach(element => {
+      element.addEventListener('change', function disableButtons() {
+        toggleButtonsForSelected(element);
+      });
+    });
+  }
+
   var my = {
     getOrganisationPageLink: getOrganisationPageLink,
     isTouchDevice: isTouchDevice,
     initCondensedList: initCondensedList,
     initTruncate: initTruncate,
     initLocationService: initLocationService,
-    initHierarchicalFacet: initHierarchicalFacet,
+    initBuildingFilter: initBuildingFilter,
     initJumpMenus: initJumpMenus,
     initMobileNarrowSearch: initMobileNarrowSearch,
     initOrganisationPageLinks: initOrganisationPageLinks,
@@ -804,14 +1190,13 @@ finna.layout = (function finnaLayout() {
       initTruncate();
       initContentNavigation();
       initMobileNarrowSearch();
+      setStickyMyaccountHeader();
       initMobileCartIndicator();
-      initCheckboxClicks();
       initToolTips();
       initModalToolTips();
       initScrollLinks();
       initSearchboxFunctions();
       initCondensedList();
-      if (typeof checkSaveStatuses !== 'undefined') { checkSaveStatuses(); }
       initTouchDeviceGallery();
       initSideFacets();
       initPiwikPopularSearches();
@@ -821,7 +1206,6 @@ finna.layout = (function finnaLayout() {
       initOrganisationInfoWidgets();
       initOrganisationPageLinks();
       initAudioButtons();
-      initKeyboardNavigation();
       initPriorityNav();
       initFiltersToggle();
       initCookieConsent();
@@ -829,6 +1213,7 @@ finna.layout = (function finnaLayout() {
       initImagePaginators();
       initHelpTabs();
       initPrintTriggers();
+      initSelectAllButtonListeners();
     },
     showPostLoginLightbox: showPostLoginLightbox
   };

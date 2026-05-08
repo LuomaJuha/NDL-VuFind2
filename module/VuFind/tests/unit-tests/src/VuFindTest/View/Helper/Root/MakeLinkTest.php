@@ -1,8 +1,9 @@
 <?php
+
 /**
- * makeLink view helper Test Class
+ * MakeLink view helper Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -26,12 +27,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\View\Helper\Root;
 
 use VuFind\View\Helper\Root\MakeLink;
 
 /**
- * makeLink view helper Test Class
+ * MakeLink view helper Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -40,12 +42,12 @@ use VuFind\View\Helper\Root\MakeLink;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
-class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
+class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTestCase
 {
     /**
-     * Get MakeLink helper with mock view
+     * Get MakeLink helper with mock view.
      *
-     * return \Laminas\View\Helper\EscapeHtml
+     * @return \Laminas\View\Helper\EscapeHtml
      */
     protected function getHelper()
     {
@@ -55,7 +57,7 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
     }
 
     /**
-     * Test that responds to common inputs
+     * Test that responds to common inputs.
      *
      * @return void
      */
@@ -80,7 +82,7 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
     }
 
     /**
-     * Test that helper returns unescaped text when href is falsey
+     * Test that helper returns unescaped text when href is falsey.
      *
      * @return void
      */
@@ -94,7 +96,7 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
     }
 
     /**
-     * Test that responds to common inputs
+     * Test that responds to common inputs.
      *
      * @return void
      */
@@ -143,7 +145,7 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
     }
 
     /**
-     * Test escaping with other plugins
+     * Test escaping with other plugins.
      *
      * @return void
      */
@@ -159,7 +161,8 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
 
         // Confirm that attributes and HTML contents are escaped
         $this->assertEquals(
-            '<a data-foo="this&amp;that" href="&#x2F;Record&#x2F;foo&#x25;2Fbar&#x3F;checkRoute&#x3D;1">contains &lt;b&gt;bold&lt;/b&gt;</a>',
+            '<a data-foo="this&amp;that" href="&#x2F;Record&#x2F;foo&#x25;2Fbar&#x3F;checkRoute&#x3D;1">'
+                . 'contains &lt;b&gt;bold&lt;/b&gt;</a>',
             $helper(
                 'contains <b>bold</b>',
                 '/Record/foo%2Fbar?checkRoute=1',
@@ -169,7 +172,8 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
 
         // Confirm that HTML is NOT escaped when asked politely
         $this->assertEquals(
-            '<a data-foo="this&amp;that" href="&#x2F;Record&#x2F;foo&#x25;2Fbar&#x3F;checkRoute&#x3D;1">contains <b>bold</b></a>',
+            '<a data-foo="this&amp;that" href="&#x2F;Record&#x2F;foo&#x25;2Fbar&#x3F;checkRoute&#x3D;1">'
+                . 'contains <b>bold</b></a>',
             $helper(
                 'contains <b>bold</b>',
                 '/Record/foo%2Fbar?checkRoute=1',
@@ -180,7 +184,7 @@ class MakeLinkTest extends \VuFindTest\Unit\AbstractMakeTagTest
     }
 
     /**
-     * Test that helper obeys options
+     * Test that helper obeys options.
      *
      * @return void
      */

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Blender backend.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2019-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,11 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindSearch\Backend\Blender;
 
 use Laminas\EventManager\EventInterface;
 use Laminas\EventManager\EventManager;
-use Laminas\EventManager\EventManagerInterface;
 use VuFindSearch\Backend\AbstractBackend;
 use VuFindSearch\Backend\BackendInterface;
 use VuFindSearch\Backend\Blender\Response\Json\RecordCollection;
@@ -38,6 +39,9 @@ use VuFindSearch\ParamBag;
 use VuFindSearch\Query\AbstractQuery;
 use VuFindSearch\Response\RecordCollectionInterface;
 use VuFindSearch\Response\RecordInterface;
+
+use function count;
+use function intval;
 
 /**
  * Blender backend.
@@ -50,43 +54,45 @@ use VuFindSearch\Response\RecordInterface;
  */
 class Backend extends AbstractBackend
 {
+    use \VuFindSearch\Feature\SearchBackendEventManagerTrait;
+
     /**
-     * Actual backends
+     * Actual backends.
      *
      * @var array
      */
     protected $backends;
 
     /**
-     * Limit for number of records to blend
+     * Limit for number of records to blend.
      *
      * @var int
      */
     protected $blendLimit;
 
     /**
-     * Block size for interleaved records
+     * Block size for interleaved records.
      *
      * @var int
      */
     protected $blockSize;
 
     /**
-     * Adaptive block sizes for interleaved records
+     * Adaptive block sizes for interleaved records.
      *
      * @var array
      */
     protected $adaptiveBlockSizes;
 
     /**
-     * Blender configuration
+     * Blender configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config;
 
     /**
-     * Mappings configuration
+     * Mappings configuration.
      *
      * @var array
      */
@@ -102,16 +108,16 @@ class Backend extends AbstractBackend
     /**
      * Constructor.
      *
-     * @param array                  $backends Actual backends
-     * @param \Laminas\Config\Config $config   Blender configuration
-     * @param array                  $mappings Mappings configuration
-     * @param EventManager           $events   Event manager
+     * @param array                 $backends Actual backends
+     * @param \VuFind\Config\Config $config   Blender configuration
+     * @param array                 $mappings Mappings configuration
+     * @param EventManager          $events   Event manager
      *
      * @return void
      */
     public function __construct(
         array $backends,
-        \Laminas\Config\Config $config,
+        \VuFind\Config\Config $config,
         $mappings,
         EventManager $events
     ) {
@@ -137,7 +143,7 @@ class Backend extends AbstractBackend
      * @param AbstractQuery $query  Search query
      * @param int           $offset Search offset
      * @param int           $limit  Search limit
-     * @param ParamBag      $params Search backend parameters
+     * @param ?ParamBag     $params Search backend parameters
      *
      * @return RecordCollectionInterface
      */
@@ -145,7 +151,7 @@ class Backend extends AbstractBackend
         AbstractQuery $query,
         $offset,
         $limit,
-        ParamBag $params = null
+        ?ParamBag $params = null
     ) {
         $mergedCollection = $this->createRecordCollection();
 
@@ -158,7 +164,7 @@ class Backend extends AbstractBackend
             $backendDetails[$backendId] = [
                 'backend' => $backend,
                 'query' => $params->get("query_$backendId")[0],
-                'params' => $params->get("params_$backendId")[0]
+                'params' => $params->get("params_$backendId")[0],
             ];
         }
         if (!$backendDetails) {
@@ -250,8 +256,8 @@ class Backend extends AbstractBackend
                 [
                     'msg' => 'search_backend_partial_failure',
                     'tokens' => [
-                        '%%sources%%' => implode(', ', $failedBackends)
-                    ]
+                        '%%sources%%' => implode(', ', $failedBackends),
+                    ],
                 ]
             );
         }
@@ -274,7 +280,7 @@ class Backend extends AbstractBackend
 
     /**
      * Add records to the merged collection in a round-robin fashion up to the
-     * specified limit
+     * specified limit.
      *
      * @param RecordCollectionInterface $mergedCollection Merged collection
      * @param array                     $collections      Source collections
@@ -299,12 +305,10 @@ class Backend extends AbstractBackend
         }
 
         $backendOffsets = [];
-        $collectionOffsets = [];
         $backendTotals = [];
         $availableBackendIds = array_keys($collections);
         foreach ($availableBackendIds as $backendId) {
             $backendOffsets[$backendId] = 0;
-            $collectionOffsets[$backendId] = 0;
             $backendTotals[$backendId] = $collections[$backendId]->getTotal();
         }
         // First iterate through the merged records before the offset to
@@ -362,12 +366,12 @@ class Backend extends AbstractBackend
     /**
      * Retrieve a single document.
      *
-     * @param string   $id     Document identifier
-     * @param ParamBag $params Search backend parameters
+     * @param string    $id     Document identifier
+     * @param ?ParamBag $params Search backend parameters
      *
      * @return \VuFindSearch\Response\RecordCollectionInterface
      */
-    public function retrieve($id, ParamBag $params = null)
+    public function retrieve($id, ?ParamBag $params = null)
     {
         throw new \Exception('Blender does not support retrieve');
     }
@@ -385,7 +389,7 @@ class Backend extends AbstractBackend
     }
 
     /**
-     * Get active backends for a search
+     * Get active backends for a search.
      *
      * @param ?ParamBag $params    Search backend parameters
      * @param string    $delimiter Delimiter for the blender_backend facet
@@ -482,7 +486,7 @@ class Backend extends AbstractBackend
     }
 
     /**
-     * Get the block size for the given result count
+     * Get the block size for the given result count.
      *
      * @param int $resultCount Result count
      *
@@ -507,20 +511,6 @@ class Backend extends AbstractBackend
             }
         }
         return $this->blockSize;
-    }
-
-    /**
-     * Set EventManager instance.
-     *
-     * @param EventManagerInterface $events Event manager
-     *
-     * @return void
-     * @todo   Deprecate `VuFind\Search' event namespace (2.2)
-     */
-    protected function setEventManager(EventManagerInterface $events)
-    {
-        $events->setIdentifiers(['VuFind\Search', 'VuFindSearch']);
-        $this->events = $events;
     }
 
     /**
@@ -557,7 +547,8 @@ class Backend extends AbstractBackend
     protected function triggerSearchEvent(EventInterface $event)
     {
         $command = $event->getParam('command');
-        if ($command->getTargetIdentifier() !== $this->getIdentifier()
+        if (
+            $command->getTargetIdentifier() !== $this->getIdentifier()
             || !($command instanceof SearchCommand)
         ) {
             return $event;
@@ -578,7 +569,7 @@ class Backend extends AbstractBackend
     }
 
     /**
-     * Collect results back into the Command after an event has been processed
+     * Collect results back into the Command after an event has been processed.
      *
      * @param SearchCommand $command        Search command
      * @param SearchCommand $backendCommand Backend-specific command
@@ -602,7 +593,7 @@ class Backend extends AbstractBackend
     }
 
     /**
-     * Convert a search event to another backend
+     * Convert a search event to another backend.
      *
      * @param EventInterface   $event   Event
      * @param SearchCommand    $command Search command

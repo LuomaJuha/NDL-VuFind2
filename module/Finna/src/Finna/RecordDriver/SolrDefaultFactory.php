@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Factory for SolrDefault record drivers.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  * Copyright (C) The National Library of Finland 2018-2022.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -29,6 +30,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\RecordDriver;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -48,11 +50,10 @@ use Psr\Container\ContainerInterface;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class SolrDefaultFactory
-    extends \VuFind\RecordDriver\SolrDefaultWithoutSearchServiceFactory
+class SolrDefaultFactory extends \VuFind\RecordDriver\SolrDefaultWithoutSearchServiceFactory
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -68,16 +69,16 @@ class SolrDefaultFactory
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
         $driver = parent::__invoke($container, $requestedName, $options);
         $driver->attachSearchService($container->get(\VuFindSearch\Service::class));
         $driver->attachDateConverter($container->get(\VuFind\Date\Converter::class));
         $driver->attachDatasourceSettings(
-            $container->get(\VuFind\Config\PluginManager::class)->get('datasources')
+            $container->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('datasources')
         );
         $driver->attachVideoHandler($container->get(\Finna\Video\Video::class));
-
+        $driver->attachLocaleSettings($container->get(\VuFind\I18n\Locale\LocaleSettings::class));
         return $driver;
     }
 }

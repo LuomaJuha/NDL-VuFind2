@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Get User Transactions" AJAX handler
+ * "Get User Transactions" AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
+use VuFind\Account\AccountStatusLevelType;
 
 /**
- * "Get User Transactions" AJAX handler
+ * "Get User Transactions" AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -38,10 +41,12 @@ use Laminas\Mvc\Controller\Plugin\Params;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetUserTransactions extends AbstractIlsAndUserAction
+class GetUserTransactions extends AbstractIlsUserAndRendererAction
 {
+    use \VuFind\ILS\Logic\SummaryTrait;
+
     /**
-     * Paginator
+     * Paginator.
      *
      * @var \VuFind\ILS\PaginationHelper
      */
@@ -65,43 +70,50 @@ class GetUserTransactions extends AbstractIlsAndUserAction
             return $this->formatResponse('', self::STATUS_HTTP_ERROR);
         }
 
-        $counts = [
-            'ok' => 0,
-            'warn' => 0,
-            'overdue' => 0
-        ];
+        $result = [];
         $functionConfig = $this->ils->checkFunction('getMyTransactions', $patron);
         $page = 1;
         do {
             // Try to use large page size, but take ILS limits into account
             $pageOptions = $this->getPaginationHelper()
                 ->getOptions($page, null, 1000, $functionConfig);
-            $result = $this->ils
-                ->getMyTransactions($patron, $pageOptions['ilsParams']);
-            foreach ($result['records'] as $item) {
-                switch ($item['dueStatus'] ?? '') {
-                case 'due':
-                    $counts['warn']++;
-                    break;
-                case 'overdue':
-                    $counts['overdue']++;
-                    break;
-                default:
-                    $counts['ok']++;
-                    break;
-                }
+            $transactions = $this->ils->getMyTransactions($patron, $pageOptions['ilsParams']);
+
+            $summary = $this->getTransactionSummary($transactions['records']);
+            foreach ($summary as $key => $value) {
+                $result[$key] = ($result[$key] ?? 0) + $value;
             }
             $pageEnd = $pageOptions['ilsPaging']
-                ? ceil($result['count'] / $pageOptions['limit'])
+                ? ceil($transactions['count'] / $pageOptions['limit'])
                 : 1;
             $page++;
         } while ($page <= $pageEnd);
 
-        return $this->formatResponse($counts);
+        $result['level'] = $this->getAccountStatusLevel($result);
+        $result['html'] = $this->renderer->render('ajax/account/checkouts.phtml', $result);
+        return $this->formatResponse($result);
     }
 
     /**
-     * Set the ILS pagination helper
+     * Get account status level for notification icon.
+     *
+     * @param array $status Status information
+     *
+     * @return AccountStatusLevelType
+     */
+    protected function getAccountStatusLevel(array $status): AccountStatusLevelType
+    {
+        if ($status['overdue']) {
+            return AccountStatusLevelType::ActionRequired;
+        }
+        if ($status['warn']) {
+            return AccountStatusLevelType::Attention;
+        }
+        return AccountStatusLevelType::Normal;
+    }
+
+    /**
+     * Set the ILS pagination helper.
      *
      * @param \VuFind\ILS\PaginationHelper $helper Pagination helper
      *
@@ -113,7 +125,7 @@ class GetUserTransactions extends AbstractIlsAndUserAction
     }
 
     /**
-     * Get the ILS pagination helper
+     * Get the ILS pagination helper.
      *
      * @return \VuFind\ILS\PaginationHelper
      */

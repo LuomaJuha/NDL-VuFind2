@@ -5,7 +5,7 @@
     if ($titleLocation) {
         $dialogTitle .= " - $titleLocation";
     }
-    $holdsAllowed = $holdsAllowed ?? $this->driver->tryMethod('getHoldsAllowed');
+    $holdsAllowed ??= $this->driver->tryMethod('getHoldsAllowed');
 
     $branches = false;
     foreach ($holding['items'] as $row) {
@@ -27,7 +27,7 @@
       $blockILLRequest = !$checkILLRequest && isset($row['addILLRequestLink']) && $row['addILLRequestLink'] === 'block';
       $currentDepartment = '';
     ?>
-    <div vocab="http://schema.org/" typeof="Offer" class="copy-details <?=$this->mode?>">
+    <div class="copy-details <?=$this->mode?>">
       <?php if (isset($row['branch']) || isset($row['department'])): ?>
         <?php
           $parts = [];
@@ -43,49 +43,59 @@
         ?>
         <div class="copy-title">
           <?php if (!$branches): ?>
-            <span class="copy-number"><?=!empty($row['number']) ? $this->escapeHtml($row['number']) : $this->transEsc("Copy") ?></span>
+            <span class="copy-number"><?=!empty($row['number']) ? $this->escapeHtml($row['number']) : $this->transEsc('Copy') ?></span>
           <?php endif; ?>
           <?=implode(', ', $parts);?>
         </div>
       <?php else: ?>
         <div class="copy-title">
-          <span class="copy-number"><?=!empty($row['number']) ? $this->escapeHtml($row['number']) : $this->transEsc("Copy") ?></span>
+          <span class="copy-number"><?=!empty($row['number']) ? $this->escapeHtml($row['number']) : $this->transEsc('Copy') ?></span>
         </div>
       <?php endif; ?>
       <div class="copy-info">
-        <?php if (isset($row['reserve']) && $row['reserve'] == "Y"): ?>
-          <link property="availability" href="http://schema.org/InStoreOnly" />
-          <?=$this->transEsc("On Reserve - Ask at Circulation Desk")?><br />
+        <?php if (isset($row['reserve']) && $row['reserve'] == 'Y'): ?>
+          <?=$this->transEsc('On Reserve - Ask at Circulation Desk')?><br>
         <?php endif; ?>
-        <?php if (isset($row['use_unknown_message']) && $row['use_unknown_message']): ?>
-          <span class="text-muted"><?=$this->transEsc("status_unknown_message")?></span>
+        <?php $statusDescriptionTokens = $row['availability']->getStatusDescriptionTokens(); ?>
+        <?php if ($row['availability']->is(\VuFind\ILS\Logic\AvailabilityStatusInterface::STATUS_UNKNOWN)): ?>
+          <span class="text-muted"><?=$this->transEsc($row['availability']->getStatusDescription(), $statusDescriptionTokens)?></span>
         <?php else: ?>
-          <?php if ($row['availability']): ?>
+          <?php $status = $row['availability']->getStatusDescription(); ?>
+          <?php if ($row['availability']->isAvailable()): ?>
             <?php /* Begin Available Items (Holds) */ ?>
-            <span class="text-success">
-              <i class="fa fa-ok" aria-hidden="true"></i>
-              <?=isset($row['availabilityInfo']['displayText']) ? $this->transEsc('status_' . $row['availabilityInfo']['displayText'], [], $row['availabilityInfo']['displayText']) : $this->transEsc('Available')?>
-              <link property="availability" href="http://schema.org/InStock" />
+            <?php
+              if ($row['availability']->is(\VuFind\ILS\Logic\AvailabilityStatusInterface::STATUS_UNCERTAIN)) {
+                $statusClassEsc = 'status-uncertain';
+                $icon = 'status-uncertain';
+              } else {
+                $statusClassEsc = 'status-available';
+                $icon = 'status-available';
+              }
+            ?>
+            <span class="<?=$statusClassEsc?>">
+              <?=$this->icon($icon, $statusClassEsc)?>
+              <?php $statusKey = "status_$status"; ?>
+              <?=$this->transEsc(!$this->translationEmpty($statusKey) ? $statusKey : 'Available', $statusDescriptionTokens)?>
             </span>
             <?php if (isset($row['requests_placed']) && $row['requests_placed'] > 0): ?>
               &ndash;&nbsp;<span class="small"><?=$this->translate('status_requests_html', ['%%count%%' => $this->escapeHtml($row['requests_placed'])])?></span>
             <?php endif; ?>
-            <div class="pull-right">
+            <div class="float-end">
             <?php if (!$journal): ?>
               <?php if (!$block && isset($row['link']) && $row['link'] && $holdsAllowed): ?>
-                <a class="<?=$check ? "{$this->mode}CheckRequest " : ''?>inlineblock placehold btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['link']))?>" data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate("Place a Hold") . $dialogTitle); ?>"><?=$this->transEsc($check ? "Check Hold" : "Place a Hold")?></a>
+                <a class="<?=$check ? "{$this->mode}CheckRequest request-check " : ''?>inlineblock placehold btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['link']))?>" data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate('Place a Hold') . $dialogTitle); ?>"><?=$this->transEsc($check ? 'Check Hold' : 'Place a Hold')?></a>
               <?php endif; ?>
               <?php if (!$blockStorageRetrievalRequest && isset($row['storageRetrievalRequestLink']) && $row['storageRetrievalRequestLink']): ?>
-                <a class="<?=$checkStorageRetrievalRequest ? "{$this->mode}CheckStorageRetrievalRequest " : ''?>inlineblock placeStorageRetrievalRequest btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['storageRetrievalRequestLink']))?>" data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate("storage_retrieval_request_place_text") . $dialogTitle); ?>"><?=$this->transEsc($checkStorageRetrievalRequest ? "storage_retrieval_request_check_text" : "storage_retrieval_request_place_text")?></a>
+                <a class="<?=$checkStorageRetrievalRequest ? "{$this->mode}CheckStorageRetrievalRequest request-check " : ''?>inlineblock placeStorageRetrievalRequest btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['storageRetrievalRequestLink']))?>" data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate('storage_retrieval_request_place_text') . $dialogTitle); ?>"><?=$this->transEsc($checkStorageRetrievalRequest ? 'storage_retrieval_request_check_text' : 'storage_retrieval_request_place_text')?></a>
               <?php endif; ?>
               <?php if (!$blockILLRequest && isset($row['ILLRequestLink']) && $row['ILLRequestLink']): ?>
-                <a class="<?=$checkILLRequest ? "{$this->mode}CheckILLRequest " : ''?>inlineblock placeILLRequest btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['ILLRequestLink']))?>"  data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate("ill_request_place_text") . $dialogTitle); ?>"><?=$this->transEsc($checkILLRequest ? "ill_request_check_text" : "ill_request_place_text")?></a>
+                <a class="<?=$checkILLRequest ? "{$this->mode}CheckILLRequest request-check " : ''?>inlineblock placeILLRequest btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['ILLRequestLink']))?>"  data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate('ill_request_place_text') . $dialogTitle); ?>"><?=$this->transEsc($checkILLRequest ? 'ill_request_check_text' : 'ill_request_place_text')?></a>
               <?php endif; ?>
             <?php endif; ?>
             </div>
           <?php else: ?>
             <?php /* Begin Unavailable Items (Recalls) */ ?>
-            <span class="text-danger"><?=$row['status'] == 'Ordered' ? '' : '<i class="fa fa-remove" aria-hidden="true"></i>';?> <?=$this->transEsc('status_' . $row['status'], null, $this->translate($row['status']))?><link property="availability" href="http://schema.org/OutOfStock" /> </span>
+            <span class="status-unavailable"><?=$status == 'Ordered' ? '' : $this->icon('status-unavailable');?> <?=$this->transEsc('status_' . $status, $statusDescriptionTokens, $this->translate($status, $statusDescriptionTokens))?> </span>
             <?php if (isset($row['returnDate']) && $row['returnDate']): ?>&ndash; <span class="small"><?=$this->escapeHtml($row['returnDate'])?></span><?php endif; ?>
             <?php if (isset($row['duedate']) && $row['duedate']): ?>
               &ndash;&nbsp;<span class="small"><?=$this->transEsc('Due')?>:&nbsp;<?=$this->escapeHtml($row['duedate'])?></span>
@@ -94,8 +104,8 @@
               &ndash;&nbsp;<span class="small"><?=$this->translate('status_requests_html', ['%%count%%' => $this->escapeHtml($row['requests_placed'])])?></span>
             <?php endif; ?>
             <?php if (!$journal && !$block && isset($row['link']) && $row['link'] && $holdsAllowed): ?>
-              <div class="pull-right">
-                <a class="<?=$check ? "{$this->mode}CheckRequest " : ''?>inlineblock placehold btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['link']))?>" data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate("Recall This") . $dialogTitle); ?>"><?=$this->transEsc($check ? "Check Recall" : "Recall This")?></a>
+              <div class="float-end">
+                <a class="<?=$check ? "{$this->mode}CheckRequest request-check " : ''?>inlineblock placehold btn btn-primary hidden-print" data-lightbox href="<?=$this->escapeHtmlAttr($this->recordLinker()->getRequestUrl($row['link']))?>" data-lightbox-title="<?=$this->escapeHtmlAttr($this->translate('Recall This') . $dialogTitle); ?>"><?=$this->transEsc($check ? 'Check Recall' : 'Recall This')?></a>
               </div>
             <?php endif; ?>
           <?php endif; ?>
@@ -109,19 +119,6 @@
             </div>
           <?php endif; ?>
         <?php endif; ?>
-        <?php /* Embed item structured data: library, barcode, call number */ ?>
-        <?php if ($row['location']): ?>
-          <meta property="seller" content="<?=$this->escapeHtmlAttr($row['location'])?>" />
-        <?php endif; ?>
-        <?php if ($row['barcode']): ?>
-          <meta property="serialNumber" content="<?=$this->escapeHtmlAttr($row['barcode'])?>" />
-        <?php endif; ?>
-        <?php if ($row['callnumber']): ?>
-          <meta property="sku" content="<?=$this->escapeHtmlAttr($row['callnumber'])?>" />
-        <?php endif; ?>
-        <?php /* Declare that the item is to be borrowed, not for sale */ ?>
-          <link property="businessFunction" href="http://purl.org/goodrelations/v1#LeaseOut" />
-          <link property="itemOffered" href="#record" />
         <?php if (isset($row['availabilityInfo'])): ?>
           <div class="copy-available">
             <?php if (!empty($row['availabilityInfo']['ordered'])): ?>
@@ -135,6 +132,9 @@
                 <?php if (isset($row['availabilityInfo']['total'])): ?>
                   / <?=$row['availabilityInfo']['total']?>
                 <?php endif; ?>
+                <?php if ($branches): ?>
+                  <?=$this->callnumber()->callnumber($this->driver->tryMethod('getDataSource'), $this->driver->getFullTitle(), '', $row['collection'] ?? '', $row['location'] ?? '', $this->layout()->userLang, 'record', $row, true)?>
+                <?php endif; ?>
               </div>
             <?php endif; ?>
           </div>
@@ -145,9 +145,9 @@
   <?php if (null !== $this->moreLinkPage): ?>
     <div class="copy-details <?=$this->mode?>" data-key="<?=$this->escapeHtmlAttr($this->moreLinkKey)?>" data-page="<?=$this->escapeHtmlAttr($this->moreLinkPage)?>" data-record-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId())?>" data-record-source="<?=$this->escapeHtmlAttr($this->driver->getSourceIdentifier())?>">
       <button class="more-link load-more-items-ajax" type="button">
-        <?=$this->transEsc('show_more')?> <i class="fa fa-arrow-down"></i>
+        <?=$this->transEsc('show_more')?> <?=$this->icon('show-more') ?>
       </button>
-      <span class="load-more-indicator-ajax hidden"><i class="fa fa-spinner fa-spin"></i> <?=$this->transEsc('loading_ellipsis')?></span>
+      <span class="load-more-indicator-ajax hidden"><?=$this->icon('spinner') ?> <?=$this->transEsc('loading_ellipsis')?></span>
     </div>
     <div class="holdings-items-ajax hidden"></div>
   <?php endif; ?>

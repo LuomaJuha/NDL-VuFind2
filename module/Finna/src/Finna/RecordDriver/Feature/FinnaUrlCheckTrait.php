@@ -1,12 +1,13 @@
 <?php
+
 /**
- * Trait for checking external content url validity
+ * Trait for checking external content url validity.
  *
  * Dependencies:
  * - Main configuration available via getConfig method
  * - LoggerAwareTrait
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -20,8 +21,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
@@ -29,10 +30,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/configuration:external_content Wiki
  */
+
 namespace Finna\RecordDriver\Feature;
 
+use function in_array;
+use function is_callable;
+
 /**
- * Trait for checking external content url validity
+ * Trait for checking external content url validity.
  *
  * @category VuFind
  * @package  Content
@@ -59,7 +64,7 @@ trait FinnaUrlCheckTrait
     protected static $hostCheckResultCache = [];
 
     /**
-     * Check if the given URL is loadable according to configured rules
+     * Check if the given URL is loadable according to configured rules.
      *
      * @param string $url URL
      * @param string $id  Record ID (for logging)
@@ -78,13 +83,20 @@ trait FinnaUrlCheckTrait
         }
 
         $scheme = parse_url($url, PHP_URL_SCHEME);
-        if (!in_array($scheme, ['http', 'https'])
+        if (
+            !in_array($scheme, ['http', 'https'])
             || !is_callable([$this, 'getConfig'])
         ) {
             return self::$urlCheckResultCache[$url] = false;
         }
 
         $config = $this->getConfig();
+
+        // Check for kirjavalitys links seperately as it is an option set in config
+        $useKirjavalitysLinks = $config->Record->kirjavalitys_links ?? false;
+        if (str_contains($url, 'http://data.kirjavalitys.fi/') && !$useKirjavalitysLinks) {
+            return self::$urlCheckResultCache[$url] = false;
+        }
 
         $allowedMode = $config->Record->allowed_external_hosts_mode ?? 'enforce';
         if ('disable' === $allowedMode) {
@@ -160,7 +172,7 @@ trait FinnaUrlCheckTrait
     }
 
     /**
-     * Check if the given host is allowed by the given filters
+     * Check if the given host is allowed by the given filters.
      *
      * @param string $id             Record ID
      * @param string $url            Full URL
@@ -217,7 +229,7 @@ trait FinnaUrlCheckTrait
     }
 
     /**
-     * Check if the host name matches a filter
+     * Check if the host name matches a filter.
      *
      * @param string $host       Lower-cased host name
      * @param array  $filterList Filters
@@ -241,7 +253,7 @@ trait FinnaUrlCheckTrait
     }
 
     /**
-     * Get the IPv4 address for a host
+     * Get the IPv4 address for a host.
      *
      * @param string $host Host
      *
@@ -253,7 +265,7 @@ trait FinnaUrlCheckTrait
     }
 
     /**
-     * Get the IPv6 address for a host
+     * Get the IPv6 address for a host.
      *
      * @param string $host Host
      *

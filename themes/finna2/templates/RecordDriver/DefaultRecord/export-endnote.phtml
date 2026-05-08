@@ -1,8 +1,32 @@
 <?php
 echo $this->record($this->driver)->getExportFormat('endnote');
 
-foreach ($this->driver->tryMethod('getNonPresenterAuthors', [], []) as $author) {
-    echo "%A {$author['name']}\n";
+$format = $this->driver->tryMethod('getRecordFormat');
+if ($this->driver->getHierarchyType()) {
+    if ($format === 'ead3') {
+        if ($archiveAuthors = $this->driver->tryMethod('getAuthorsWithoutRoleHeadings')) {
+            foreach ($archiveAuthors as $archiveAuthor) {
+                if ($archiveAuthor['name']) {
+                    echo "%A {$archiveAuthor['name']}\n";
+                }
+            }
+        }
+    }
+    if ($locations = $this->driver->tryMethod('getBuildings')) {
+        $archiveLocation = [];
+        foreach ($locations as $location) {
+            $archiveLocation[] = $this->translate($location);
+        }
+        echo '%A ' . implode(', ', $archiveLocation) . "\n";
+    }
+} elseif ($format === 'marc') {
+    foreach ($this->driver->tryMethod('getPrimaryAuthors', [], []) as $author) {
+        echo "%A {$author}\n";
+    }
+} else {
+    foreach ($this->driver->tryMethod('getNonPresenterAuthors', [], []) as $author) {
+        echo "%A {$author['name']}\n";
+    }
 }
 
 $presenters = $this->driver->tryMethod('getPresenters', [], []);
@@ -21,7 +45,7 @@ if (is_array($pubPlaces) && is_array($pubDates) && is_array($pubNames)) {
     }
     for ($i = 0; $i < $total; $i++) {
         if (isset($pubNames[$i])) {
-            echo "%I " . rtrim($pubNames[$i], ", ") . "\n";
+            echo '%I ' . rtrim($pubNames[$i], ', ') . "\n";
         }
         $date = trim($pubDates[$i], '[]. ');
         if (strlen($date) > 4) {
@@ -31,7 +55,7 @@ if (is_array($pubPlaces) && is_array($pubDates) && is_array($pubNames)) {
             echo "%D $date\n";
         }
         if (isset($pubPlaces[$i])) {
-            echo "%C " . rtrim(str_replace(['[', ']'], '', $pubPlaces[$i]), ': ') . "\n";
+            echo '%C ' . rtrim(str_replace(['[', ']'], '', $pubPlaces[$i]), ': ') . "\n";
         }
     }
 }
@@ -81,7 +105,7 @@ if (is_array($issns)) {
     }
 }
 
-$title = rtrim($this->driver->getTitle(), " /");
+$title = rtrim($this->driver->getTitle(), ' /');
 echo "%T $title\n";
 
 $journalTitle = $this->driver->tryMethod('getContainerTitle');
@@ -109,7 +133,7 @@ foreach ($this->record($this->driver)->getUrlList() as $url) {
     echo "%U $url\n";
 }
 
-echo "%U " . $this->serverUrl($this->recordLinker()->getUrl($this->driver)) . "\n";
+echo '%U ' . $this->serverUrl($this->recordLinker()->getUrl($this->driver)) . "\n";
 
 $edition = $this->driver->tryMethod('getEdition');
 if (!empty($edition)) {
@@ -141,4 +165,3 @@ if (is_array($subjects)) {
 
 // Record separator:
 echo "\n";
-?>

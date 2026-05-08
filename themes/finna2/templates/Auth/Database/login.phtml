@@ -4,8 +4,16 @@
   <form method="post" class="form-vertical" action="<?=$this->url('myresearch-home')?>" name="loginForm">
     <div class="login-col">
       <?=$this->auth()->getLoginFields()?>
+      <?php if ($account->supportsPersistentLogin()): ?>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" name="remember_me"> <?=$this->transEsc('remember_me', ['%%days%%' => $account->getPersistentLoginLifetime()])?>
+          </label>
+          <div class="remember-me-info"><?=$this->transEsc('remember_me_info')?></div>
+        </div>
+      <?php endif; ?>
       <input type="hidden" name="auth_method" value="<?=$this->escapeHtmlAttr($account->getAuthMethod())?>">
-      <input type="hidden" name="csrf" value="<?=$this->escapeHtmlAttr($account->getCsrfHash())?>" />
+      <input type="hidden" name="csrf" value="<?=$this->escapeHtmlAttr($account->getCsrfHash())?>">
       <div class="form-group">
         <input class="btn btn-primary" type="submit" name="processLogin" value="<?=$this->transEscAttr('Login')?>">
       </div>
@@ -20,7 +28,7 @@
     </div>
   </form>
   <div class="login-col">
-    <i class="fa fa-info3" aria-hidden="true"></i>
+    <?=$this->icon('info', 'login-info-icon') ?>
     <div class="login-description">
       <p class="login-info">
         <?=$this->translate('login_desc_local_html') ?>
@@ -29,7 +37,7 @@
     <div class="clearfix"></div>
     <?php
       $language = $this->layout()->userLang;
-      if (!in_array($language, ['fi', 'sv', 'en-gb'])) {
+      if (!in_array($language, ['fi', 'sv', 'en-gb', 'se'])) {
         $language = 'en-gb';
       }
     ?>

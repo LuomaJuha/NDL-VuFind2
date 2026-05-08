@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Model for EDS records.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2017.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -27,7 +28,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
+
+use function in_array;
+use function is_array;
+use function strlen;
 
 /**
  * Model for EDS records.
@@ -127,7 +133,7 @@ class EDS extends \VuFind\RecordDriver\EDS
     }
 
     /**
-     * Obtain an array or authors indicated on the record
+     * Obtain an array or authors indicated on the record.
      *
      * @return array
      */
@@ -143,7 +149,7 @@ class EDS extends \VuFind\RecordDriver\EDS
      */
     public function getHighlightedSummary()
     {
-        return [$this->getItemsAbstract()];
+        return $this->getAbstractNotes();
     }
 
     /**
@@ -239,7 +245,8 @@ class EDS extends \VuFind\RecordDriver\EDS
         $formats = $this->getFormats();
         if (in_array('Book', $formats)) {
             return 'Book';
-        } elseif (in_array('Academic Journal', $formats)
+        } elseif (
+            in_array('Academic Journal', $formats)
             || in_array('Magazine', $formats)
             || in_array('Periodical', $formats)
         ) {
@@ -253,7 +260,7 @@ class EDS extends \VuFind\RecordDriver\EDS
     }
 
     /**
-     * Get the publication dates of the record.  See also getDateSpan().
+     * Get the publication dates of the record. See also getDateSpan().
      *
      * @return array
      */
@@ -289,7 +296,7 @@ class EDS extends \VuFind\RecordDriver\EDS
      */
     public function getSummary()
     {
-        return [$this->getItemsAbstract()];
+        return $this->getAbstractNotes();
     }
 
     /**
@@ -333,21 +340,21 @@ class EDS extends \VuFind\RecordDriver\EDS
             $retVal[] = [
                 'desc' => 'View in EDS',
                 'url' => $url,
-                'citation' => true
+                'citation' => true,
             ];
         }
 
         if ($url = $this->getPdfLink()) {
             $retVal[] = [
                 'desc' => 'PDF Full Text',
-                'url' => $url
+                'url' => $url,
             ];
         }
 
         if ($this->hasHTMLFullTextAvailable()) {
             $retVal[] = [
                 'desc' => 'HTML Full Text',
-                'url' => '#html'
+                'url' => '#html',
             ];
         }
 
@@ -356,7 +363,7 @@ class EDS extends \VuFind\RecordDriver\EDS
         foreach ($customLinks as $link) {
             $retVal[] = [
                 'desc' => $link['Text'] ?: $link['Name'],
-                'url' => $link['Url']
+                'url' => $link['Url'],
             ];
         }
 
@@ -364,7 +371,7 @@ class EDS extends \VuFind\RecordDriver\EDS
     }
 
     /**
-     * Get a field from record fields with the given path
+     * Get a field from record fields with the given path.
      *
      * @param string $fieldPath Slash-separated field path
      *
@@ -384,7 +391,7 @@ class EDS extends \VuFind\RecordDriver\EDS
     }
 
     /**
-     * Get a numbering field value
+     * Get a numbering field value.
      *
      * @param string $type Field type
      *

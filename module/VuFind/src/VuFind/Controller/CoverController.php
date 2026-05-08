@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Cover Controller
+ * Cover Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,14 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Controller;
 
 use VuFind\Cover\CachingProxy;
 use VuFind\Cover\Loader;
 use VuFind\Session\Settings as SessionSettings;
 
+use function in_array;
+
 /**
- * Generates covers for book entries
+ * Generates covers for book entries.
  *
  * @category VuFind
  * @package  Controller
@@ -43,41 +47,51 @@ use VuFind\Session\Settings as SessionSettings;
 class CoverController extends \Laminas\Mvc\Controller\AbstractActionController
 {
     /**
-     * Cover loader
+     * Cover loader.
      *
      * @var Loader
      */
     protected $loader;
 
     /**
-     * Proxy loader
+     * Proxy loader.
      *
      * @var CachingProxy
      */
     protected $proxy;
 
     /**
-     * Session settings
+     * Session settings.
      *
      * @var SessionSettings
      */
     protected $sessionSettings = null;
 
     /**
-     * Constructor
+     * Configuration settings ([Content] section of config.ini).
+     *
+     * @var array
+     */
+    protected $config;
+
+    /**
+     * Constructor.
      *
      * @param Loader          $loader Cover loader
      * @param CachingProxy    $proxy  Proxy loader
      * @param SessionSettings $ss     Session settings
+     * @param array           $config Configuration settings
      */
     public function __construct(
         Loader $loader,
         CachingProxy $proxy,
-        SessionSettings $ss
+        SessionSettings $ss,
+        array $config = []
     ) {
         $this->loader = $loader;
         $this->proxy = $proxy;
         $this->sessionSettings = $ss;
+        $this->config = $config;
     }
 
     /**
@@ -88,9 +102,15 @@ class CoverController extends \Laminas\Mvc\Controller\AbstractActionController
     protected function getImageParams()
     {
         $params = $this->params();  // shortcut for readability
+        $isbns = null;
+        // Legacy support for "isn", "isbn" param which has been superseded by isbns:
+        foreach (['isbns', 'isbn', 'isn'] as $identification) {
+            if ($isbns = $params()->fromQuery($identification)) {
+                break;
+            }
+        }
         return [
-            // Legacy support for "isn" param which has been superseded by isbn:
-            'isbn' => $params()->fromQuery('isbn') ?: $params()->fromQuery('isn'),
+            'isbns' => $isbns ? (array)$isbns : null,
             'size' => $params()->fromQuery('size'),
             'type' => $params()->fromQuery('contenttype'),
             'title' => $params()->fromQuery('title'),
@@ -107,7 +127,42 @@ class CoverController extends \Laminas\Mvc\Controller\AbstractActionController
     }
 
     /**
-     * Send image data for display in the view
+     * Is the provided URL included on the configured allow list?
+     *
+     * @param string $url URL to check
+     *
+     * @return bool
+     */
+    protected function proxyAllowedForUrl(string $url): bool
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!$host) {
+            return false;
+        }
+        foreach ((array)($this->config['coverproxyAllowedHosts'] ?? []) as $regEx) {
+            if (preg_match($regEx, $host)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Is the content type allowed by the cover proxy?
+     *
+     * @param string $contentType Type to check
+     *
+     * @return bool
+     */
+    protected function isValidProxyImageContentType(string $contentType): bool
+    {
+        $validTypes = $this->config['coverproxyAllowedTypes']
+            ?? ['image/gif', 'image/jpeg', 'image/png'];
+        return in_array(strtolower($contentType), array_map('strtolower', $validTypes));
+    }
+
+    /**
+     * Send image data for display in the view.
      *
      * @return \Laminas\Http\Response
      */
@@ -117,13 +172,16 @@ class CoverController extends \Laminas\Mvc\Controller\AbstractActionController
 
         // Special case: proxy a full URL:
         $url = $this->params()->fromQuery('proxy');
-        if (!empty($url)) {
+        if (!empty($url) && $this->proxyAllowedForUrl($url)) {
             try {
                 $image = $this->proxy->fetch($url);
-                return $this->displayImage(
-                    $image->getHeaders()->get('content-type')->getFieldValue(),
-                    $image->getContent()
-                );
+                $contentType = $image?->getHeaders()?->get('content-type')?->getFieldValue() ?? '';
+                if ($this->isValidProxyImageContentType($contentType)) {
+                    return $this->displayImage(
+                        $contentType,
+                        $image->getContent()
+                    );
+                }
             } catch (\Exception $e) {
                 // If an exception occurs, drop through to the standard case
                 // to display an image unavailable graphic.
@@ -136,7 +194,7 @@ class CoverController extends \Laminas\Mvc\Controller\AbstractActionController
     }
 
     /**
-     * Return the default 'image not found' information
+     * Return the default 'image not found' information.
      *
      * @return \Laminas\Http\Response
      */
@@ -168,20 +226,34 @@ class CoverController extends \Laminas\Mvc\Controller\AbstractActionController
         // Send proper caching headers so that the user's browser
         // is able to cache the cover images and not have to re-request
         // then on each page load. Default TTL set at 14 days
-
-        $coverImageTtl = (60 * 60 * 24 * 14); // 14 days
-        $headers->addHeaderLine(
-            'Cache-Control',
-            "maxage=" . $coverImageTtl
-        );
-        $headers->addHeaderLine(
-            'Pragma',
-            'public'
-        );
-        $headers->addHeaderLine(
-            'Expires',
-            gmdate('D, d M Y H:i:s', time() + $coverImageTtl) . ' GMT'
-        );
+        if ($this->config['coverimagesBrowserCache'] ?? true) {
+            $coverImageTtl = (60 * 60 * 24 * 14); // 14 days
+            $headers->addHeaderLine(
+                'Cache-Control',
+                'maxage=' . $coverImageTtl
+            );
+            $headers->addHeaderLine(
+                'Pragma',
+                'public'
+            );
+            $headers->addHeaderLine(
+                'Expires',
+                gmdate('D, d M Y H:i:s', time() + $coverImageTtl) . ' GMT'
+            );
+        } else {
+            $headers->addHeaderLine(
+                'Cache-Control',
+                'no-cache, no-store, must-revalidate'
+            );
+            $headers->addHeaderLine(
+                'Pragma',
+                'no-cache'
+            );
+            $headers->addHeaderLine(
+                'Expires',
+                '0'
+            );
+        }
 
         $response->setContent($image ?: $this->loader->getImage());
         return $response;

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Related Records: Solr-based work expressions
+ * Related Records: Solr-based work expressions.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2009.
  * Copyright (C) The National Library of Finland 2019.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Related_Records
@@ -27,12 +28,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:related_records_modules Wiki
  */
+
 namespace Finna\Related;
 
-use VuFindSearch\Command\WorkExpressionsCommand;
+use VuFindSearch\Command\SearchCommand;
+use VuFindSearch\Query\WorkKeysQuery;
 
 /**
- * Related Records: Solr-based work expressions
+ * Related Records: Solr-based work expressions.
  *
  * @category VuFind
  * @package  Related_Records
@@ -44,56 +47,56 @@ use VuFindSearch\Command\WorkExpressionsCommand;
 class WorkExpressions implements \VuFind\Related\RelatedInterface
 {
     /**
-     * Work expressions
+     * Work expressions.
      *
      * @var array
      */
     protected $results;
 
     /**
-     * Total count
+     * Total count.
      *
      * @var int
      */
     protected $resultCount;
 
     /**
-     * Search service
+     * Search service.
      *
      * @var \VuFindSearch\Service
      */
     protected $searchService;
 
     /**
-     * Search configuration
+     * Search configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $searchConfig;
 
     /**
-     * Record ID
+     * Record ID.
      *
      * @var string
      */
     protected $recordId;
 
     /**
-     * Work keys
+     * Work keys.
      *
      * @var array
      */
     protected $workKeys;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFindSearch\Service  $search       Search service
-     * @param \Laminas\Config\Config $searchConfig Search configuration
+     * @param \VuFindSearch\Service $search       Search service
+     * @param \VuFind\Config\Config $searchConfig Search configuration
      */
     public function __construct(
         \VuFindSearch\Service $search,
-        \Laminas\Config\Config $searchConfig
+        \VuFind\Config\Config $searchConfig
     ) {
         $this->searchService = $search;
         $this->searchConfig = $searchConfig;
@@ -110,16 +113,15 @@ class WorkExpressions implements \VuFind\Related\RelatedInterface
     public function init($settings, $driver)
     {
         $this->recordId = $driver->getUniqueID();
-        if (($this->workKeys = $driver->tryMethod('getWorkKeys'))
+        if (
+            ($this->workKeys = $driver->tryMethod('getWorkKeys'))
             && $driver->getSourceIdentifier() === 'Solr'
         ) {
-            $params = new \VuFindSearch\ParamBag();
-            $params->add('rows', $this->getResultMoreLimit());
-            $command = new WorkExpressionsCommand(
+            $command = new SearchCommand(
                 $driver->getSourceIdentifier(),
-                $driver->getUniqueID(),
-                $this->workKeys,
-                $params
+                new WorkKeysQuery($driver->getUniqueID(), false, $this->workKeys),
+                0,
+                $this->getResultMoreLimit()
             );
             $results = $this->searchService->invoke($command)->getResult();
             $this->results = $results->getRecords();
@@ -152,7 +154,7 @@ class WorkExpressions implements \VuFind\Related\RelatedInterface
     }
 
     /**
-     * Get the number of results to be displayed by default
+     * Get the number of results to be displayed by default.
      *
      * @return int
      */
@@ -162,7 +164,7 @@ class WorkExpressions implements \VuFind\Related\RelatedInterface
     }
 
     /**
-     * Get the number of results to be displayed with the more link
+     * Get the number of results to be displayed with the more link.
      *
      * @return int
      */
@@ -172,7 +174,7 @@ class WorkExpressions implements \VuFind\Related\RelatedInterface
     }
 
     /**
-     * Get parameters for a search URL that display all work expressions
+     * Get parameters for a search URL that display all work expressions.
      *
      * @return string
      */
@@ -186,7 +188,7 @@ class WorkExpressions implements \VuFind\Related\RelatedInterface
             'join' => 'AND',
             'lookfor0[]' => "\"$imploded\"",
             'type0[]' => 'WorkKeys',
-            'bool0[]' => 'AND'
+            'bool0[]' => 'AND',
         ];
         return http_build_query($query);
     }

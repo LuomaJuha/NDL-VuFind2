@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Abstract base class for channel providers relying on the ILS.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Channels
@@ -25,12 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\ChannelProvider;
 
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\RecordDriver\AbstractBase as RecordDriver;
 use VuFind\Search\Base\Results;
 use VuFindSearch\Command\RetrieveBatchCommand;
+
+use function count;
 
 /**
  * Abstract base class for channel providers relying on the ILS.
@@ -41,17 +45,10 @@ use VuFindSearch\Command\RetrieveBatchCommand;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-abstract class AbstractILSChannelProvider extends AbstractChannelProvider
-    implements TranslatorAwareInterface
+abstract class AbstractILSChannelProvider extends AbstractChannelProvider implements TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
-
-    /**
-     * Number of results to include in each channel.
-     *
-     * @var int
-     */
-    protected $channelSize;
+    use BatchTrait;
 
     /**
      * Channel title (will be run through translator).
@@ -68,21 +65,21 @@ abstract class AbstractILSChannelProvider extends AbstractChannelProvider
     protected $maxAge;
 
     /**
-     * ILS connection
+     * ILS connection.
      *
      * @var \VuFind\ILS\Connection
      */
     protected $ils;
 
     /**
-     * Search service
+     * Search service.
      *
      * @var \VuFindSearch\Service
      */
     protected $searchService;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \VuFindSearch\Service  $search  Search service
      * @param \VuFind\ILS\Connection $ils     ILS connection
@@ -107,8 +104,8 @@ abstract class AbstractILSChannelProvider extends AbstractChannelProvider
      */
     public function setOptions(array $options)
     {
-        $this->channelSize = $options['channelSize'] ?? 20;
         $this->maxAge = $options['maxAge'] ?? 30;
+        $this->setBatchSizeFromOptions($options);
     }
 
     /**

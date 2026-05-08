@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Console command: expire Finna cache records.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2020.
  * Copyright (C) The National Library of Finland 2020.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Console
@@ -27,7 +28,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Util;
+
+use Symfony\Component\Console\Attribute\AsCommand;
 
 /**
  * Console command: expire Finna cache records.
@@ -39,8 +43,10 @@ namespace FinnaConsole\Command\Util;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class ExpireFinnaCacheCommand
-    extends \VuFindConsole\Command\Util\AbstractExpireCommand
+#[AsCommand(
+    name: 'util/expire_finna_cache'
+)]
+class ExpireFinnaCacheCommand extends \VuFindConsole\Command\Util\AbstractExpireCommand
 {
     /**
      * Help description for the command.
@@ -55,11 +61,4 @@ class ExpireFinnaCacheCommand
      * @var string
      */
     protected $rowLabel = 'Finna cache records';
-
-    /**
-     * The name of the command (the part after "public/index.php")
-     *
-     * @var string
-     */
-    protected static $defaultName = 'util/expire_finna_cache';
 }

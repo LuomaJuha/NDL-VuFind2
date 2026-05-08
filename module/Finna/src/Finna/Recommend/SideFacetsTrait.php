@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Additional functionality for Finna SideFacets
+ * Additional functionality for Finna SideFacets.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library 2015.
  *
@@ -16,43 +17,44 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:recommendation_modules Wiki
+ * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  */
+
 namespace Finna\Recommend;
 
 use VuFind\Solr\Utils as SolrUtils;
 
 /**
- * Additional functionality for Finna SideFacets
+ * Additional functionality for Finna SideFacets.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:recommendation_modules Wiki
+ * @link     https://vufind.org/wiki/development:plugins:recommendation_modules Wiki
  *
  * @SuppressWarnings(PHPMD.ExcessivePublicCount)
  */
 trait SideFacetsTrait
 {
     /**
-     * New items facet configuration
+     * New items facet configuration.
      *
      * @var array
      */
     protected $newItemsFacets = [];
 
     /**
-     * Get new items facets (facet titles)
+     * Get new items facets (facet titles).
      *
      * @return array
      */
@@ -77,7 +79,7 @@ trait SideFacetsTrait
             $result[$current] = [
                 'raw' => $from,
                 'date' => preg_match('/^\d{4}-\d{2}-\d{2}/', $from)
-                    ? substr($from, 0, 10) : str_replace('/DAY', '', $from)
+                    ? substr($from, 0, 10) : str_replace('/DAY', '', $from),
             ];
         }
         return $result;

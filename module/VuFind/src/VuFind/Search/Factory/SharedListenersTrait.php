@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Trait containing methods for building shared listeners.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -25,9 +26,10 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Search\Factory;
 
-use Laminas\Config\Config;
+use VuFind\Config\Config;
 use VuFind\Search\Base\HideFacetValueListener;
 use VuFindSearch\Backend\BackendInterface;
 
@@ -43,7 +45,7 @@ use VuFindSearch\Backend\BackendInterface;
 trait SharedListenersTrait
 {
     /**
-     * Get a hide facet value listener for the backend
+     * Get a hide facet value listener for the backend.
      *
      * @param BackendInterface $backend Search backend
      * @param Config           $facet   Configuration of facets

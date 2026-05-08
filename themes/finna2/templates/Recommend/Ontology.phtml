@@ -39,24 +39,24 @@
     <?php endforeach; ?>
   </div>
   <?php
-    $this->headScript()->appendFile('finna-recommendation-memory.js');
+    $this->assetManager()->appendScriptLink('finna-recommendation-memory.js');
     $script = <<<EOT
-    $('.ontology-recommendation a').each(function() {
-      $(this).on('click', function() {
-        var key = $(this).parents('#ontology-recommendations').data('search-id') + '-' + $(this).data('index');
-        var rec = $(this).text();
-        var orig = $(this).parents('#ontology-recommendations').data('lookfor');
-        var recType = $(this).parents('.result-type').data('result-type');
-        var value = finna.recommendationMemory.getDataString('Ontology', rec, orig, recType);
-        finna.common.setCookie(key, value);
-        $(this).attr(
-          'href',
-          $(this).attr('href') + '&' + finna.recommendationMemory.PARAMETER_NAME + '=' + key
-        );
-      });
-    });
-EOT;
-    echo $this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
+            $('.ontology-recommendation a').each(function() {
+              $(this).on('click', function() {
+                var key = $(this).parents('#ontology-recommendations').data('search-id') + '-' + $(this).data('index');
+                var rec = $(this).text();
+                var orig = $(this).parents('#ontology-recommendations').data('lookfor');
+                var recType = $(this).parents('.result-type').data('result-type');
+                var value = finna.recommendationMemory.getDataString('Ontology', rec, orig, recType);
+                VuFind.cookie.set(key, value);
+                $(this).attr(
+                  'href',
+                  $(this).attr('href') + '&' + finna.recommendationMemory.PARAMETER_NAME + '=' + key
+                );
+              });
+            });
+        EOT;
+    echo $this->assetManager()->outputInlineScriptString($script);
   ?>
   <?= $this->piwik(['customVars' => ['RecommendationShown' => 'OntologyRecommendation']]) ?>
   <?= $this->matomo(['customData' => ['RecommendationShown' => 'OntologyRecommendation']]) ?>

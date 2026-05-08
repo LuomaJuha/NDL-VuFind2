@@ -14,21 +14,23 @@ client_secret = ""
 ;   5.1 (technically still v5 but added in a later revision):
 ;     - summary holdings information (especially for serials)
 api_version = 5.1
+; Statistic group to use e.g. when renewing loans or placing holds (requires Sierra
+; 6.0 or later and API version set to 6 or later above):
+;statgroup = 123
 ; Timeout for HTTP requests
 http_timeout = 30
 ; Redirect URL entered in Sierra for the patron-specific authentication (does not
 ; need to be a properly working url)
 redirect_uri = "http://localhost:8080/vufind/MyResearch/Home?auth_method=sierra"
 
+; Days before account expiration to start displaying a notification for the user.
+; Default is 30.
+;daysBeforeAccountExpirationNotification = 30
+
 ; This section controls hold behavior; note that you must also ensure that Holds are
 ; enabled in the [Catalog] section of config.ini in order to take advantage of these
 ; settings.
 [Holds]
-; If a colon separated list of item statuses is provided here, only matching items
-; will show hold links.  Skip this setting to allow all statuses.
-; Note that VuFind-style statuses are used here.
-valid_hold_statuses = Charged:Renewed:Overdue:On Shelf:In Transit
-
 ; HMACKeys - A list of hold form element names that will be analyzed for consistency
 ; during hold form processing. Most users should not need to change this setting.
 HMACKeys = item_id:holdtype:level
@@ -36,11 +38,13 @@ HMACKeys = item_id:holdtype:level
 ; defaultRequiredDate - A colon-separated list used to set the default "not required
 ; after" date for holds in the format days:months:years
 ; e.g. 0:1:0 will set a "not required after" date of 1 month from the current date
+; Set to empty for no default.
 defaultRequiredDate = 0:0:2
 
-; extraHoldFields - A colon-separated list used to display extra visible fields in the
-; place holds form. Supported values are "requiredByDate", "requestGroup"
-; (location in Sierra), "pickUpLocation", "acceptTerms" and "comments"
+; extraHoldFields - A colon-separated list used to display extra visible fields in
+; the place holds form. Supported values are "requiredByDate",
+; "requiredByDateOptional", "pickUpLocation" and
+; "comments". Comments are only supported with Sierra API v4 onwards.
 extraHoldFields = requiredByDate:pickUpLocation
 
 ; A Pick Up Location Code used to pre-select the pick up location drop down list and
@@ -53,11 +57,48 @@ defaultPickUpLocation = "user-selected"
 ; By default item holds are enabled. Uncomment this setting to disable item holds.
 ;enableItemHolds = false
 
-; This setting specifies which item codes disable item level holds
-item_hold_excluded_item_codes = e
+; If a colon separated list of item statuses is provided here, only matching items
+; will show hold links.  Skip this setting to allow all statuses.
+; Note that VuFind-style statuses are used here.
+valid_hold_statuses = Charged:Renewed:Overdue:On Shelf:In Transit:On Holdshelf
 
-; This setting specifies which bib levels allow title level holds
-title_hold_bib_levels = a:b:m:d
+; This setting specifies which item codes disable item level holds
+;item_hold_excluded_item_codes = e
+
+; A colon separated list of bib levels that enable item level holds. If not defined,
+; negation of title_hold_bib_levels is used instead (i.e. if item matches
+; title_hold_bib_levels, item hold is disabled).
+;item_hold_bib_levels = "a:b:m:d"
+
+; A colon separated list of bib levels that enable title level holds.
+title_hold_bib_levels = "a:b:m:d"
+
+; If a colon separated list of rules is provided here, title level hold is only
+; displayed for records matching any of the rules.
+; Valid rules are:
+;   item           The title must have at least one item matching the following
+;                  settings:
+;                    title_hold_valid_item_statuses
+;                    title_hold_excluded_item_codes
+;                    title_hold_excluded_item_types
+;   order          The title must have at least one active order (order record with
+;                  "ON ORDER" status)
+;title_hold_rules = "item:order"
+
+; If a colon separated list of item statuses is provided here, only matching items
+; will count when the title_hold_rules setting contains "item".  Skip this setting to
+; allow statuses listed in the valid_hold_statuses setting.
+; Note that mapped status strings are used here (see the [ItemStatusMappings] for
+; more information).
+;title_hold_valid_hold_statuses = 'On Shelf:Charged'
+
+; A colon separated list of item codes (ICODE2 in Sierra) that cause an item to be
+; ignored when the title_hold_rules setting contains "item".
+;title_hold_excluded_item_codes = "e"
+
+; A colon separated list of item types (I TYPE in Sierra) that cause an item to be
+; ignored when the title_hold_rules setting contains "item".
+;title_hold_excluded_item_types = "215:251"
 
 ; Optional help texts that can be displayed on the hold form. Displayed as is;
 ; HTML tags can be used, and everything needs to be properly escaped.
@@ -78,10 +119,50 @@ title_hold_bib_levels = a:b:m:d
 ; available for pickup). Supported values are "frozen" and "pickUpLocation".
 updateFields = frozen:pickUpLocation
 
+; If frozen is included in updateFields above, whether to check up front if the hold
+; can be frozen. This check should only be enabled with Sierra 5.6 or later since it
+; is known to be very slow in prior versions. Default is false.
+checkFreezability = true
+
+; Hold shelf information retrieval per hold location prefix.  The setting is a
+; colon-separated string where first part is the handler, second part is
+; configuration section and optional third part contains any handler-specific
+; parameters that get passed to it.
+; The example below uses IMMS with settings from IMMSHelsinki section for all holds
+; where pick up location code starts with 'h'.
+;holdShelfHandler[h] = "IMMS:IMMSHelsinki"
+; The example below uses BMA with settings from BMAEspoo section for all holds
+; where pick up location code starts with 'e01'.
+;holdShelfHandler[e01] = "BMA:BMAEspoo:53"
+
+; IMMS configuration
+[IMMSHelsinki]
+; Security WSDL address
+securityWsdl = ""
+; Query WSDL address
+queryWsdl = ""
+; Authentication token cache time in seconds. Default is 3600.
+;authTokenCacheTime = 3600
+; Shelf location cache time. Default is 300.
+;locationCacheTime = 300
+; API username
+username = ""
+; API password
+password = ""
+
+[BMAEspoo]
+apiKey = ""
+url = ""
+
 ; This section allows modification of the default mapping from item status codes to
 ; VuFind item statuses
 [ItemStatusMappings]
 ;d = "In Processing"
+
+; This section allows mapping of patron block codes to VuFind translation strings
+[PatronBlockMappings]
+k = patron_status_card_lost
+e = patron_status_card_blocked
 
 ; Uncomment the following lines to enable password (PIN) change
 [changePassword]
@@ -97,6 +178,12 @@ pattern = "numeric"
 [TransactionHistory]
 ; By default the loan history is disabled. Uncomment the following line to enable it.
 enabled = true
+; By default selective purging of loan history is enabled. Uncomment the following
+; line to disable it:
+;purgeSelected = false
+; By default purging of all loan history is enabled. Uncomment the following line
+; to disable it:
+;purgeAll = false
 
 ; Changing of loan history state is enabled if method parameter is set. Only
 ; valid value is 'driver'.
@@ -104,3 +191,137 @@ enabled = true
 method = driver
 options[1] = loan_history_forever
 options[0] = loan_history_never
+
+[OnlinePayment]
+; Whether online payment is enabled. Default is false.
+;enabled = true
+; Transaction fee (in cents) added to each payment
+;transactionFee = 50
+; Minimum fee (in cents) allowed to be paid online
+minimumFee = 65
+; Email address for transactions that could not be registered.
+;errorEmail = ''
+; Maximum duration (in minutes) for a transaction.
+transactionMaxDuration = 15
+; Currency
+currency = 'EUR'
+; Fine types that can be paid online. Default is 2,4,5,6.
+; Fine types:
+; 1 = manual
+; 2 = overdue
+; 3 = replacement
+; 4 = adjustment
+; 5 = lost book
+; 6 = overdue renewal
+; 7 = rental
+; 8 = rental adjustment
+;fineTypes = '2,4,5,6'
+; Manual fine description regexp patterns that allow online payment. Default is none.
+;manualFineDescriptions[] = '/^Varausmaksu/'
+;manualFineDescriptions[] = '/^Noutamaton varaus/'
+;manualFineDescriptions[] = '/^Kirjastokortti – aikuiset/'
+;manualFineDescriptions[] = '/^Kirjastokortti – lapset/'
+;manualFineDescriptions[] = '/^Max myöhästymismaksu/'
+;manualFineDescriptions[] = '/^Aikuisten aineiston korvaus/'
+;manualFineDescriptions[] = '/^Lasten aineiston korvaus/'
+;manualFineDescriptions[] = '/^Aikuisten DVD-levyn korvaus/'
+;manualFineDescriptions[] = '/^Lasten DVD-levyn korvaus/'
+;manualFineDescriptions[] = '/^Aikuisten BD-levyn korvaus/'
+;manualFineDescriptions[] = '/^Lasten BD-levyn korvaus/'
+;manualFineDescriptions[] = '/^Aikuisten konsolipelin korvaus/'
+;manualFineDescriptions[] = '/^Lasten konsolipelin korvaus/'
+;manualFineDescriptions[] = '/^Aikuisten lehden korvaus/'
+;manualFineDescriptions[] = '/^Lasten lehden korvaus/'
+;manualFineDescriptions[] = '/^CD-levyn kotelon korvaus/'
+;manualFineDescriptions[] = '/^Muun kotelon korvaus/'
+;manualFineDescriptions[] = '/^Kaukopalvelumaksu/'
+; Online payment product code mappings that override any mappings in datasources.ini.
+; Patterns should match strings in format 'locationcode--finetypecode--description'.
+; First match is used.
+driverProductCodeMappings[] = '123=/^h\w*--1/'
+driverProductCodeMappings[] = '234=/Max myöhästymismaksu/'
+
+[PasswordRecovery]
+enabled = true
+
+; Uncomment the following lines to enable updating of profile information.
+; Choose a method on how to update the address information (driver, database or url).
+[updateProfile]
+method = driver
+; emailAddress is required for the email method
+;emailAddress =
+; Uncomment the following lines to change which fields are included in the form.
+; Format for the fields is:
+; label:profile_field[:type][:required][:options][:pattern][:pattern_hint]
+; Default is address1, zip, city.
+; Supported fields are home_library, email, address1, zip, city, phone and smsnumber.
+fields[] = Preferred Library:home_library:select:required
+fields[] = Email:email:email
+fields[] = Address:address1:text:required
+fields[] = Zip:zip:text:required::\d{5}
+fields[] = City:city:text:required
+fields[] = "SMS Number:smsnumber:tel:::^\+358[45]\d+:sms_number_format_hint"
+fields[] = Phone:phone:tel
+; url is required for the url method. url can be a single address or an array of
+; language-specific addresses. First example is a single one:
+;url = http://address.of.change.form
+; Alternatively different links can be specified for each language:
+;url[fi] = http://address.of.change.form/finnish
+;url[sv] = http://address.of.change.form/swedish
+;url[en-gb] = http://address.of.change.form/english
+needsApproval = false
+
+; Both MARC field+subfields and Sierra field tags may be used to specify which fields
+; are included as textual information from holdings records. Note that Sierra does
+; not use MARC tags for all holdings information, and e.g. 'h' may cover several
+; fields of which only some are mapped to MARC fields.
+[Holdings]
+; Whether item-specific hold counts are displayed
+display_item_hold_counts = false
+; Whether total count of holds is displayed
+display_total_hold_count = true
+; Whether total item count is displayed in results list
+display_total_item_count_in_results = true
+; Whether ordered item count is displayed in results list
+display_ordered_item_count_in_results = false
+; Whether to display title hold links in results list
+display_title_hold_in_results = true
+; A comma-separated list of fields to display as item-specific location when item
+; number is not available. Default is none.
+; The following options are available:
+; location        - Item location
+; callnumber      - Item call number
+;display_location_per_item = "callnumber"
+; Holdings fields to include in notes. Default is none.
+;notes = "n"
+; Holdings fields to include in summary. Default is "h".
+;summary = "863abiz:866az:h"
+; Holdings fields to include in supplements. Default is none.
+;supplements = "867az"
+; Holdings fields to include in indexes. Default is none.
+;indexes = "868az"
+; Whether to sort items by enum/chron (v field) instead of order they are returned
+; from Sierra. Default is true.
+;sort_by_enum_chron = false
+; Whether to retrieve and display orders (default is false):
+;display_orders = false
+; Whether to check holdings records in search results (default is true):
+;check_holdings_in_results = true
+
+; Block ILS methods during given times. Format is "method[] = "value""
+; method  - Method in ILS driver
+; value   - startDate/endDate or startTime/endTime, where startDate and endDate are YYYY-MM-DD or YYYY-MM-DD HH:MM
+;           and startTime and endTime are HH:MM
+; startDate and endDate specify fixed start and end dates (with optional times) to make the method unavailable.
+; You do not need to specify both -- you can use either on its own for an open-ended range.
+; You MUST use slash as a separator, for example to only define endDate: "/2025-09-01".
+; startTime and endTime specify a time window that will block the method every day.
+; If endTime is lower than startTime, the driver will assume a time window crossing from one day into the next day.
+; When setting a recurring window, both startTime and endTime MUST be set.
+; Timed blocks can be displayed using MethodTimedBlocks view helper.
+; Common methods for blocking features:
+; - Renewals: Blocks renewing loans
+; - registerPayment: Blocks online payment
+[TimedBlocks]
+;Renewals[] = "2025-08-01/2025-09-01"
+;Renewals[] = "23:00/01:00"

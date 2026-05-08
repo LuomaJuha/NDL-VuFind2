@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Shibboleth authentication module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2015-2016.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Authentication
@@ -28,9 +29,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Auth;
 
+use Laminas\Http\PhpEnvironment\Request;
+use VuFind\Auth\ILSAuthenticator;
 use VuFind\Auth\Shibboleth\ConfigurationLoaderInterface;
+use VuFind\Db\Entity\UserEntityInterface;
 use VuFind\Exception\Auth as AuthException;
 
 /**
@@ -47,95 +52,38 @@ use VuFind\Exception\Auth as AuthException;
 class Shibboleth extends \VuFind\Auth\Shibboleth
 {
     /**
-     * ILS connection
+     * Constructor.
      *
-     * @var \Finna\ILS\Connection
-     */
-    protected $ils;
-
-    /**
-     * Constructor
-     *
-     * @param \Laminas\Session\ManagerInterface    $sessionManager      Session
-     * manager
-     * @param ConfigurationLoaderInterface         $configurationLoader Configuration
-     * loader
-     * @param \Laminas\Http\PhpEnvironment\Request $request             Http
-     * request object
-     * @param \Finna\ILS\Connection                $ils                 ILS
-     * connection
+     * @param \Laminas\Session\ManagerInterface $sessionManager      Session manager
+     * @param ConfigurationLoaderInterface      $configurationLoader Configuration loader
+     * @param Request                           $request             Http request object
+     * @param ILSAuthenticator                  $ilsAuthenticator    ILS authenticator
+     * @param \Finna\ILS\Connection             $ils                 ILS connection
      */
     public function __construct(
         \Laminas\Session\ManagerInterface $sessionManager,
         ConfigurationLoaderInterface $configurationLoader,
-        \Laminas\Http\PhpEnvironment\Request $request,
-        \Finna\ILS\Connection $ils
+        Request $request,
+        ILSAuthenticator $ilsAuthenticator,
+        protected \Finna\ILS\Connection $ils
     ) {
-        $this->sessionManager = $sessionManager;
-        $this->configurationLoader = $configurationLoader;
-        $this->request = $request;
+        parent::__construct($sessionManager, $configurationLoader, $request, $ilsAuthenticator);
         $this->ils = $ils;
     }
 
     /**
-     * Attempt to authenticate the current user.  Throws exception if login fails.
+     * Attempt to authenticate the current user. Throws exception if login fails.
      *
-     * @param \Laminas\Http\PhpEnvironment\Request $request Request object containing
-     * account credentials.
+     * @param Request $request Request object containing account credentials.
      *
      * @throws AuthException
-     * @return \VuFind\Db\Row\User Object representing logged-in user.
+     * @return UserEntityInterface Object representing logged-in user.
      */
     public function authenticate($request)
     {
-        // Check if username is set.
+        $user = parent::authenticate($request);
+
         $shib = $this->getConfig()->Shibboleth;
-        $username = $this->getServerParam($request, $shib->username);
-        if (empty($username)) {
-            $this->debug(
-                "No username attribute ({$shib->username}) present in request: "
-                . print_r($request->getServer()->toArray(), true)
-            );
-            throw new AuthException('authentication_error_admin');
-        }
-
-        // Check if required attributes match up:
-        foreach ($this->getRequiredAttributes($shib) as $key => $value) {
-            $attrValue = $this->getServerParam($request, $key);
-            if (!preg_match('/' . $value . '/', $attrValue)) {
-                $this->debug(
-                    "Attribute '$key' does not match required value '$value' in"
-                    . ' request: ' . print_r($request->getServer()->toArray(), true)
-                );
-                throw new AuthException('authentication_error_invalid_attributes');
-            }
-        }
-
-        // If we made it this far, we should log in the user!
-        $user = $this->getUserTable()->getByUsername($username);
-
-        // Variable to hold catalog password (handled separately from other
-        // attributes since we need to use saveCredentials method to store it):
-        $catPassword = null;
-
-        // Has the user configured attributes to use for populating the user table?
-        foreach ($this->attribsToCheck as $attribute) {
-            if (isset($shib[$attribute])) {
-                $value = $this->getAttribute($request, $shib[$attribute]);
-                if ($attribute == 'email') {
-                    $user->updateEmail($value);
-                } elseif ($attribute == 'cat_username' && isset($shib['prefix'])
-                    && !empty($value)
-                ) {
-                    $user->cat_username = $shib['prefix'] . '.' . $value;
-                } elseif ($attribute == 'cat_password') {
-                    $catPassword = $value;
-                } else {
-                    $user->$attribute = ($value === null) ? '' : $value;
-                }
-            }
-        }
-
         $idpParam = $shib->idpserverparam ?? self::DEFAULT_IDPSERVERPARAM;
         $idp = $this->getServerParam($request, $idpParam);
         if (!empty($shib->idp_to_ils_map[$idp])) {
@@ -150,14 +98,14 @@ class Shibboleth extends \VuFind\Auth\Shibboleth
                 $catUsername = "$driver.$catUsername";
                 try {
                     if ($this->ils->patronLogin($catUsername, null)) {
-                        $user->cat_username = $catUsername;
+                        $this->ilsAuthenticator->saveUserCatalogCredentials($user, $catUsername, null);
                         $this->debug(
-                            "ILS account '$catUsername' linked to user '$username'"
+                            "ILS account '$catUsername' linked to user '{$user->getUsername()}'"
                         );
                         break;
                     }
                     $this->debug(
-                        "ILS account '$catUsername' not valid for user '$username'"
+                        "ILS account '$catUsername' not valid for user '{$user->getUsername()}'"
                     );
                 } catch (\Exception $e) {
                     $this->logError(
@@ -165,14 +113,6 @@ class Shibboleth extends \VuFind\Auth\Shibboleth
                     );
                 }
             }
-        }
-
-        // Save credentials if applicable:
-        if (!empty($user->cat_username)) {
-            $user->saveCredentials(
-                $user->cat_username,
-                $catPassword ?? $user->getCatPassword()
-            );
         }
 
         // Store logout URL in session:
@@ -189,20 +129,17 @@ class Shibboleth extends \VuFind\Auth\Shibboleth
 
         $this->storeShibbolethSession($request);
 
-        // Save and return the user object:
-        $user->save();
         return $user;
     }
 
     /**
-     * Perform cleanup at logout time.
+     * Get URL users should be redirected to for logout in external services if necessary.
      *
-     * @param string $url URL to redirect user to after logging out.
+     * @param string $url Internal URL to redirect user to after logging out.
      *
-     * @return string     Redirect URL (usually same as $url, but modified in
-     * some authentication modules).
+     * @return string Redirect URL (usually same as $url, but modified in some authentication modules).
      */
-    public function logout($url)
+    public function getLogoutRedirectUrl(string $url): string
     {
         // Check for a dynamic logout url:
         $session
@@ -212,16 +149,15 @@ class Shibboleth extends \VuFind\Auth\Shibboleth
             return $url;
         }
 
-        return parent::logout($url);
+        return parent::getLogoutRedirectUrl($url);
     }
 
     /**
      * Get a server parameter taking into account any environment variables
      * redirected by Apache mod_rewrite.
      *
-     * @param \Laminas\Http\PhpEnvironment\Request $request Request object containing
-     * account credentials.
-     * @param string                               $param   Parameter name
+     * @param Request $request Request object containing account credentials.
+     * @param string  $param   Parameter name
      *
      * @return mixed
      */

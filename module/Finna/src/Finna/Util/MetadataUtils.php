@@ -1,8 +1,9 @@
 <?php
+
 /**
- * MetadataUtils Class
+ * MetadataUtils Class.
  *
- * PHP version 5
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2011-2020.
  *
@@ -23,12 +24,15 @@
  * @package  Util
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     https://github.com/KDK-Alli/RecordManager
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Util;
 
+use function is_array;
+
 /**
- * MetadataUtils Class
+ * MetadataUtils Class.
  *
  * This class contains a collection of static helper functions for metadata
  * processing
@@ -37,12 +41,12 @@ namespace Finna\Util;
  * @package  Util
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     https://github.com/KDK-Alli/RecordManager
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class MetadataUtils
 {
     /**
-     * Convert first character of string to upper case (mb aware)
+     * Convert first character of string to upper case (mb aware).
      *
      * @param string|string[] $str String to be converted
      *

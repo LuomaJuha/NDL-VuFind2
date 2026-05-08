@@ -3,18 +3,21 @@ finna.feedTabs = (function finnaFeedTab() {
 
   /**
    * Return the location hash without hashtag
-   * 
-   * @return {String} hash without hashtag
+   * @returns {string} hash without hashtag
    */
   function getTabFromLocationHash() {
     var hash = window.location.hash;
     return hash ? hash.substring(1) : '';
   }
+  /**
+   * FeedTab prototype constructor
+   * @param {HTMLElement} container Root container
+   */
   function FeedTab(container) {
     var _ = this;
     container.classList.add('init-done');
     _.anchors = container.querySelectorAll('.feed-tab-anchor, .feed-accordion-anchor');
-    _.tabContent = container.querySelector('.tab-content');
+    _.tabContent = container.querySelector('finna-feed');
     _.setEvents();
     _.firstLoad();
     _.allowHashChange = false;
@@ -27,7 +30,7 @@ finna.feedTabs = (function finnaFeedTab() {
   FeedTab.prototype.setEvents = function setEvents() {
     var _ = this;
     _.anchors.forEach(function addClickListener(element) {
-      element.parentNode.addEventListener('click', function onFeedTabClick(e) {
+      element.addEventListener('click', function onFeedTabClick(e) {
         e.preventDefault();
         _.displayTab(element);
       });
@@ -53,8 +56,7 @@ finna.feedTabs = (function finnaFeedTab() {
 
   /**
    * Display the proper feedtab and accordion tab
-   * 
-   * @param {HTMLElement} element
+   * @param {HTMLElement} element Element to display
    */
   FeedTab.prototype.displayTab = function displayTab(element) {
     var _ = this;
@@ -68,25 +70,23 @@ finna.feedTabs = (function finnaFeedTab() {
     _.anchors.forEach(function removeActive(el) {
       var parent = el.parentNode;
       if (el.dataset.tab === tab) {
-        parent.classList.add('active');
-        parent.setAttribute('aria-selected', true);
+        el.classList.add('active');
+        el.setAttribute('aria-selected', true);
         if (el.classList.contains('feed-accordion-anchor')) {
           parent.insertAdjacentElement('afterend', _.tabContent);
         }
       } else {
-        parent.classList.remove('active');
-        parent.setAttribute('aria-selected', false);
+        el.classList.remove('active');
+        el.setAttribute('aria-selected', false);
       }
     });
-    _.tabContent.innerHTML = '';
-    delete _.tabContent.dataset.init;
-    _.tabContent.dataset.feed = tab;
-    finna.feed.loadFeed(_.tabContent, function onLoad() {
+    _.tabContent.feedId = tab;
+    _.tabContent.onFeedLoaded = function onLoad() {
       _.isLoading = false;
       if (!_.allowHashChange) {
         _.allowHashChange = true;
       }
-    });
+    };
   };
 
   /**
@@ -100,11 +100,10 @@ finna.feedTabs = (function finnaFeedTab() {
       if (!element.classList.contains('feed-tab-anchor')) {
         return;
       }
-      var parent = element.parentNode;
-      if ((!hash && !_.isLoading && parent.classList.contains('active')) ||
+      if ((!hash && !_.isLoading && element.classList.contains('active')) ||
         hash === element.dataset.tab
       ) {
-        parent.click();
+        element.click();
       }
     });
     if (_.anchors[0] && !_.isLoading) {
@@ -114,8 +113,7 @@ finna.feedTabs = (function finnaFeedTab() {
 
   /**
    * Init feedtabs
-   * 
-   * @param {String} id 
+   * @param {string} id Unique identifier
    */
   function init(id) {
     VuFind.observerManager.createIntersectionObserver(

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Abstract base class for a command that updates records.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,22 +17,25 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use VuFind\Db\Row\RowGateway;
+use VuFind\Db\Entity\EntityInterface;
+use VuFind\Db\Service\UserListServiceInterface;
+use VuFind\Db\Service\UserServiceInterface;
 
 /**
  * Abstract base class for a command that updates records.
@@ -40,44 +44,30 @@ use VuFind\Db\Row\RowGateway;
  * @package  Service
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 abstract class AbstractRecordUpdateCommand extends Command
 {
     /**
-     * The name of the command (the part after "public/index.php")
-     *
-     * @var string
-     */
-    protected static $defaultName = null;
-
-    /**
-     * Table display name
+     * Table display name.
      *
      * @var string
      */
     protected $tableName = null;
 
     /**
-     * Command description
+     * Command description.
      *
      * @var string
      */
     protected $description = null;
 
     /**
-     * Table
+     * Constructor.
      *
-     * @var \VuFind\Db\Table\Gateway
+     * @param UserServiceInterface|UserListServiceInterface $dbService Database service
      */
-    protected $table;
-
-    /**
-     * Constructor
-     *
-     * @param \VuFind\Db\Table\Gateway $table UserList table
-     */
-    public function __construct(\VuFind\Db\Table\Gateway $table)
+    public function __construct(protected UserServiceInterface|UserListServiceInterface $dbService)
     {
         if (null === $this->tableName) {
             throw new \Exception('tableName empty');
@@ -85,21 +75,7 @@ abstract class AbstractRecordUpdateCommand extends Command
         if (null === $this->description) {
             throw new \Exception('description empty');
         }
-        $name = null;
-        if (empty($this->defaultName)) {
-            $className = get_class($this);
-            $parts = explode('\\', $className);
-            $name = strtolower(
-                preg_replace(
-                    '/(?<=[a-z])([A-Z])/',
-                    '-$1',
-                    array_pop($parts)
-                )
-            );
-            $name = strtolower(array_pop($parts)) . "/$name";
-        }
-        parent::__construct($name);
-        $this->table = $table;
+        parent::__construct();
     }
 
     /**
@@ -132,19 +108,23 @@ abstract class AbstractRecordUpdateCommand extends Command
     ) {
         $count = 0;
         foreach (explode(',', $input->getArgument('ids')) as $id) {
-            if ($record = $this->table->select(['id' => $id])->current()) {
+            if ($this->dbService instanceof UserListServiceInterface) {
+                $record = $this->dbService->getUserListById($id);
+            } elseif ($this->dbService instanceof UserServiceInterface) {
+                $record = $this->dbService->getUserById($id);
+            } else {
+                throw new \Exception('Unexpected database service class');
+            }
+            if ($record) {
                 if ($this->changeRecord($record)) {
+                    $this->dbService->persistEntity($record);
                     ++$count;
-                    $output->writeln(
-                        "Record {$record->id} updated"
-                    );
+                    $output->writeln("Record $id updated");
                 } else {
-                    $output->writeln(
-                        "Record {$record->id} already up to date"
-                    );
+                    $output->writeln("Record $id already up to date");
                 }
             } else {
-                $output->writeln("Record {$record->id} not found");
+                $output->writeln("Record $id not found");
             }
         }
         $output->writeln("Total $count {$this->tableName}(s) updated");
@@ -152,11 +132,11 @@ abstract class AbstractRecordUpdateCommand extends Command
     }
 
     /**
-     * Update a record
+     * Update a record.
      *
-     * @param RowGateway $record Record
+     * @param EntityInterface $record Record
      *
      * @return bool Whether changes were made
      */
-    abstract protected function changeRecord(RowGateway $record): bool;
+    abstract protected function changeRecord(EntityInterface $record): bool;
 }

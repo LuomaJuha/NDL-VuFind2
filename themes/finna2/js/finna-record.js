@@ -1,12 +1,18 @@
-/*global VuFind, finna, removeHashFromLocation, getNewRecordTab, ajaxLoadTab */
+/*global VuFind, finna, removeHashFromLocation, getNewRecordTab, ajaxLoadTab*/
 finna.record = (function finnaRecord() {
   var accordionTitleHeight = 64;
 
+  /**
+   * Initialize description for record
+   */
   function initDescription() {
     var description = $('#description_text');
     if (description.length) {
-      var id = description.data('id');
-      var url = VuFind.path + '/AJAX/JSON?method=getDescription&id=' + id;
+      let params = new URLSearchParams({
+        id: description.data('id'),
+        source: description.data('source')
+      });
+      var url = VuFind.path + '/AJAX/JSON?method=getDescription&' + params;
       $.getJSON(url)
         .done(function onGetDescriptionDone(response) {
           if (response.data.html.length > 0) {
@@ -19,7 +25,7 @@ finna.record = (function finnaRecord() {
             finna.layout.initTruncate(description);
             if (!$('.hide-details-button').hasClass('hidden')) {
               $('.record-information .description').addClass('too-long');
-              $('.record-information .description .more-link.wide').click();
+              $('.record-information .description .more-link.wide').trigger("click");
             }
           } else {
             description.hide();
@@ -29,33 +35,69 @@ finna.record = (function finnaRecord() {
           description.hide();
         });
     }
+    const more = $('.show-hide-button').html();
+    const less = $('.hide-info').html();
+    $('.cc-info').on('show.bs.collapse', function changeText() {
+      $(this).parents('.fulltextField').find('.show-hide-button').html(less);
+      $(this).parents('ul').siblings('button.more-link').trigger("click");
+    }).on('hidden.bs.collapse', function changeText() {
+      $(this).parents('.fulltextField').find('.show-hide-button').html(more);
+    });
+    $('.hide-info').on('click', function handleClick() {
+      $(this).trigger("blur");
+      $(this).parents('.fulltextField').find('.show-hide-button').trigger("focus");
+    });
   }
-
+  /**
+   * Show details handler for record
+   */
+  function showDetails() {
+    $('.record-information .record-details-more').removeClass('hidden');
+    $('.show-details-button').addClass('hidden');
+    $('.hide-details-button').removeClass('hidden');
+    $('.record .description .more-link.wide').trigger("click");
+    sessionStorage.setItem('finna_record_details', '1');
+  }
+  /**
+   * Hide details handler for record
+   */
+  function hideDetails() {
+    $('.record-information .record-details-more').addClass('hidden');
+    $('.hide-details-button').addClass('hidden');
+    $('.show-details-button').removeClass('hidden');
+    $('.record .description .less-link.wide').trigger("click");
+    sessionStorage.removeItem('finna_record_details');
+  }
+  /**
+   * Initialize details handlers for record buttons
+   */
   function initHideDetails() {
     $('.show-details-button').on('click', function onClickShowDetailsButton() {
-      $('.record-information .record-details-more').removeClass('hidden');
-      $(this).addClass('hidden');
-      $('.hide-details-button').removeClass('hidden');
-      $('.record .description .more-link.wide').click();
-      sessionStorage.setItem('finna_record_details', '1');
+      showDetails();
+      $(this).trigger("blur");
+      $(this).siblings('table.table').trigger("focus");
     });
-    $('.hide-details-button').click (function onClickHideDetailsButton() {
-      $('.record-information .record-details-more').addClass('hidden');
-      $(this).addClass('hidden');
-      $('.show-details-button').removeClass('hidden');
-      $('.record .description .less-link.wide').click();
-      sessionStorage.removeItem('finna_record_details');
+    $('.hide-details-button').on ("click", function onClickHideDetailsButton() {
+      hideDetails();
+      $(this).trigger("blur");
+      $(this).siblings('.show-details-button').trigger("focus");
     });
     if ($('.record-information').height() > 350 && $('.show-details-button')[0]) {
       $('.record-information .description').addClass('too-long');
       if (sessionStorage.getItem('finna_record_details')) {
-        $('.show-details-button').click();
+        showDetails();
       } else {
-        $('.hide-details-button').click();
+        hideDetails();
       }
     }
   }
 
+  /**
+   * Get requested link data
+   * @param {HTMLAnchorElement} element Anchor element to parse params from
+   * @param {string} recordId Record id to add into returned data
+   * @returns {object} Object containing anchor elements query data as key value pairs
+   */
   function getRequestLinkData(element, recordId) {
     var vars = {}, hash;
     var hashes = element.href.slice(element.href.indexOf('?') + 1).split('&');
@@ -70,6 +112,11 @@ finna.record = (function finnaRecord() {
     return vars;
   }
 
+  /**
+   * Check if record request is valid
+   * @param {Array} elements Array containing anchor links
+   * @param {string} requestType Type of the request
+   */
   function checkRequestsAreValid(elements, requestType) {
     if (!elements[0]) {
       return;
@@ -94,6 +141,7 @@ finna.record = (function finnaRecord() {
           var element = elements[idx];
           if (response.status) {
             $(element).removeClass('disabled')
+              .removeClass('request-check')
               .html(VuFind.updateCspNonce(response.msg));
           } else {
             $(element).remove();
@@ -102,6 +150,10 @@ finna.record = (function finnaRecord() {
       });
   }
 
+  /**
+   * Fetch holdings details for record
+   * @param {Array} elements Array containing holdings containers
+   */
   function fetchHoldingsDetails(elements) {
     if (!elements[0]) {
       return;
@@ -142,35 +194,109 @@ finna.record = (function finnaRecord() {
     });
   }
 
+  /**
+   * Fetch wayfinder markers
+   * @param {Array} markers Array containing containers to fetch markers into
+   */
+  function fetchWayfinderMarkers(markers) {
+    const locationMap = {};
+    markers.forEach((element) => {
+      if (element.dataset.initialized) {
+        return;
+      }
+      element.dataset.initialized = true;
+      const location = element.dataset.location;
+      if (!(location in locationMap)) {
+        locationMap[location] = [element];
+      } else {
+        locationMap[location].push(element);
+      }
+      const spinner = document.createElement('span');
+      spinner.innerHTML = VuFind.icon('spinner');
+      element.append(spinner);
+    });
+    if (Object.entries(locationMap).length === 0) {
+      return;
+    }
+
+    fetch(VuFind.path + '/AJAX/JSON?method=wayfinderPlacementLinkLookup', { method: 'POST', body: JSON.stringify(Object.keys(locationMap)) })
+      .then(response => response.json())
+      .then(responseJSON => {
+        Object.entries(locationMap).forEach(([location, elements]) => {
+          if (typeof responseJSON.data.locations[location] === 'undefined') {
+            Object.entries(elements).forEach(([, element]) => {
+              element.remove();
+            });
+          } else {
+            Object.entries(elements).forEach(([, element]) => {
+              const linkTemplate = element.querySelector('.js-wayfinder-link');
+              if (!linkTemplate) {
+                element.remove();
+                return;
+              }
+              let linkContainer = linkTemplate.cloneNode(true);
+              let link = linkContainer.content.querySelector('a');
+              if (!link) {
+                element.remove();
+                return;
+              }
+              link.setAttribute('href', responseJSON.data.locations[location].markerUrl);
+              element.innerHTML = linkContainer.innerHTML;
+            });
+          }
+        });
+      });
+  }
+
+  /**
+   * Initial setup for checking requests on tab load
+   */
   function setUpCheckRequest() {
     checkRequestsAreValid($('.expandedCheckRequest').removeClass('expandedCheckRequest'), 'Hold');
     checkRequestsAreValid($('.expandedCheckStorageRetrievalRequest').removeClass('expandedCheckStorageRetrievalRequest'), 'StorageRetrievalRequest');
     checkRequestsAreValid($('.expandedCheckILLRequest').removeClass('expandedCheckILLRequest'), 'ILLRequest');
     fetchHoldingsDetails($('.expandedGetDetails').removeClass('expandedGetDetails'));
+    fetchWayfinderMarkers(document.querySelectorAll('.holdings-container-heading > .location-link .js-wayfinder-placeholder, .copy-details:not(.collapsed) .js-wayfinder-placeholder'));
   }
 
+  /**
+   * Initialize controls for holdings
+   */
   function initHoldingsControls() {
+    $('.record-holdings-table:not(.electronic-holdings) .holdings-container-heading').on('keydown', function onClickHeading(e) {
+      if (e.keyCode === 13 || e.keyCode === 32) {
+        if ($(e.target).hasClass('location-service') || $(e.target).parents().hasClass('location-service')
+          || $(e.target).parents().hasClass('location-service-qrcode')
+        ) {
+          return;
+        }
+        e.preventDefault();
+        $('.record-holdings-table:not(.electronic-holdings) .holdings-container-heading').trigger("click");
+      }
+    });
     $('.record-holdings-table:not(.electronic-holdings) .holdings-container-heading').on('click', function onClickHeading(e) {
-      if ($(e.target).hasClass('location-service') || $(e.target).parents().hasClass('location-service')) {
+      $(this).attr('aria-expanded', function changeAria(i, attr) { return attr === 'false' ? 'true' : 'false'; });
+      if ($(e.target).hasClass('location-service') || $(e.target).parents().hasClass('location-service')
+        || $(e.target).parents().hasClass('location-service-qrcode')
+      ) {
         return;
       }
+      $(this).toggleClass('open');
       $(this).nextUntil('.holdings-container-heading').toggleClass('collapsed');
-      if ($('.location .fa', this).hasClass('fa-arrow-down')) {
-        $('.location .fa', this).removeClass('fa-arrow-down');
-        $('.location .fa', this).addClass('fa-arrow-right');
-      }
-      else {
-        $('.location .fa', this).removeClass('fa-arrow-right');
-        $('.location .fa', this).addClass('fa-arrow-down');
+      if ($(this).hasClass('open')) {
         var rows = $(this).nextUntil('.holdings-container-heading');
         checkRequestsAreValid(rows.find('.collapsedCheckRequest').removeClass('collapsedCheckRequest'), 'Hold', 'holdBlocked');
         checkRequestsAreValid(rows.find('.collapsedCheckStorageRetrievalRequest').removeClass('collapsedCheckStorageRetrievalRequest'), 'StorageRetrievalRequest', 'StorageRetrievalRequestBlocked');
         checkRequestsAreValid(rows.find('.collapsedCheckILLRequest').removeClass('collapsedCheckILLRequest'), 'ILLRequest', 'ILLRequestBlocked');
         fetchHoldingsDetails(rows.filter('.collapsedGetDetails').removeClass('collapsedGetDetails'));
+        fetchWayfinderMarkers(document.querySelectorAll('.copy-details:not(.collapsed) .js-wayfinder-placeholder'));
       }
     });
   }
 
+  /**
+   * Augment online links from holdings into record urls
+   */
   function augmentOnlineLinksFromHoldings() {
     $('.electronic-holdings a').each(function handleLink() {
       var $a = $(this);
@@ -200,6 +326,9 @@ finna.record = (function finnaRecord() {
 
   }
 
+  /**
+   * Set up holdings tab
+   */
   function setupHoldingsTab() {
     initHoldingsControls();
     setUpCheckRequest();
@@ -207,8 +336,12 @@ finna.record = (function finnaRecord() {
     finna.layout.initLocationService();
     finna.layout.initJumpMenus($('.holdings-tab'));
     VuFind.lightbox.bind($('.holdings-tab'));
+    finna.common.initQrCodeLink($('.holdings-tab'));
   }
 
+  /**
+   * Set up locations tab for ead3
+   */
   function setupLocationsEad3Tab() {
     $('.holdings-container-heading').on('click', function onClickHeading() {
       $(this).nextUntil('.holdings-container-heading').toggleClass('collapsed');
@@ -223,12 +356,18 @@ finna.record = (function finnaRecord() {
     });
   }
 
-  function setupExternalDataTab() {
+  /**
+   * Set up holdings archive tab
+   */
+  function setupHoldingsArchiveTab() {
     $('.external-data-heading').on('click', function onClickHeading() {
       $(this).toggleClass('collapsed');
     });
   }
 
+  /**
+   * Initialize record navigation hash update event listener when window hash changes
+   */
   function initRecordNaviHashUpdate() {
     $(window).on('hashchange', function onHashChange() {
       $('.pager a').each(function updateHash(i, a) {
@@ -238,6 +377,9 @@ finna.record = (function finnaRecord() {
     $(window).trigger('hashchange');
   }
 
+  /**
+   * Initialize audio accordions
+   */
   function initAudioAccordion() {
     $('.audio-accordion .audio-item-wrapper').first().addClass('active');
     $('.audio-accordion .audio-title-wrapper').on('click', function audioAccordionClicker() {
@@ -246,7 +388,14 @@ finna.record = (function finnaRecord() {
     });
   }
 
-  // The accordion has a delicate relationship with the tabs. Handle with care!
+
+  /**
+   * Toggle an accordion
+   * The accordion has a delicate relationship with the tabs. Handle with care!
+   * @param {jQuery} accordion Accordion container
+   * @param {boolean} _initialLoad Should this accordion be initially loaded
+   * @returns {boolean} Keep looking for next tab
+   */
   function _toggleAccordion(accordion, _initialLoad) {
     var initialLoad = typeof _initialLoad === 'undefined' ? false : _initialLoad;
     var tabid = accordion.find('.accordion-toggle a').data('tab');
@@ -282,6 +431,9 @@ finna.record = (function finnaRecord() {
     return false;
   }
 
+  /**
+   * Initialize a record accordion
+   */
   function initRecordAccordion() {
     $('.record-accordions .accordion-toggle').on('click', function accordionClicked(e) {
       return _toggleAccordion($(e.target).closest('.accordion'));
@@ -296,6 +448,10 @@ finna.record = (function finnaRecord() {
     }
   }
 
+  /**
+   * Apply record accordion hash
+   * @param {Function} callback Callback to call for accordion if set
+   */
   function applyRecordAccordionHash(callback) {
     var newTab = typeof window.location.hash !== 'undefined'
       ? window.location.hash.toLowerCase() : '';
@@ -317,7 +473,11 @@ finna.record = (function finnaRecord() {
     }
   }
 
-  //Toggle accordion at the start so the accordions work properly
+  /**
+   * Toggle accordion at the start so the accordions work properly
+   * @param {jQuery} accordion Accordion to toggle
+   * @returns {boolean|void} True if not found or none
+   */
   function initialToggle(accordion) {
     var $recordTabs = $('.record-tabs');
     var $tabContent = $recordTabs.find('.tab-content');
@@ -338,46 +498,19 @@ finna.record = (function finnaRecord() {
     }
   }
 
-  function loadRecommendedRecords(container, method)
-  {
-    if (container.length === 0) {
-      return;
-    }
-    var spinner = container.find('.fa-spinner').removeClass('hide');
-    var data = {
-      method: method,
-      id: container.data('id')
-    };
-    if ('undefined' !== typeof container.data('source')) {
-      data.source = container.data('source');
-    }
-    $.getJSON(VuFind.path + '/AJAX/JSON', data)
-      .done(function onGetRecordsDone(response) {
-        if (response.data.html.length > 0) {
-          container.html(VuFind.updateCspNonce(response.data.html));
-        }
-        spinner.addClass('hidden');
-      })
-      .fail(function onGetRecordsFail() {
-        spinner.addClass('hidden');
-        container.text(VuFind.translate('error_occurred'));
-      });
-  }
-
-  function loadSimilarRecords()
-  {
-    loadRecommendedRecords($('.sidebar .similar-records'), 'getSimilarRecords');
-  }
-
-  function loadRecordDriverRelatedRecords()
-  {
-    loadRecommendedRecords($('.sidebar .record-driver-related-records'), 'getRecordDriverRelatedRecords');
-  }
-
+  /**
+   * Initialize record versions support function
+   * @param {jQuery} _holder Container to init
+   */
   function initRecordVersions(_holder) {
     VuFind.recordVersions.init(_holder);
   }
 
+  /**
+   * Handle redirect history
+   * @param {string} oldId Old id to check
+   * @param {string} newId New id to apply
+   */
   function handleRedirect(oldId, newId) {
     if (window.history.replaceState) {
       var pathParts = window.location.pathname.split('/');
@@ -390,6 +523,9 @@ finna.record = (function finnaRecord() {
     }
   }
 
+  /**
+   * Initialize popovers for record
+   */
   function initPopovers() {
     var closeField = function (field, setFocus = false) {
       field.classList.remove('open');
@@ -455,9 +591,9 @@ finna.record = (function finnaRecord() {
       field.classList.add('open');
       parentLink.setAttribute('aria-expanded', 'true');
       fixPosition(field.querySelector('.field-info'));
-      let firstLink = field.querySelector('.field-info a');
-      if (firstLink) {
-        firstLink.focus();
+      let header = field.querySelector('.field-info h2');
+      if (header) {
+        header.focus();
       }
 
       let fieldInfo = field.querySelector('.field-info .dynamic-content');
@@ -486,12 +622,53 @@ finna.record = (function finnaRecord() {
             finna.layout.initTruncate(fieldInfo);
           }
           fixPosition(field.querySelector('.field-info'));
+          if (typeof response.data.isAuthority !== 'undefined' && !response.data.isAuthority) {
+            // No authority record; hide any links that require it:
+            field.querySelectorAll('.authority-page').forEach(el => {
+              el.remove();
+            });
+          }
         }).catch(function handleError() {
           fieldInfo.textContent = VuFind.translate('error_occurred');
         });
     });
   }
 
+  /**
+   * Initialize similar carousels
+   */
+  function initSimilarCarousel()
+  {
+    var container = document.querySelector('.similar-carousel .splide');
+    if (container === null) {
+      return;
+    }
+    var settings = {
+      height: 300,
+      width: 200,
+      omitEnd: true,
+      pagination: false,
+      gap: '2px',
+      focus: 0
+    };
+    finna.carouselManager.createCarousel(container, settings);
+    VuFind.observerManager.observe(
+      'LazyImages',
+      container.querySelectorAll('img[data-src]')
+    );
+    container.querySelectorAll('img').forEach(el => {
+      el.onload = function onCarouselImageLoad() {
+        if (this.naturalWidth === 10 && this.naturalHeight === 10) {
+          el.nextElementSibling.classList.remove('hidden');
+          el.classList.add('hidden');
+        }
+      };
+    });
+  }
+
+  /**
+   * Initialize finna record module
+   */
   function init() {
     initHideDetails();
     initDescription();
@@ -500,8 +677,6 @@ finna.record = (function finnaRecord() {
     initAudioAccordion();
     applyRecordAccordionHash(initialToggle);
     $(window).on('hashchange', applyRecordAccordionHash);
-    loadSimilarRecords();
-    loadRecordDriverRelatedRecords();
     finna.authority.initAuthorityResultInfo();
     initPopovers();
   }
@@ -511,9 +686,10 @@ finna.record = (function finnaRecord() {
     init: init,
     setupHoldingsTab: setupHoldingsTab,
     setupLocationsEad3Tab: setupLocationsEad3Tab,
-    setupExternalDataTab: setupExternalDataTab,
+    setupHoldingsArchiveTab: setupHoldingsArchiveTab,
     initRecordVersions: initRecordVersions,
-    handleRedirect: handleRedirect
+    handleRedirect: handleRedirect,
+    initSimilarCarousel: initSimilarCarousel
   };
 
   return my;

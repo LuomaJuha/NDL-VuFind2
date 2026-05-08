@@ -1,11 +1,14 @@
 <!-- START of: finna - content/privacy_fi.phtml -->
-<?php $this->headTitle($this->translate('Privacy')); $this->content()->setHeading($this->translate('Privacy')); ?>
+<?php $this->headTitle($this->translate('Privacy'));
+$this->content()->setHeading($this->translate('Privacy')); ?>
 
 <div class="page-content">
   <h2>Finna – hakupalvelujen kokonaisuus</h2>
   <p>Finna rakentuu aineistot yhteenkokoavasta Finna.fi:stä ja muista Finna-hakupalveluista. Finna.fi:stä löydät kaikkien Finnassa mukana olevien toimijoiden, kuten arkistojen, kirjastojen ja museoiden, aineistot. Muut Finna-hakupalvelut keskittyvät tiettyihin aineistoihin ja palveluihin. Lisätietoa: <a href="https://finna.fi/Content/about">Hakupalvelujen kokonaisuus</a>.
   </p>
   <p>Kansalliskirjasto vastaa Finna.fi:n ylläpidosta ja Finna-kokonaisuuden yleisestä kehittämisestä yhdessä kumppaneidensa kanssa. Finna-palveluiden tuottamiseen osallistuu myös CSC – Tieteen tietotekniikan keskus Oy. Tältä sivulta löydät tietoa Finnaan liittyvästä henkilötietojen käsittelystä Kansalliskirjastossa ja CSC:llä. Lisäksi ohjeistamme, kuinka voit ottaa yhteyttä aineiston tarjoajaan tietyn aineiston henkilötietoihin liittyen.
+  </p>
+  <p>Kansalliskirjaston sopimuskumppani Cloudflare Inc. käsittelee Finna-hakupalveluiden tietoliikenteen teknisiä lokitietoja. Tarkemmat tiedot: <a href="https://finna.fi/Content/register_details" target="_blank">Tietosuojaseloste</a>.
   </p>
   <p>Finnassa mukana olevat toimijat vastaavat omien Finna-hakupalveluidensa muokkauksista ja siihen liittyvästä henkilötietojen käsittelystä. Omissa Finna-hakupalveluissa voidaan tarjota sellaisia lisäpalveluita, jotka eivät ole Kansalliskirjaston ja CSC:n ylläpidossa. Mikäli käyttämääsi hakupalveluun sisältyy henkilötietoja käsitteleviä lisäpalveluita, löydät asiasta tietoa tältä sivulta.
   </p>
@@ -15,48 +18,48 @@
   <ul class="list-bullets">
     <li>Kirjastokortin tunnuksilla kirjauduttaessa palveluun tallennetaan kirjastokortin tunnus, PIN-koodi, käyttäjän etu- ja sukunimet, sähköpostiosoite ja kotikirjasto. Tiedot siirretään automaattisesti kortin myöntäneen kirjaston järjestelmästä Finna-palveluun.
     </li>
-    <li>Haka-tunnuksilla kirjauduttaessa tallennetaan Finna-palveluun automaattisesti kirjautujan käyttäjätunnus, nimi ja sähköpostiosoite.
+    <li>Haka-kirjautumista käytettäessä tallennetaan Finna-palveluun automaattisesti kirjautujan käyttäjätunnus, nimi ja sähköpostiosoite.
     </li>
-    <li>Finna-tunnuksella kirjauduttaessa tallennetaan Finna-palveluun tiedot, jotka on annettu tunnuksen luomisen yhteydessä eli sähköpostiosoite ja käyttäjätunnus. Alle 13-vuotiailla tulee olla huoltajan suostumus tunnuksen luomiselle.
+    <li>Finna-tunnuksella kirjauduttaessa tallennetaan Finna-palveluun tiedot, jotka on annettu tunnuksen luomisen yhteydessä eli sähköpostiosoite ja Finna-tunnus. Alle 13-vuotiailla tulee olla huoltajan suostumus tunnuksen luomiselle.
     </li>
     <li>Sähköpostiosoitteella kirjauduttaessa tallennetaan kirjautujan nimi, sähköpostiosoite ja kotikirjasto.
     </li>
   </ul>
   <p>Tietoja käsitellään Finna-palvelun toteuttamiseen Kansalliskirjastossa ja CSC – Tieteen tietotekniikan keskus Oy:ssä (palvelun tuottajat).
   </p>
-  <p>Tietoja tallennetaan seuraaviin käyttötarkoituksiin:
-  </p>
   <table class="content-table">
+    <caption>Tietoja tallennetaan seuraaviin käyttötarkoituksiin:
+    </caption>
     <tr>
-      <td><strong>Tieto</strong></td>
-      <td><strong>Tarkoitus</strong></td>
+      <th scope="col"><strong>Tieto</strong></th>
+      <th scope="col"><strong>Tarkoitus</strong></th>
     </tr>
     <tr>
-      <th>Käyttäjätunnus</th>
+      <td>Finna-tunnus</td>
       <td>Käyttäjän tunnistaminen</td>
     </tr>
     <tr>
-      <th>Sähköpostiosoite</th>
+      <td>Sähköpostiosoite</td>
       <td>Oletusosoite sähköpostin lähetystä varten, käyttäjän muokattavissa Finnassa. Sähköpostilla kirjauduttaessa: kirjautumislinkin lähettäminen kirjaston asiakastietoihin tallennettuun sähköpostiosoitteeseen.</td>
     </tr>
     <tr>
-      <th>Etunimi</th>
+      <td>Etunimi</td>
       <td>Tiedon näyttäminen kirjautuneelle käyttäjälle</td>
     </tr>
     <tr>
-      <th>Sukunimi</th>
+      <td>Sukunimi</td>
       <td>Tiedon näyttäminen kirjautuneelle käyttäjälle</td>
     </tr>
     <tr>
-      <th>Kirjastokortin tunnus</th>
+      <td>Kirjastokortin tunnus</td>
       <td>Käyttäjän tunnistaminen</td>
     </tr>
     <tr>
-      <th>PIN-koodi</th>
+      <td>PIN-koodi</td>
       <td>Käyttäjän tunnistaminen palvelurajapintoja varten</td>
     </tr>
     <tr>
-      <th>Kotikirjasto</th>
+      <td>Kotikirjasto</td>
       <td>Oletusnoutopiste varauksia varten, käyttäjän muokattavissa Finnassa</td>
     </tr>
   </table>
@@ -66,17 +69,19 @@
   </p>
   <p>Muissa kirjastojen käyttäjän tietoja käsittelevissä toiminnoissa, kuten lainojen ja varausten selauksessa, varausten teossa ja lainojen uusimisessa sekä asiakkaaksi ilmoittautumisessa, käytetään kirjastojärjestelmän palvelurajapintoja. Näitä tietoja ei tallenneta Finna-palveluun lukuun ottamatta valinnaisia eräpäivämuistutuksia. Eräpäivämuistutusten lähetyksen yhteydessä tallennetaan lainan ID-numero ja eräpäivä. Näiden avulla voidaan varmistua siitä, että kukin eräpäivämuistutus lähetetään vain kerran.
   </p>
-  <p>Kirjastokortti-, Finna- ja Haka-tunnuksia käyttäen luodut Finna-tilit ovat toisistaan erillisiä, vaikka niihin sisältyisi sama yksilöivä tunniste.
+  <p>Kirjastokorttia, Finna-tunnuksia ja Haka-kirjautumista käyttäen luodut Finna-tilit ovat toisistaan erillisiä, vaikka niihin sisältyisi sama yksilöivä tunniste.
   </p>
   <p>Käyttäjä voi milloin tahansa poistaa tietonsa Finna-palvelusta lakkauttamalla tilinsä palvelussa. Tiedot poistuvat automaattisesti, kun viimeisestä kirjautumisesta on kulunut yli 18 kuukautta. Kun tili on poistunut, käyttäjän palveluun mahdollisesti tekemät kommentit ja arvostelut jäävät palveluun anonyymeinä eli ilman käyttäjän henkilötietoja. Jos käyttäjä haluaa poistaa myös kommentit ja arvostelut, se tulee tehdä käsin ennen tilin poistoa. Finna-hakupalvelun käyttäjä voi pyytää tietoa henkilötietojensa käsittelystä ottamalla yhteyttä Kansalliskirjastoon <a href="https://finna.fi/Feedback/Home">Finna.fi-sivuston palautelomakkeella</a>. Käyttäjällä on oikeus tietojensa tarkastamiseen ja oikaisuun.
   </p>
   <div class="well">Lisätietoa löytyy Finnan <a href="register_details">tietosuojaselosteesta</a>.</div>
-  <h2>Finna-palvelun aineistot ja henkilötiedot</h2>
-  <p>Finna.fi-sivuston tai muun Finna-hakupalvelun kautta löydettäviksi tarjottavista aineistoista ja niitä kuvailevista tiedoista vastaa aineistot palveluun tuonut organisaatio. Aineistoissa ja kuvailutiedoissa saattaa olla henkilötietoja, kuten henkilönimiä tai -kuvia. Jos aineistoon tai sen kuvailutietoihin liittyvistä henkilötiedoista on tarve esittää kysymyksiä tai esimerkiksi tehdä tietoihin oikaisuja tai vaatia tietojen poistoa, Finna-hakupalvelun käyttäjä voi olla yhteydessä siihen organisaatioon, joka tarjoaa aineistoa palveluun. Aineiston tarjoajan tavoittaminen onnistuu Finna.fi-sivustolla kunkin aineiston yhteydestä löytyvällä Ota yhteyttä -lomakkeella. Jos lomake puuttuu, tarkoitukseen voi käyttää ko. hakupalvelun omaa palautelomaketta.
+  <h2>Muut henkilötiedot Finnassa</h2>
+  <p>Finna.fi-sivuston tai muun Finna-hakupalvelun kautta löydettäviksi tarjottavista aineistoista ja tiedoista vastaa ne palveluun tuonut organisaatio. Mahdolliset pyynnöt tai vaateet aineistoista ja tiedoista kannattaa ensi sijassa esittää organisaatiolle, joka tarjoaa ne Finnaan.
+  </p>
+  <p>Aineistoissa ja niitä kuvailevissa tiedoissa saattaa olla henkilötietoja, kuten henkilönimiä tai -kuvia. Joistakin aineistoihin liittyvistä henkilöistä, kuten aineistojen tekijöistä, tarjotaan lisätietoa omalla sivullaan. Jos aineistoon tai sen kuvailutietoihin liittyvistä henkilötiedoista on tarve esittää kysymyksiä tai esimerkiksi tehdä tietoihin oikaisuja tai vaatia tietojen poistoa, Finna-hakupalvelun käyttäjä voi olla yhteydessä siihen organisaatioon, joka tarjoaa aineistoa tai tietoa palveluun. Aineiston tai tiedon tarjoajan tavoittaminen onnistuu Finna.fi-sivustolla tiettyyn aineistoon tai henkilöön liittyvän sivun yhteydestä löytyvällä Ota yhteyttä -lomakkeella. Jos lomake puuttuu, tarkoitukseen voi käyttää ko. hakupalvelun omaa palautelomaketta.
   </p>
   <p>Jos Finna-hakupalvelun aineistojen käyttäjäkommenteissa on henkilötietoa, jota on tarpeen esim. oikaista tai vaatia poistettavaksi, voi pyynnön esittää kommenttien yhteydestä löytyvällä lomakkeella.
   </p>
-  <?php if ($template = $this->content()->findTemplateForLng("content/Additions/privacyAdditions")): ?>
+  <?php if ($template = $this->content()->findTemplateForLng('content/Additions/privacyAdditions')): ?>
     <?=$this->render($template)?>
   <?php endif; ?>
   <h2 id="cookies">Evästeiden käyttö</h2>
@@ -86,7 +91,7 @@
   </p>
   <p>Evästeet helpottavat Finnan käyttöä. Välttämättömät evästeet mahdollistavat Finnan sujuvan toiminnan ja tekevät sivusta käyttäjäystävällisemmän. Tilastointievästeiden avulla kerättyä tietoa käytetään palvelun kehittämiseen.
   </p>
-  <p>Voit kieltäytyä ei-välttämättömistä evästeistä muokkaamalla evästeasetuksia. Jos muutat mielesi, voit muokata suostumusta sivun alaosasta löytyvän ”Evästeasetukset” -linkin tai oheisen painikkeen kautta.
+  <p>Voit kieltäytyä ei-välttämättömistä evästeistä muokkaamalla evästeasetuksia. Jos muutat mielesi, voit muokata suostumusta sivun alaosasta löytyvän “Evästeasetukset” -linkin tai oheisen painikkeen kautta.
   </p>
   <?php if ($this->cookieConsent()->isEnabled()): ?>
     <h3>Evästeasetukset</h3>

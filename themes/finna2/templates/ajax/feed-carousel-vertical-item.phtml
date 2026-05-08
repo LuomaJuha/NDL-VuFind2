@@ -1,0 +1,69 @@
+<!-- START of: finna - ajax/feed-carousel-vertical-item.phtml -->
+<?php
+  $clickableElement = !$this->touchDevice && !$hasLinkText;
+  $clickableLink = !$clickableElement;
+  $hasIcon = !empty($item['icon']['name']);
+  $hasImg = !empty($item['image']['url']);
+  $noText = empty($item['text']);
+?>
+<?php if ($hasIcon && $hasImg): ?>
+  <?=$this->partial('Helpers/feed-icon.phtml', ['icon' => $item['icon'], 'wrapper' => true]);?>
+<?php endif; ?>
+<?php if ($hasImg): ?>
+  <div class="wrapper" aria-hidden="true">
+    <img data-src="<?=$this->escapeHtmlAttr($item['image']['url']) ?>" alt="<?=$this->transEsc('Image');?><?php if (isset($item['title'])): ?>: <?=$this->escapeHtml($item['title']) ?><?php endif; ?>">
+  </div>
+<?php endif; ?>
+<div class="carousel-vertical-text-part">
+  <?php if (!empty($item['title']) || !empty($item['dateFull'])): ?>
+    <div class="carousel-slide-header">
+      <span>
+      <?php if ($hasIcon && !$hasImg): ?><?=$this->partial('Helpers/feed-icon.phtml', ['icon' => $item['icon']]);?><?php endif; ?>
+      <?php if (!empty($item['title'])): ?>
+        <?=$this->escapeHtml($this->truncate($item['title'], 70));?>
+      <?php endif; ?>
+      <?php if (!empty($item['dateFull'])): ?>
+        <span class="carousel-header-date carousel-date"><?=$this->transEsc('Published')?> <?=$this->escapeHtml($item['dateFull'])?></span>
+      <?php endif; ?>
+      </span>
+    </div>
+  <?php endif; ?>
+  <?php if (!$noText): ?>
+    <div class="visually-hidden">
+      <p><?=$this->escapeHtml($item['text'])?></p>
+      <?php if ($clickableLink): ?>
+        <span class="carousel-description"><?= $this->linkTextEsc ?></span>
+      <?php endif; ?>
+    </div>
+  <?php endif; ?>
+  <div class="carousel-text <?php if ($noText): ?>no-text<?php endif; ?>" aria-hidden="true">
+    <?php if (!empty($item['title'])): ?>
+      <span class="carousel-hover-title"><?=$this->escapeHtml($this->truncate($item['title'], 70))?></span>
+    <?php endif; ?>
+    <?php if (!empty($item['dateFull'])): ?>
+      <span class="carousel-date carousel-hover-date"><?=$this->transEsc('Published')?> <?=$this->escapeHtml($item['dateFull'])?></span>
+    <?php endif; ?>
+    <div class="text">
+      <?php if ($xcal = $item['xcal'] ?? []): ?>
+        <?php if (!empty($xcal['startDate'])): ?>
+          <?php if ($xcal['singleDay']): ?>
+            <p class="xcal"><?=$this->icon('feed-xcal-date') ?><span class="visually-hidden"><?=$this->transEscAttr('xcal_date') ?></span> <?=$this->escapeHtml($xcal['startDate']) ?></div>
+            <?php if (!empty($xcal['startTime'])): ?>
+              <p class="xcal"><?=$this->icon('feed-xcal-time') ?><span class="visually-hidden"><?=$this->transEscAttr('xcal_time') ?></span> <?=$this->escapeHtml($xcal['startTime']) ?>&nbsp;&ndash;&nbsp;<?=$this->escapeHtml($xcal['endTime'] ?? '') ?></p>
+            <?php endif; ?>
+          <?php else: ?>
+            <p class="xcal"><?=$this->icon('feed-xcal-date') ?><span class="visually-hidden"><?=$this->transEscAttr('xcal_date') ?></span> <?=$this->escapeHtml($xcal['startDate']) ?> &ndash;&nbsp;<?=$this->escapeHtml($xcal['endDate'])?></p>
+          <?php endif; ?>
+        <?php endif; ?>
+        <?php if (!empty($xcal['location'])): ?>
+          <p class="xcal"><?=$this->icon('feed-xcal-location') ?><span class="visually-hidden"><?=$this->transEscAttr('Location') ?></span> <?=$this->escapeHtml($xcal['location']) ?></p>
+        <?php endif; ?>
+      <?php endif; ?>
+      <span><?=$this->escapeHtml($item['text'] ?? '') ?></span>
+    </div>
+    <?php if ($clickableLink): ?>
+      <span class="carousel-description"><?= $linkTextEsc ?></span>
+    <?php endif; ?>
+  </div>
+</div>
+<!-- END of: finna - ajax/feed-carousel-vertical-item.phtml -->

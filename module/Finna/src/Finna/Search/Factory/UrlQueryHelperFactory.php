@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Factory to build UrlQueryHelper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016.
  * Copyright (C) The National Library of Finland 2016.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -27,10 +28,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace Finna\Search\Factory;
 
 use Finna\Search\UrlQueryHelper;
 use VuFind\Search\Base\Params;
+
+use function is_callable;
 
 /**
  * Factory to build UrlQueryHelper.
@@ -66,7 +70,7 @@ class UrlQueryHelperFactory extends \VuFind\Search\Factory\UrlQueryHelperFactory
     }
 
     /**
-     * Construct the UrlQueryHelper
+     * Construct the UrlQueryHelper.
      *
      * @param Params $params VuFind search parameters
      * @param array  $config Config options

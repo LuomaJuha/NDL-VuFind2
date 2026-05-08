@@ -1,8 +1,9 @@
 <?php
+
 /**
  * "Random items" channel provider.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Channels
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\ChannelProvider;
 
 use VuFind\I18n\Translator\TranslatorAwareInterface;
@@ -32,6 +34,8 @@ use VuFind\RecordDriver\AbstractBase as RecordDriver;
 use VuFind\Search\Base\Params;
 use VuFind\Search\Base\Results;
 use VuFindSearch\Command\RandomCommand;
+
+use function count;
 
 /**
  * "Random items" channel provider.
@@ -42,41 +46,34 @@ use VuFindSearch\Command\RandomCommand;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class Random extends AbstractChannelProvider
-    implements TranslatorAwareInterface
+class Random extends AbstractChannelProvider implements TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
+    use BatchTrait;
 
     /**
-     * Number of results to include in each channel.
-     *
-     * @var int
-     */
-    protected $channelSize;
-
-    /**
-     * Mode
+     * Mode.
      *
      * @var string
      */
     protected $mode;
 
     /**
-     * Search service
+     * Search service.
      *
      * @var \VuFindSearch\Service
      */
     protected $searchService;
 
     /**
-     * Params manager
+     * Params manager.
      *
      * @var \VuFind\Search\Params\PluginManager
      */
     protected $paramManager;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \VuFindSearch\Service               $search       Search service
      * @param \VuFind\Search\Params\PluginManager $paramManager Params manager
@@ -101,8 +98,8 @@ class Random extends AbstractChannelProvider
      */
     public function setOptions(array $options)
     {
-        $this->channelSize = $options['channelSize'] ?? 20;
         $this->mode = $options['mode'] ?? 'retain';
+        $this->setBatchSizeFromOptions($options);
     }
 
     /**
@@ -137,11 +134,9 @@ class Random extends AbstractChannelProvider
     public function getFromSearch(Results $results, $channelToken = null)
     {
         $params = $results->getParams();
-        if ("retain" !== $this->mode) {
-            $randomParams = $this->paramManager->get($params->getSearchClassId());
-        } else {
-            $randomParams = clone $params;
-        }
+        $randomParams = 'retain' !== $this->mode
+            ? $this->paramManager->get($params->getSearchClassId())
+            : clone $params;
         $channel = $this->buildChannelFromParams($randomParams);
         return (count($channel['contents']) > 0) ? [$channel] : [];
     }
@@ -159,13 +154,14 @@ class Random extends AbstractChannelProvider
         $retVal = [
             'title' => $this->translate('random_recommendation_title'),
             'providerId' => $this->providerId,
+            'limit' => $this->batchSize,
         ];
         $query = $params->getQuery();
         $paramBag = $params->getBackendParameters();
         $command = new RandomCommand(
             $params->getSearchClassId(),
             $query,
-            $this->channelSize,
+            $this->batchSize,
             $paramBag
         );
         $random = $this->searchService->invoke($command)->getResult()->getRecords();

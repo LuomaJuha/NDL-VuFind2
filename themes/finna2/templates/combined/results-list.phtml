@@ -39,18 +39,17 @@
   <?php else: ?>
     <h2 class="combined-list-title"><?=$this->transEsc($currentSearch['label'])?></h2>
   <?php endif; ?>
-
   <?php if (isset($currentSearch['sublabel'])): ?>
-    <p class="show-list-details pull-right"><?=$this->transEsc('More Information');?> <i class="fa fa-arrow-down"></i></p>
+    <p class="show-list-details float-end"><?=$this->transEsc('More Information');?> <?=$this->icon('show-more') ?></p>
     <p class="sub-label hidden"><?=$this->translate($currentSearch['sublabel'])?></p>
     <?php
       $script = <<<JS
-        $('.show-list-details').on('click', function () {
-          $(this).next().toggleClass('hidden');
-          $('i', this).toggleClass('fa-arrow-up');
-        });
-JS;
-      echo $this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
+                  $('.show-list-details').on('click', function () {
+                    $(this).next().toggleClass('hidden');
+                    $('i', this).toggleClass('fa-arrow-up');
+                  });
+          JS;
+      echo $this->assetManager()->outputInlineScriptString($script);
     ?>
   <?php endif; ?>
 </div>
@@ -65,7 +64,7 @@ JS;
     <?php endif; ?>
     </h4>
     <?php if (isset($currentSearch['more_link']) && $currentSearch['more_link']): ?>
-      <strong><a href="<?=$this->escapeHtmlAttr($moreUrl)?>" class="pull-right"><?=$this->transEsc('More')?> &raquo;</a></strong>
+      <strong><a href="<?=$this->escapeHtmlAttr($moreUrl)?>" class="float-end"><?=$this->transEsc('More')?> &raquo;</a></strong>
     <?php endif; ?>
   </div>
   <?php endif; ?>
@@ -80,7 +79,7 @@ JS;
   ?>
 <div class="alert alert-info filters-active">
   <a href="<?= $moreUrl ?>"><?= $this->transEsc('Active filters') ?></a>
-  <a href="<?= $removeFiltersUrl ?>" title="<?= $this->transEsc('Remove filters') ?>"><i class="fa fa-times"></i></a>
+  <a href="<?= $removeFiltersUrl ?>" title="<?= $this->transEsc('Remove filters') ?>"><?=$this->icon('remove-filters') ?></a>
 </div>
 <?php endif ?>
 
@@ -106,10 +105,8 @@ JS;
     $viewParams = [
       'results' => $results,
       'params' => $params,
-      'showCartControls' => $this->showCartControls,
-      'showBulkOptions' => $this->showBulkOptions,
-      'showCheckboxes' => $this->showCartControls || $this->showBulkOptions,
-      'searchClassId' => $searchClassId
+      'excludeResultIds' => true, // Don't add id attributes to results to avoid duplicates
+      'searchClassId' => $searchClassId,
     ];
   ?>
   <?= $this->authorizationNote($searchClassId) ?>
@@ -126,7 +123,7 @@ JS;
         <?php endif; ?>
         </h4>
         <?php if (isset($currentSearch['more_link']) && $currentSearch['more_link']): ?>
-          <strong><a href="<?=$this->escapeHtmlAttr($moreUrl)?>" class="pull-right"><?=$this->transEsc('More')?> &raquo;</a></strong>
+          <strong><a href="<?=$this->escapeHtmlAttr($moreUrl)?>" class="float-end"><?=$this->transEsc('More')?> &raquo;</a></strong>
         <?php endif; ?>
       </div>
     <?php endif; ?>

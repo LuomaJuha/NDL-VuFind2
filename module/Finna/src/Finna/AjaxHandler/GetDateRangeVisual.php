@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Get Date Range Visual" AJAX handler
+ * "Get Date Range Visual" AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,16 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\Stdlib\Parameters;
-use VuFind\Config\PluginManager as ConfigManager;
+use VuFind\Config\ConfigManagerInterface;
 use VuFind\Search\Results\PluginManager as ResultsManager;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * "Get Date Range Visual" AJAX handler
+ * "Get Date Range Visual" AJAX handler.
  *
  * Get Date Range Visual
  *
@@ -47,34 +49,18 @@ use VuFind\Session\Settings as SessionSettings;
 class GetDateRangeVisual extends \VuFind\AjaxHandler\AbstractBase
 {
     /**
-     * Config plugin manager
+     * Constructor.
      *
-     * @var ConfigManager
-     */
-    protected $configManager;
-
-    /**
-     * Results plugin manager
-     *
-     * @var ResultsManager
-     */
-    protected $resultsManager;
-
-    /**
-     * Constructor
-     *
-     * @param SessionSettings $ss      Session settings
-     * @param ConfigManager   $config  Config loader
-     * @param ResultsManager  $results Results manager
+     * @param SessionSettings        $sessionSettings Session settings
+     * @param ConfigManagerInterface $configManager   Config manager
+     * @param ResultsManager         $resultsManager  Results manager
      */
     public function __construct(
-        SessionSettings $ss,
-        ConfigManager $config,
-        ResultsManager $results
+        SessionSettings $sessionSettings,
+        protected ConfigManagerInterface $configManager,
+        protected ResultsManager $resultsManager
     ) {
-        $this->sessionSettings = $ss;
-        $this->configManager = $config;
-        $this->resultsManager = $results;
+        $this->sessionSettings = $sessionSettings;
     }
 
     /**
@@ -91,14 +77,12 @@ class GetDateRangeVisual extends \VuFind\AjaxHandler\AbstractBase
         $backend = ucfirst($params->fromQuery('backend', 'Solr') ?: 'Solr');
         $results = $this->resultsManager->get($backend);
         $searchParams = $results->getParams();
-        $config = $this->configManager->get(
-            $searchParams->getOptions()->getFacetsIni()
-        );
-        if (!isset($config->SpecialFacets->dateRangeVis)) {
+        $config = $this->configManager->getConfigArray($searchParams->getOptions()->getFacetsIni());
+        if (null === ($dateRangeVis = $config['SpecialFacets']['dateRangeVis'] ?? null)) {
             return $this->formatResponse([], self::STATUS_HTTP_ERROR);
         }
 
-        [, $facet] = explode(':', $config->SpecialFacets->dateRangeVis);
+        [, $facet] = explode(':', $dateRangeVis);
 
         $searchParams->initFromRequest(new Parameters($params->fromQuery()));
         if (method_exists($results, 'getPartialFieldFacets')) {
@@ -130,7 +114,7 @@ class GetDateRangeVisual extends \VuFind\AjaxHandler\AbstractBase
             $count = $f['count'];
             $val = $f['displayText'];
             // Only retain numeric values
-            if (!preg_match("/^-?[0-9]+$/", $val)) {
+            if (!preg_match('/^-?[0-9]+$/', $val)) {
                 continue;
             }
             $min = min($min, (int)$val);

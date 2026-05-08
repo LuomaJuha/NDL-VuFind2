@@ -1,10 +1,11 @@
 <?php
+
 /**
  * View helper for LinkedEvents tabs.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2020.
+ * Copyright (C) The National Library of Finland 2020-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,15 +17,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
  * @author   Jaro Ravila <jaro.ravila@helsinki.fi>
+ * @author   Pasi Tiisanoja <pasi.tiisanoja@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\View\Helper\Root;
 
 /**
@@ -33,6 +36,7 @@ namespace Finna\View\Helper\Root;
  * @category VuFind
  * @package  View_Helpers
  * @author   Jaro Ravila <jaro.ravila@helsinki.fi>
+ * @author   Pasi Tiisanoja <pasi.tiisanoja@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
@@ -51,6 +55,8 @@ class LinkedEventsTabs extends \Laminas\View\Helper\AbstractHelper
         $active = $params['active'] ?? $tabs[0]['title'];
         $allEventsLink = $params['link'] ?? '';
         $searchTools = $params['searchTools'] ?? 'show';
+        $navStyle = $params['navStyle'] ?? '';
+        $showMobileAccordion = $params['showMobileAccordion'] ?? true;
         $limit = $params['limit'] ?? 30;
 
         return $this->getView()->render(
@@ -60,6 +66,8 @@ class LinkedEventsTabs extends \Laminas\View\Helper\AbstractHelper
                 'active' => $active,
                 'allEventsLink' => $allEventsLink,
                 'searchTools' => $searchTools,
+                'navStyle' => $navStyle,
+                'showMobileAccordion' => $showMobileAccordion,
                 'limit' => $limit,
                 'id' => md5(json_encode($tabs)),
             ]

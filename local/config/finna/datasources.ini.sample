@@ -8,7 +8,8 @@
 ; disablePatronFunctions  Set true if datasource does not have patron functionality, can be left out
 ; authority[<type>]       Map to authority index sources where <type> is authority record type
 ;                         (corporateBody, person) or * for any;
-; authority_id_regex[<type>] = Regex for whitelisting allowed authority ids.
+; authority_id_regex[<type>] = Regex for allowed authority ids (to be prefixed with the source from authority setting).
+; authority_plain_id_regex[<type>] = Regex for allowed authority ids (to be used as is).
 ; authority_external_link_label_regex = Regex for parsing external link label into title and subtitle,
 ;                                       parts, for example: /^(Verkkosivut|Kotisivut|Wikipedia),\s*(.*)$/
 ;
@@ -20,10 +21,19 @@ feedbackEmail = email@somewhere.invalid
 mainView = web
 institution = Library
 ;disablePatronFunctions = true
-; You can select BTJ, Syndetics, LibraryThing, Summon, Amazon, Booksite, OpenLibrary,
+; You can select BTJ, Kirjavalitys, Syndetics, LibraryThing, Summon, Amazon, Booksite, OpenLibrary,
 ; Contentcafe and/or Google Books. These settings are used in addition to the ones
 ; defined in config.ini
 ;coverimages = BTJ:customerId
+;coverimages = BTJ:customerId,Kirjavalitys:customerId
+; Description providers (a comma-separated list in priority order). Available
+; providers are:
+; NatLibFi
+; Record
+; RecordUrl
+; Kirjavalitys:customerId (customerId is part of the URL, e.g. consortium name in lowercase)
+; shared (a special one to include the common providers from main configuration)
+;descriptions = Kirjavalitys:customerId,shared
 ; Link template for linking to the staff UI. Note that staff UI link is available
 ; only for users with the access.finna.StaffUiLink permission.
 staffUiUrl = "https://server-address/cgi-bin/koha/catalogue/detail.pl?biblionumber=%%id%%"
@@ -38,15 +48,10 @@ onlinePayment['handler'] = 'CPU'
 ; Payment service url:
 onlinePayment['url'] = ''
 
-; ### Paytrail Payment API (current interface):
+; ### Paytrail Payment API:
 onlinePayment['handler'] = 'PaytrailPaymentAPI'
 
-; ### Paytrail E2 (legacy interface):
-onlinePayment['handler'] = 'Paytrail'
-; E2 interface url (optional, default is https://payment.paytrail.com/e2):
-;onlinePayment['e2url'] = '...'
-
-; ### Turku Payment API (Current interface)
+; ### Turku Payment API:
 ;onlinePayment['handler'] = "TurkuPaymentAPI"
 ;onlinePayment['url'] = "..."
 ;onlinePayment['oId'] = "..."
@@ -64,38 +69,58 @@ onlinePayment['merchantId'] = ''
 ; Merchant secret:
 onlinePayment['secret'] = ''
 
+; The following settings control output for receipt.
+
+; Whether receipt is enabled
+onlinePayment['receipt'] = true
+; Business ID (Y-tunnus) for payment receipt.
+;onlinePayment['businessId'] = "1234567-8"
+; Mappings from organization names or codes to business IDs. If mappings are found,
+; the recipient organization is displayed on each item line. Note that the
+; organization names or codes can be translated in the Payment translation domain
+; with 'organization_' prefix.
+;onlinePayment['organizationBusinessIdMappings'] = 'Helsinki=1234567-8:Tampere=2345678-9'
+; Contact information for clients
+; Organisation info ID (Finna ID in kirkanta):
+onlinePayment['organisationInfoId'] = "Helmet"
+; If the above is not available, a URL or other information can be provided:
+onlinePayment['contactInfo'] = "https://..."
+
 ; The following settings are mandatory for CPU and optional for Paytrail services.
 ; With Paytrail only a total amount to pay is defined if productCode,
 ; transactionFeeProductCode and productCodeMappings are undefined, and empty values
 ; can be defined to make the system use default values.
+
 onlinePayment['paymentDescription'] = 'Finna: verkkomaksuja'
 ; Default product code
 onlinePayment['productCode'] = ''
-; Product code for transaction fees
+; Product code for transaction fees (cannot be used with shop-in-shop functionality)
 onlinePayment['transactionFeeProductCode'] = 'Transaction'
-; Product code mappings from the fine types to product codes
+; Product code mappings from the fine types to product codes. Used unless product
+; code is provided by the ILS driver.
 onlinePayment['productCodeMappings'] = 'Overdue=demo_003:Long Overdue=demo_004'
 ; Mappings to languages supported by the service
 ;onlinePayment['supportedLanguages'] = 'fi=fi:en=en'
 ; Product code mappings from organization names or codes to product codes. If there's
 ; already a product code from other mappings above, this value is prepended to it
-; without any delimiter.
-;onlinePayment['organizationProductCodeMappings'] = 'Helsinki=demo_003:Tampere=demo_004'
+; without any delimiter. Used unless product code is provided by the ILS driver.
+; Old setting with name 'organizationProductCodeMappings' is also recognized.
+;onlinePayment['organizationProductCodePrefixMappings'] = 'Helsinki=demo_003:Tampere=demo_004'
+; Mappings from organization names or codes to merchant id's for shop-in-shop
+; functionality.
+;onlinePayment['organizationMerchantIdMappings'] = 'Helsinki=123:Vantaa=234'
 
 ; # Video on demand settings
 
 ; ## Video provider specific settings:
 
+; ### Icareus
+video['handler'] = "Icareus"
+video['url'] = "https://players.icareus.com/<org_name_in_icareus>/embed/vod/{videoid}"
+
 ; ### Vimeo:
 video['handler'] = "Vimeo"
 video['url'] = "https://vimeo.com/{videoid}"
-video['posterUrl'] = "https://link.to.posterUrl/{filename}"
-
-; ### Elonet:
-video['handler'] = "Elonet"
-video['secret'] = "secretkey"
-video['timestampPrecision'] = 3000
-video['url'] = "https://link.to.video/{filename}"
 video['posterUrl'] = "https://link.to.posterUrl/{filename}"
 
 ; Videosources to check, if an url can be provided for a video
@@ -103,3 +128,31 @@ video['posterUrl'] = "https://link.to.posterUrl/{filename}"
 video_sources[] = "application/x-mpegURL|https://link.to.video/{videoname}.m3u8|smil"
 video_sources[] = "application/x-mpegURL|https://link.to.video/{videoname}.m3u8"
 video_sources[] = "application/dash+xml|https://link.to.video/{videoname}.mpd"
+
+; Archive request form settings
+allowArchiveRequest = true
+archiveRequestAllowedRecordLevels = 'file:item'
+archiveRequestRequireFilingUnit = true
+
+; Hide record fields from record view
+; Each value is a field label defined in RecordDataFormatterFactory
+;hidden_record_fields[] = 'Archive'
+;hidden_record_fields[] = 'Subject'
+
+; Use collection specific field order for records with child records.
+; Available record field specs are CollectionRecord, DefaultRecord.
+; Default is DefaultRecord.
+;record[record_field_specs] = CollectionRecord
+
+; Used for linking records with linkingId. Checks if prefix in 003 should match with the linkable records
+;prefixIn003 = true
+; In addition multiple prefixes can be declared with a comma separated list
+;link_prefixes = 'FI-MELINDA,FI-NL'
+
+; Use legacy linking id (datasource.id) for records in this datasource
+;legacy_settings[linking_id] = true
+
+; Permissive settings for a datasource
+; Allow piping images from provider, must have a permission which is granted by the
+; provider. Used in CoverController::PipeAction.
+;permissions[image_piping] = 1

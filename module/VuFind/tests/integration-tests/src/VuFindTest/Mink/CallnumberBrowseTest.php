@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Mink search actions test class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFindTest\Mink;
 
 /**
@@ -35,7 +37,6 @@ namespace VuFindTest\Mink;
  * @author   Demian Katz <demian.katz@villanova.edu>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
- * @retry    4
  */
 class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 {
@@ -48,10 +49,11 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Set config for callnumber tests
-     * Sets callnumber_handler to false
+     * Sets callnumber_handler to false.
      *
      * @param string $nos  multiple_call_nos setting
      * @param string $locs multiple_locations setting
+     * @param bool   $full Show full status setting
      *
      * @return void
      */
@@ -65,15 +67,15 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
                         'multiple_call_nos' => $nos,
                         'multiple_locations' => $locs,
                         'callnumber_handler' => false,
-                        'show_full_status' => $full
-                    ]
-                ]
+                        'show_full_status' => $full,
+                    ],
+                ],
             ]
         );
     }
 
     /**
-     * Checks if a link has the correct callnumber and setting
+     * Checks if a link has the correct callnumber and setting.
      *
      * @param \Behat\Mink\Element\Element $link link element
      * @param string                      $type dewey or lcc
@@ -82,20 +84,25 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
      */
     protected function checkLink($link, $type)
     {
-        $this->assertTrue(is_object($link));
+        $this->assertIsObject($link);
         $href = $link->getAttribute('href');
-        $this->assertStringContainsString($type, $href);
+        $this->assertStringContainsString($type, (string)$href);
         $this->assertNotEquals('', $link->getText());
         $hrefCallnum = explode('&from=', $href)[1];
         $this->assertStringEndsWith($hrefCallnum, $link->getText());
     }
 
+    /**
+     * Set up configuration for testing with multiple call numbers.
+     *
+     * @return void
+     */
     protected function setupMultipleCallnumbers()
     {
         $this->changeConfigs(
             [
             'config' => [
-                'Catalog' => ['driver' => 'Demo']
+                'Catalog' => ['driver' => 'Demo'],
             ],
             'Demo' => [
                 'StaticHoldings' => [
@@ -104,17 +111,17 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
                         ['callnumber' => 'CallNumberOne', 'location' => 'Villanova'],
                         ['callnumber' => 'CallNumberTwo', 'location' => 'Villanova'],
                         ['callnumber' => 'CallNumberThree', 'location' => 'Phobos'],
-                        ['callnumber' => 'CallNumberFour', 'location' => 'Phobos']
+                        ['callnumber' => 'CallNumberFour', 'location' => 'Phobos'],
                         ]
-                    )
-                ]
-            ]
+                    ),
+                ],
+            ],
             ]
         );
     }
 
     /**
-     * Sets callnumber_handler to true
+     * Sets callnumber_handler to true.
      *
      * @param string                      $type        dewey or lcc
      * @param \Behat\Mink\Element\Element $page        page element
@@ -129,8 +136,8 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
             [
                 'config' => [
                     'Catalog' => ['driver' => 'Sample'],
-                    'Item_Status' => ['callnumber_handler' => $type]
-                ]
+                    'Item_Status' => ['callnumber_handler' => $type],
+                ],
             ]
         );
         $callnumberSelector = '.callnumber a,.groupCallnumber a,.fullCallnumber a';
@@ -148,17 +155,17 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
             $link = $this->findCss($page, $callnumberSelector);
             $this->checkLink($link, $type);
         } else {
-            $link = $page->find('css', $callnumberSelector);
-            $this->assertNull($link);
+            $this->unFindCss($page, $callnumberSelector);
         }
     }
 
     /**
-     * Sets callnumber_handler to true
+     * Sets callnumber_handler to true.
      *
      * @param string $nos         multiple_call_nos setting
      * @param string $locs        multiple_locations setting
      * @param bool   $expectLinks whether or not links are expected for multiple callnumbers in this config
+     * @param bool   $full        Show full status setting
      *
      * @return void
      */
@@ -167,8 +174,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
         $this->changeCallnumberSettings($nos, $locs, $full);
         $page = $this->performSearch('id:' . $this->id);
         // No link
-        $link = $page->find('css', '.callnumber a,.groupCallnumber a,.fullCallnumber a');
-        $this->assertTrue(null === $link);
+        $this->unFindCss($page, '.callnumber a,.groupCallnumber a,.fullCallnumber a');
         // With dewey links
         $this->activateAndTestLinks('dewey', $page, $expectLinks);
         // With lcc links
@@ -177,7 +183,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Test with multiple_call_nos set to first
-     * and multiple_locations set to msg
+     * and multiple_locations set to msg.
      *
      * @return void
      */
@@ -188,7 +194,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Test with multiple_call_nos set to first
-     * and multiple_locations set to msg
+     * and multiple_locations set to msg.
      *
      * @return void
      */
@@ -199,7 +205,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Test with multiple_call_nos set to first
-     * and multiple_locations set to msg
+     * and multiple_locations set to msg.
      *
      * @return void
      */
@@ -210,7 +216,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Test with multiple_call_nos set to first
-     * and multiple_locations set to group
+     * and multiple_locations set to group.
      *
      * @return void
      */
@@ -221,7 +227,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Test with multiple_call_nos set to all
-     * and multiple_locations set to msg
+     * and multiple_locations set to msg.
      *
      * @return void
      */
@@ -232,7 +238,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
 
     /**
      * Test with multiple_call_nos set to msg
-     * and multiple_locations set to group
+     * and multiple_locations set to group.
      *
      * @return void
      */
@@ -242,7 +248,7 @@ class CallnumberBrowseTest extends \VuFindTest\Integration\MinkTestCase
     }
 
     /**
-     * Test with show_full_status set to true
+     * Test with show_full_status set to true.
      *
      * @return void
      */

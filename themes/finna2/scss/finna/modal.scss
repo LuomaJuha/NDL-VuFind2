@@ -1,0 +1,72 @@
+.modal-content {
+  & .comment-inappropriate-form {
+    .form-control {
+      width: 100%;
+      margin-bottom: 12px;
+    }
+  }
+}
+
+.modal-content .close {
+  color: $modal-header-color;
+  padding: 0px 7px 6px 7px;
+  font-weight: 500;
+  min-height: 30px;
+  min-width: 30px;
+  font-size: 1.5em;
+  line-height: 1em;
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 2;
+  opacity: 0.8;
+  background: none;
+  &:after {
+    font-family: finnaicons;
+    content: '\e02e';
+  }
+  &:hover {
+    opacity: 1;
+  }
+}
+.modal-content:not(:has(.modal-body #lightbox-title)) .close {
+  color: $gray-light;
+}
+
+.modal-body {
+  overflow: hidden;
+
+  & > h1, & > h2 {
+    background: $modal-header-background;
+    color: $modal-header-color;
+    font-size: $content-headings-font-size-h4;
+    line-height: $modal-title-line-height;
+    border-top-left-radius: $modal-content-inner-border-radius;
+    border-top-right-radius: $modal-content-inner-border-radius;
+    border-bottom: 1px solid $modal-header-border-color;
+    margin: -$modal-inner-padding;
+    margin-bottom: 2 * $modal-header-padding-y;
+    padding: $modal-title-padding;
+    // Account for close button
+    padding-right: 45px;
+    min-height: $modal-header-padding-y * $modal-title-line-height;
+  }
+  & .alert-success {
+    margin-top: $modal-title-padding;
+  }
+}
+
+#modal .cart-controls .btn { margin-bottom: 4px; }
+#modal .cart-controls .checkbox { padding-bottom: 1rem; }
+#modal .form-inline .checkbox fieldset { display: inline-block; }
+#modal .cart-controls ~ hr { margin-top: 0; margin-bottom: 0; }
+.lightbox-scroll { overflow-y: auto; }
+
+// Loading spinner
+#modal .loading-overlay {
+  @include loading-overlay();
+}
+
+// Utility classes
+.lightbox-only { display: none; }
+#modal .lightbox-only { display: initial; }

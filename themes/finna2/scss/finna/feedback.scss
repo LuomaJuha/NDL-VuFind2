@@ -1,0 +1,81 @@
+.floating-feedback-btn {
+  position: absolute;
+  top: auto;
+  right: 0;
+  z-index: 1001;
+  margin-top: 15px;
+  margin-right: 15px;
+  color: $finna-feedback-color;
+  background: $finna-feedback-background;
+  &.fixed {
+    position: fixed;
+    top: 0;
+  }
+  &:hover {
+    color: $finna-feedback-color;
+    background: darken($finna-feedback-background, 10%);
+  }
+}
+
+.dynamic-form {
+  .form-control {
+    &[disabled],
+    &[readonly],
+    fieldset[disabled] {
+      cursor: default;
+      border: none;
+      box-shadow: none;
+    }
+  }
+  .feedback-info p,
+  .captcha {
+    padding-top: 10px;
+    border-top: 1px solid $gray-lighter;
+  }
+  .form-info.pre div {
+    margin-bottom: 1em;
+  }
+}
+
+form[name=ArchiveRequest] {
+  label[for=form_ArchiveRequest_desiredDateForOrder] {
+    font-weight: normal;
+  }
+  label[for=form_ArchiveRequest_name] {
+    margin-bottom: 0;
+  }
+  #form_ArchiveRequest_name {
+    height: auto;
+  }
+  .alert-info {
+    margin-bottom: 0;
+  }
+}
+form[name=FeedbackRecord] .form-info {
+  .datasource-info {
+    display: block;
+    padding-top: 1em;
+  }
+}
+form[name=FeedbackRecord],
+form[name=FeedbackSite] {
+  textarea {
+    width: 100%;
+  }
+}
+
+@include media-breakpoint-up(sm) {
+  div:not(.modal-body) > .feedback-content {
+    width: 50%;
+  }
+}
+
+.template-dir-feedback .feedback-content h1 {
+    font-size: $finna-header-font-size;
+}
+
+.recommendation-feedback {
+  .btn-primary {
+    margin-top: 20px;
+  }
+}

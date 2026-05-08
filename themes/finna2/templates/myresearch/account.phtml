@@ -1,13 +1,10 @@
 <!-- START of: finna - myresearch/account.phtml -->
 <?php
-    // Set up page title:
-    $this->headTitle($this->translate('Create New Account'));
-    $this->layout()->finnaMainHeader = '<div><h3 class="finna-main-header">' . $this->transEsc('Create New Account') . '</h3></div>';
-
     // Set up breadcrumbs:
-    $this->layout()->breadcrumbs = '<li><a href="' . $this->url('myresearch-home') . '">' . $this->transEsc('Your Account') . '</a></li> <li class="active">' . $this->transEsc('Create New Account') . '</li>';
+    $this->breadcrumbs()->set($this->translate('Your Account'), $this->url('myresearch-home'))
+      ->add($this->translate('Create New Account'), active: true);
 ?>
-<h2><?=$this->transEsc('Create New Account')?></h2>
+<?=$this->component('page-title', ['title' => $this->translate('Create New Account')]);?>
 <?=$this->flashmessages()?>
 
 <form method="post" name="accountForm" id="accountForm" class="form-user-create" data-toggle="validator">
@@ -16,23 +13,23 @@
     <?=$this->captcha()->html($this->useCaptcha) ?>
   </div>
   <div class="form-group">
-    <a class="back-to-login btn btn-link" href="<?=$this->url('myresearch-userlogin') ?>"><i class="fa fa-arrow-left" aria-hidden="true"></i> <?=$this->transEsc('Back')?></a>
-    <input class="btn btn-primary" type="submit" name="submit" value="<?=$this->transEscAttr('Submit')?>"/>
+    <a class="back-to-login btn btn-link" href="<?=$this->url('myresearch-userlogin') ?>"><?=$this->icon('back-to-login') ?> <?=$this->transEsc('Back')?></a>
+    <input class="btn btn-primary" type="submit" name="submitButton" value="<?=$this->transEscAttr('Submit')?>">
   </div>
 </form>
 
 <?php
 // Set up validation; we do this inline instead of in the header for lightbox compatibility:
 $js = <<<JS
-  if ($.isReady) {
-    $('#accountForm').validator();
-  } else {
-    $(document).ready(function(){
-      $('#accountForm').validator();
-    });
-  }
-JS;
+      if ($.isReady) {
+        $('#accountForm').validator();
+      } else {
+        $(document).ready(function(){
+          $('#accountForm').validator();
+        });
+      }
+    JS;
 
-echo $this->inlineScript()->appendScript($js);
+echo $this->assetManager()->outputInlineScriptString($js);
 ?>
 <!-- END of: finna - myresearch/account.phtml -->

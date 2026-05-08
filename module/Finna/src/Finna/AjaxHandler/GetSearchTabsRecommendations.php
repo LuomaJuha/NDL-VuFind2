@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Get Search Tabs Recommendations" AJAX handler
+ * "Get Search Tabs Recommendations" AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,18 +26,20 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\AjaxHandler;
 
-use Laminas\Config\Config;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\View\Renderer\RendererInterface;
-use VuFind\Db\Table\Search as SearchTable;
+use VuFind\Auth\Manager as AuthManager;
+use VuFind\Config\Config;
+use VuFind\Db\Service\SearchServiceInterface;
 use VuFind\Search\Results\PluginManager as ResultsManager;
 use VuFind\Search\SearchRunner;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * "Get Search Tabs Recommendations" AJAX handler
+ * "Get Search Tabs Recommendations" AJAX handler.
  *
  * @category VuFind
  * @package  AJAX
@@ -44,70 +47,33 @@ use VuFind\Session\Settings as SessionSettings;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
-class GetSearchTabsRecommendations extends \VuFind\AjaxHandler\AbstractBase
-    implements \Laminas\Log\LoggerAwareInterface
+class GetSearchTabsRecommendations extends \VuFind\AjaxHandler\AbstractBase implements \Psr\Log\LoggerAwareInterface
 {
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * Config
+     * Constructor.
      *
-     * @var Config
-     */
-    protected $config;
-
-    /**
-     * Search table
-     *
-     * @var SearchTable
-     */
-    protected $searchTable;
-
-    /**
-     * Results plugin manager
-     *
-     * @var ResultsManager
-     */
-    protected $resultsManager;
-
-    /**
-     * View renderer
-     *
-     * @var RendererInterface
-     */
-    protected $renderer;
-
-    /**
-     * Search runner
-     *
-     * @var SearchRunner
-     */
-    protected $searchRunner;
-
-    /**
-     * Constructor
-     *
-     * @param SessionSettings   $ss       Session settings
-     * @param Config            $config   Main config
-     * @param SearchTable       $st       Search table
-     * @param ResultsManager    $results  Results manager
-     * @param RendererInterface $renderer View renderer
-     * @param SearchRunner      $sr       Search runner
+     * @param SessionSettings        $sessionSettings Session settings
+     * @param Config                 $config          Main config
+     * @param SearchServiceInterface $searchService   Search database service
+     * @param ResultsManager         $resultsManager  Results manager
+     * @param RendererInterface      $renderer        View renderer
+     * @param SearchRunner           $searchRunner    Search runner
+     * @param string                 $sessionId       Session ID
+     * @param AuthManager            $authManager     Auth Manager
      */
     public function __construct(
-        SessionSettings $ss,
-        Config $config,
-        SearchTable $st,
-        ResultsManager $results,
-        RendererInterface $renderer,
-        SearchRunner $sr
+        SessionSettings $sessionSettings,
+        protected Config $config,
+        protected SearchServiceInterface $searchService,
+        protected ResultsManager $resultsManager,
+        protected RendererInterface $renderer,
+        protected SearchRunner $searchRunner,
+        protected string $sessionId,
+        protected AuthManager $authManager
     ) {
-        $this->sessionSettings = $ss;
-        $this->config = $config;
-        $this->searchTable = $st;
-        $this->resultsManager = $results;
-        $this->renderer = $renderer;
-        $this->searchRunner = $sr;
+        $this->sessionSettings = $sessionSettings;
     }
 
     /**
@@ -130,7 +96,8 @@ class GetSearchTabsRecommendations extends \VuFind\AjaxHandler\AbstractBase
         $id = $params->fromPost('searchId', $params->fromQuery('searchId'));
         $limit = $params->fromPost('limit', $params->fromQuery('limit', null));
 
-        $search = $this->searchTable->select(['id' => $id])->current();
+        $user = $this->authManager->getUserObject();
+        $search = $this->searchService->getSearchByIdAndOwner($id, $this->sessionId, $user);
         if (empty($search)) {
             return $this->formatResponse(
                 'Search not found',
@@ -145,7 +112,8 @@ class GetSearchTabsRecommendations extends \VuFind\AjaxHandler\AbstractBase
         $searchClass = $searchParams->getSearchClassId();
         // Don't return recommendations if not configured or for combined view
         // or for search types other than basic search.
-        if (empty($recommendationsConfig[$searchClass])
+        if (
+            empty($recommendationsConfig[$searchClass])
             || $searchClass == 'Combined'
             || $searchParams->getSearchType() != 'basic'
         ) {
@@ -188,7 +156,7 @@ class GetSearchTabsRecommendations extends \VuFind\AjaxHandler\AbstractBase
                         $otherResults = $this->searchRunner->run(
                             $uri->getQueryAsArray(),
                             $tab['class'],
-                            function ($runner, $params, $searchId) use ($count) {
+                            function ($runner, $params, $searchId) use ($count): void {
                                 $params->setLimit($count);
                                 $params->setPage(1);
                                 $params->resetFacetConfig();
@@ -217,7 +185,7 @@ class GetSearchTabsRecommendations extends \VuFind\AjaxHandler\AbstractBase
                             'lookfor' => $lookfor,
                             'handler' => $searchParams->getQuery()->getHandler(),
                             'results' => $otherResults,
-                            'params' => $searchParams
+                            'params' => $searchParams,
                         ]
                     );
                 }

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Record driver data formatting view helper
+ * Record driver data formatting view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2016.
  * Copyright (C) The National Library of Finland 2017-2023.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -26,18 +27,21 @@
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Juha Luoma  <juha.luoma@helsinki.fi>
+ * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:architecture:record_data_formatter
  * Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
-use Exception;
 use Finna\View\Helper\Root\RecordDataFormatter\FieldGroupBuilder;
 use VuFind\RecordDriver\AbstractBase as RecordDriver;
 
+use function in_array;
+
 /**
- * Record driver data formatting view helper
+ * Record driver data formatting view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -45,6 +49,7 @@ use VuFind\RecordDriver\AbstractBase as RecordDriver;
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Juha Luoma  <juha.luoma@helsinki.fi>
+ * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:architecture:record_data_formatter
  * Wiki
@@ -62,6 +67,8 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
     {
         $include = [
             'Access',
+            'Accessibility Feature',
+            'Accessibility Hazard',
             'Additional Information',
             'Age Limit',
             'Audience',
@@ -70,10 +77,14 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Awards',
             'Bibliography',
             'child_records',
+            'Capture Information',
             'Classification',
+            'Contains collections',
             'Copyright Notes',
+            'Country of Producing Entity',
             'Creator Characteristics',
             'DOI',
+            'Dewey Classification',
             'Dissertation Note',
             'Education Programs',
             'Event Notice',
@@ -84,10 +95,12 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'ISBN',
             'ISSN',
             'Inventory ID',
-            'Item Description',
+            'Item Notes',
             'Keywords',
             'Language',
             'Language Notes',
+            'Language of Abstract',
+            'Local Note',
             'Manufacturer',
             'Methodology',
             'Music Compositions Extended',
@@ -101,8 +114,9 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Physical Description',
             'Place of Origin',
             'Playing Time',
-            'Presenters',
+            'Presenters Marc',
             'Previous Title',
+            'Production',
             'Production Credits',
             'Projected Publication Date',
             'Publication Frequency',
@@ -114,10 +128,12 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Related Items',
             'Related Places',
             'Scale',
+            'Security Classification',
             'Series',
             'Source of Acquisition',
             'Standard Codes',
             'Standard Report Number',
+            'Study Program Information Notes',
             'subjects_extended',
             'System Format',
             'Terms of Use',
@@ -127,7 +143,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Uncontrolled Title',
             'Uniform Title',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -148,7 +164,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Edition',
             'Events',
             'Extent',
-            'Format',
+            'Format and Labels',
             'Inscriptions',
             'Introduction',
             'Inventory ID',
@@ -156,15 +172,14 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'ISSN',
             'Language',
             'lido_editions',
+            'Location LIDO',
             'Measurements',
             'Organisation',
             'original_work_language',
-            'Other Classification',
             'Other Classifications',
             'Other ID',
             'Parent Archive',
             'Parent Collection',
-            'Parent Purchase Batch',
             'Parent Series',
             'Parent Unclassified Entity',
             'Parent Work',
@@ -174,9 +189,9 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Subject Date',
             'Subject Detail',
             'Subject Place',
-            'SubjectsWithoutPlaces',
+            'SubjectDisplayTerms',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -205,7 +220,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'ISBN',
             'ISSN',
             'Inventory ID',
-            'Item Description',
+            'Item Notes',
             'Keywords',
             'Language',
             'New Title',
@@ -225,11 +240,11 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Subjects',
             'System Format',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
-     * Filter unnecessary fields from Lrmi records
+     * Filter unnecessary fields from Lrmi records.
      *
      * @param array $coreFields data to filter
      *
@@ -266,8 +281,8 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'ISSN',
             'Identifiers',
             'Inventory ID',
-            'Item Description',
             'Item Description FWD',
+            'Item Notes',
             'Keywords',
             'Language',
             'Learning Resource Type',
@@ -288,7 +303,6 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Publish date',
             'Published',
             'Published in',
-            'Publisher',
             'Record Links',
             'Related Items',
             'Related Materials',
@@ -298,7 +312,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Subjects',
             'System Format',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -332,7 +346,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Genre',
             'ISBN',
             'ISSN',
-            'Item Description',
+            'Item Notes',
             'Keywords',
             'Language',
             'Location',
@@ -354,7 +368,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Unit ID',
             'original_work_language',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -372,13 +386,14 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Additional Information Extended',
             'Appraisal',
             'Archive',
+            'archive_authors',
             'Archive File',
             'Archive Origination',
+            'archive_other_authors',
             'Archive Relations',
             'Archive Series',
             'Audience',
             'Author Notes',
-            'Authors',
             'Awards',
             'Bibliography', 'Container Information',
             'Content Description',
@@ -392,8 +407,8 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Genre',
             'ISBN',
             'ISSN',
-            'Item Description',
             'Item History',
+            'Item Notes',
             'Keywords',
             'Language',
             'Location',
@@ -414,11 +429,13 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Related Items',
             'Related Materials',
             'Related Places',
+            'Subject Actor',
+            'Subject Place',
             'subjects_extended',
             'System Format',
             'Unit IDs',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -444,7 +461,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Finding Aid',
             'ISBN',
             'ISSN',
-            'Item Description',
+            'Item Notes',
             'Language',
             'New Title',
             'Physical Description',
@@ -460,8 +477,9 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Source Collection',
             'Subjects',
             'System Format',
+            'Citations',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -539,7 +557,27 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             'Subjects',
             'System Format',
         ];
-        return array_intersect_key($coreFields, array_flip($include));
+        return $this->filterFields($coreFields, $include);
+    }
+
+    /**
+     * Filter unnecessary fields from AIPA records.
+     *
+     * @param array $coreFields data to filter.
+     *
+     * @return array
+     */
+    public function filterAipaFields($coreFields)
+    {
+        $include = [
+            'Additional Information AIPA',
+            'Provenance',
+            'Related Events',
+            'subjects_extended',
+            'Subject Date',
+            'Subject Place',
+        ];
+        return $this->filterFields($coreFields, $include);
     }
 
     /**
@@ -548,40 +586,47 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
      * @param string $key Key for configuration to look up.
      *
      * @return array
-     *
-     * @throws Exception
      */
     public function getDefaults($key = 'core'): array
     {
-        if (!isset($this->driver)) {
-            throw new Exception('Driver not set when calling getDefaults.');
-        }
         $defaults = parent::getDefaults($key);
-        $type = strtolower($this->driver->getRecordFormat());
+        if (!isset($this->driver)) {
+            return $defaults;
+        }
+        $backend = $this->driver->getSourceIdentifier();
+        if (in_array($backend, ['Solr', 'SolrAuth', 'L1'])) {
+            $type = strtolower($this->driver->getRecordFormat());
+        } else {
+            $type = strtolower($backend);
+        }
         switch ($type) {
-        case 'dc':
-        case 'qdc':
-            return $this->filterQDCFields($defaults);
-        case 'ead':
-            return $this->filterEADFields($defaults);
-        case 'ead3':
-            return $this->filterEAD3Fields($defaults);
-        case 'forward':
-            return $this->filterForwardFields($defaults);
-        case 'forwardauthority':
-            return $defaults;
-        case 'lido':
-            return $this->filterLidoFields($defaults);
-        case 'lrmi':
-            return $this->filterLrmiFields($defaults);
-        case 'marc':
-            return $this->filterMarcFields($defaults);
-        case 'marcauthority':
-            return $defaults;
-        case 'primo':
-            return $this->filterPrimoFields($defaults);
-        default:
-            throw new Exception("Unhandled record type $type");
+            case 'aipa':
+                return $this->filterAipaFields($defaults);
+            case 'dc':
+            case 'qdc':
+                return $this->filterQDCFields($defaults);
+            case 'eaccpf':
+                return $this->filterFields($defaults);
+            case 'ead':
+                return $this->filterEADFields($defaults);
+            case 'ead3':
+                return $this->filterEAD3Fields($defaults);
+            case 'forward':
+                return $this->filterForwardFields($defaults);
+            case 'forwardauthority':
+                return $defaults;
+            case 'lido':
+                return $this->filterLidoFields($defaults);
+            case 'lrmi':
+                return $this->filterLrmiFields($defaults);
+            case 'marc':
+                return $this->filterMarcFields($defaults);
+            case 'marcauthority':
+                return $defaults;
+            case 'primo':
+                return $this->filterPrimoFields($defaults);
+            default:
+                return $defaults;
         }
     }
 
@@ -596,10 +641,10 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
      * @param string $template      Default group template to use if not specified
      *                              for a group (optional, set to null to use the
      *                              default value).
-     * @param array  $options       Additional options to use if not specified for a
-     *                              group (optional, set to null to use the default
-     *                              value). See FieldGroupBuilder::addGroup() for
-     *                              details.
+     * @param array  $options       Additional options to be merged with group
+     *                              specific additional options (optional, set to
+     *                              null to use the default value). See
+     *                              FieldGroupBuilder::addGroup() for details.
      * @param array  $unusedOptions Additional options for the unused lines group
      *                              (optional, set to null to use the default value).
      *                              See FieldGroupBuilder::addGroup()
@@ -614,13 +659,17 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
         $options = null,
         $unusedOptions = null
     ) {
+        $template ??= 'core-field-group-fields.phtml';
+        $options ??= [];
+        $unusedOptions ??= $options;
+
         $fieldGroups = new FieldGroupBuilder();
         $fieldGroups->setGroups(
             $groups,
             $lines,
-            $template ?? 'core-field-group-fields.phtml',
-            $options ?? [],
-            $unusedOptions ?? []
+            $template,
+            $options,
+            $unusedOptions
         );
         return $fieldGroups->getArray();
     }
@@ -641,7 +690,7 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
         // Apply the group spec.
         $result = [];
         foreach ($groups as $group) {
-            if (!empty($group['skipGroup'])) {
+            if (!empty($group['options']['skipGroup'])) {
                 continue;
             }
             $lines = $group['lines'];
@@ -657,9 +706,29 @@ class RecordDataFormatter extends \VuFind\View\Helper\Root\RecordDataFormatter
             $result[] = [
                 'label' => $group['label'],
                 'value' => $value,
-                'context' => $group['context'],
+                'context' => $group['options']['context'] ?? [],
             ];
         }
         return $result;
+    }
+
+    /**
+     * Returns an array containing core fields suitable to be shown.
+     * If record source has hidden fields, excludes them from result.
+     *
+     * @param array $coreFields Core fields list
+     * @param array $include    Fields to include for the driver (optional)
+     *
+     * @return array
+     */
+    protected function filterFields(array $coreFields, array $include = []): array
+    {
+        $intersected = $include ? array_intersect_key($coreFields, array_flip($include)) : $coreFields;
+        $config = $this->getView()->plugin('config')->get('datasources');
+        $source = $this->driver?->tryMethod('getDataSource');
+        if ($source && $hide = $config->$source?->hidden_record_fields) {
+            $intersected = array_diff_key($intersected, array_flip($hide->toArray()));
+        }
+        return $intersected;
     }
 }

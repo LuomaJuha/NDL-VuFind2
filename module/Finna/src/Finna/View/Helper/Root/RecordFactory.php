@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Record helper factory.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018-2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -33,6 +35,7 @@ use Laminas\ServiceManager\Factory\FactoryInterface;
 use Laminas\Stdlib\Parameters;
 use Psr\Container\ContainerExceptionInterface as ContainerException;
 use Psr\Container\ContainerInterface;
+use VuFind\Tags\TagsService;
 
 /**
  * Record helper factory.
@@ -46,7 +49,7 @@ use Psr\Container\ContainerInterface;
 class RecordFactory implements FactoryInterface
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -62,13 +65,14 @@ class RecordFactory implements FactoryInterface
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
         if (!empty($options)) {
             throw new \Exception('Unexpected options sent to factory.');
         }
         $helper = new Record(
-            $container->get(\VuFind\Config\PluginManager::class)->get('config'),
+            $container->get(TagsService::class),
+            $container->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('config'),
             $container->get(\VuFind\Record\Loader::class),
             $container->get('ViewHelperManager')->get('recordImage'),
             $container->get(\Finna\Search\Solr\AuthorityHelper::class),
@@ -78,9 +82,9 @@ class RecordFactory implements FactoryInterface
             $container->get(\VuFind\Form\Form::class),
             $container->get(\Finna\Service\UserPreferenceService::class),
             function ($options) use ($container) {
-                $result = clone $container
+                $result = $container
                     ->get(\VuFind\Search\Results\PluginManager::class)
-                    ->get('EncapsulatedRecords');
+                    ->get(\Finna\Search\EncapsulatedRecords\Results::class);
                 $result->getParams()->initFromRequest(new Parameters($options));
                 return $result;
             }
@@ -90,6 +94,7 @@ class RecordFactory implements FactoryInterface
                 $container->get(\VuFind\Cover\Router::class)
             );
         }
+        $helper->setSearchMemory($container->get(\VuFind\Search\Memory::class));
         return $helper;
     }
 }

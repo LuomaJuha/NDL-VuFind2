@@ -1,8 +1,9 @@
 <?php
+
 /**
- * UserComments Test Class
+ * UserComments Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\RecordTab;
 
 use VuFind\RecordTab\UserComments;
 
 /**
- * UserComments Test Class
+ * UserComments Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -48,29 +50,29 @@ class UserCommentsTest extends \PHPUnit\Framework\TestCase
     public function testGetDescription(): void
     {
         $obj = new UserComments();
-        $this->assertSame("Comments", $obj->getDescription());
+        $this->assertSame('Comments', $obj->getDescription());
     }
 
     /**
      * Data provider for testIsActive.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function isActiveProvider(): array
+    public static function isActiveProvider(): \Iterator
     {
-        return ['Enabled' => [true, true], 'Not Enabled' => [false, false]];
+        yield 'Enabled' => [true, true];
+        yield 'Not Enabled' => [false, false];
     }
 
     /**
      * Test if the tab is active.
      *
-     * @param bool $enable is this tab enabled
+     * @param bool $enable         is this tab enabled
      * @param bool $expectedResult Expected return value from isActive
      *
      * @return void
-     *
-     * @dataProvider isActiveProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('isActiveProvider')]
     public function testIsActive(bool $enable, bool $expectedResult): void
     {
         $obj = new UserComments($enable);
@@ -80,23 +82,23 @@ class UserCommentsTest extends \PHPUnit\Framework\TestCase
     /**
      * Data provider for testIsCaptchaActive.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function isCaptchaActiveProvider(): array
+    public static function isCaptchaActiveProvider(): \Iterator
     {
-        return ['Active' => [true, true], 'InActive' => [false, false]];
+        yield 'Active' => [true, true];
+        yield 'InActive' => [false, false];
     }
 
     /**
      * Test if the Captcha is Active.
      *
-     * @param bool $captcha is captcha active
+     * @param bool $captcha        is captcha active
      * @param bool $expectedResult Expected return value from isActive
      *
      * @return void
-     *
-     * @dataProvider isCaptchaActiveProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('isCaptchaActiveProvider')]
     public function testIsCaptchaActive(bool $captcha, bool $expectedResult): void
     {
         $obj = new UserComments(true, $captcha);

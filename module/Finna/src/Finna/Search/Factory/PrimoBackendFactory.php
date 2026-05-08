@@ -3,7 +3,7 @@
 /**
  * Factory for Primo Central backends.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2017.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -27,9 +27,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Search\Factory;
 
 use FinnaSearch\Backend\Primo\Connector;
+use FinnaSearch\Backend\Primo\RestConnector;
 
 /**
  * Factory for Primo Central backends.
@@ -41,28 +43,25 @@ use FinnaSearch\Backend\Primo\Connector;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
-class PrimoBackendFactory
-    extends \VuFind\Search\Factory\PrimoBackendFactory
+class PrimoBackendFactory extends \VuFind\Search\Factory\PrimoBackendFactory
 {
     /**
-     * Primo connector class
+     * Primo REST API connector class.
      *
      * @var string
      */
-    protected $connectorClass = Connector::class;
+    protected $restConnectorClass = RestConnector::class;
 
     /**
-     * Create the Primo Central connector.
+     * Create the Primo Central REST connector.
      *
-     * Finna: Add hidden filters and set cache manager
-     *
-     * @return Connector
+     * @return RestConnector
      */
-    protected function createConnector()
+    protected function createRestConnector()
     {
-        $connector = parent::createConnector();
+        $connector = parent::createRestConnector();
 
-        if ($this->primoConfig->HiddenFilters) {
+        if ($this->primoConfig->HiddenFilters && ($connector instanceof RestConnector)) {
             $connector->setHiddenFilters(
                 $this->primoConfig->HiddenFilters->toArray()
             );

@@ -16,16 +16,83 @@
           <classification type="language">
             <term>sv</term>
           </classification>
-          <classification lang="en">
-            <term type="testimittari">näkyy</term>
-            <term type="testimittari">ei näy</term>
+          <classification type="muu luokitus">
+            <term lang="en">buildings</term>
+            <term lang="en">department stores</term>
+            <term lang="fi">rakennukset</term>
+          </classification>
+          <classification>
+            <term lang="sv">byggnader</term>
           </classification>
         </classificationWrap>
       </objectClassificationWrap>
       <objectIdentificationWrap>
+        <repositoryWrap>
+          <repositorySet>
+            <workID>Primary id</workID>
+            <workID type="http://terminology.lido-schema.org/lido00113">000001</workID>
+            <workID type="http://terminology.lido-schema.org/lido00113" label="inventaarionumero">000002</workID>
+            <workID type="esinenumero">000003</workID>
+            <workID type="isbn">978-3-16-148410-0</workID>
+            <workID type="issn">2049-3630</workID>
+          </repositorySet>
+          <repositorySet>
+            <displayRepository lang="fi">Tätä paikkaa ei näytetä</displayRepository>
+            <repositoryLocation>
+              <namePlaceSet>
+                <appellationValue label="tarkempi paikka">Stockmann</appellationValue>
+              </namePlaceSet>
+              <partOfPlace>
+                <namePlaceSet>
+                  <appellationValue label="katuosoite">Aleksanterinkatu 52</appellationValue>
+                </namePlaceSet>
+                <partOfPlace>
+                  <namePlaceSet>
+                    <appellationValue label="kunta/kaupunki">Helsinki</appellationValue>
+                  </namePlaceSet>
+                </partOfPlace>
+              </partOfPlace>
+            </repositoryLocation>
+          </repositorySet>
+          <repositorySet type="Current location">
+            <displayRepository lang="fi">Teos on nähtävissä kirjaston aukioloaikoina.</displayRepository>
+            <displayRepository lang="en">The object can be accessed when the library is open.</displayRepository>
+            <repositoryLocation>
+              <namePlaceSet>
+                <appellationValue label="tarkempi paikka">Kansalliskirjaston kupolisali</appellationValue>
+              </namePlaceSet>
+              <partOfPlace>
+                <namePlaceSet>
+                  <appellationValue label="katuosoite">Unioninkatu 36</appellationValue>
+                </namePlaceSet>
+                <partOfPlace>
+                  <namePlaceSet>
+                    <appellationValue label="kunta/kaupunki">Helsinki</appellationValue>
+                  </namePlaceSet>
+                </partOfPlace>
+              </partOfPlace>
+              <placeID type="URI">http://urn.fi/URN:NBN:fi:au:finaf:000034269</placeID>
+            </repositoryLocation>
+          </repositorySet>
+        </repositoryWrap>
+        <objectDescriptionWrap>
+          <objectDescriptionSet type="introduction">
+            <descriptiveNoteValue lang="fi" label="esittely">Vain introductionissa!</descriptiveNoteValue>
+          </objectDescriptionSet>
+          <objectDescriptionSet type="description">
+            <descriptiveNoteValue lang="fi" label="kuvaus">Näkyy description typed.</descriptiveNoteValue>
+          </objectDescriptionSet>
+          <objectDescriptionSet type="description">
+            <descriptiveNoteValue lang="en" label="description">Visible description.</descriptiveNoteValue>
+          </objectDescriptionSet>
+          <objectDescriptionSet>
+              <descriptiveNoteValue label="CAPTION">Ei näy description untyped.</descriptiveNoteValue>
+          </objectDescriptionSet>
+        </objectDescriptionWrap>
         <objectMeasurementsWrap>
           <objectMeasurementsSet>
-            <displayObjectMeasurements label="extent">1001 neliömetriä</displayObjectMeasurements>
+            <displayObjectMeasurements label="extent" lang="fi">1001 neliömetriä</displayObjectMeasurements>
+            <displayObjectMeasurements label="extent" lang="en">1001 square meters</displayObjectMeasurements>
             <objectMeasurements>
               <measurementsSet>
                 <measurementType>
@@ -38,7 +105,8 @@
             </objectMeasurements>
           </objectMeasurementsSet>
           <objectMeasurementsSet>
-            <displayObjectMeasurements>pituus 73.0 cm, leveys 14 cm</displayObjectMeasurements>
+            <displayObjectMeasurements lang="fi">pituus 73.0 cm, leveys 14 cm</displayObjectMeasurements>
+            <displayObjectMeasurements lang="en">height 73.0 cm, width 14 cm</displayObjectMeasurements>
             <objectMeasurements>
               <measurementsSet>
                 <measurementType>pituus</measurementType>
@@ -50,12 +118,380 @@
                 <measurementUnit>m</measurementUnit>
                 <measurementValue>1</measurementValue>
               </measurementsSet>
-              <extentMeasurements>kohde 2</extentMeasurements>
-              <extentMeasurements>kohde 3</extentMeasurements>
+              <extentMeasurements lang="fi">kohde 2</extentMeasurements>
+              <extentMeasurements lang="fi">kohde 3</extentMeasurements>
+              <extentMeasurements lang="en">subjects 2 and 3</extentMeasurements>
             </objectMeasurements>
           </objectMeasurementsSet>
         </objectMeasurementsWrap>
+        <displayStateEditionWrap>
+          <displayEdition>1.</displayEdition>
+        </displayStateEditionWrap>
+        <inscriptionsWrap>
+          <inscriptions>
+            <inscriptionDescription type="annotated">
+              <descriptiveNoteValue label="Annotation">
+                No huhhuh
+              </descriptiveNoteValue>
+            </inscriptionDescription>
+          </inscriptions>
+        </inscriptionsWrap>
       </objectIdentificationWrap>
+       <objectRelationWrap>
+        <subjectWrap>
+          <subjectSet>
+            <displaySubject lang="en" label="aihe">Visible subject labeled.</displaySubject>
+            <displaySubject lang="fi" label="aihe">Näkyy subject labeled.</displaySubject>
+            <displaySubject lang="sv" label="aihe">Synas subject labeled.</displaySubject>
+            <displaySubject label="">Ei näy subject unlabeled.</displaySubject>
+            <displaySubject>Ei näy, no label.</displaySubject>
+          </subjectSet>
+          <subjectSet>
+            <subject>
+              <subjectActor>
+                <actor>
+                  <actorID type="URI" source="KANTO">http://urn.fi/URN:NBN:fi:au:finaf:000229728</actorID>
+                  <nameActorSet>
+                    <appellationValue>Pukki, Joulu</appellationValue>
+                  </nameActorSet>
+                </actor>
+              </subjectActor>
+              <subjectActor>
+                <actor>
+                  <nameActorSet>
+                    <appellationValue>Punakuono, Petteri</appellationValue>
+                  </nameActorSet>
+                </actor>
+              </subjectActor>
+              <subjectConcept>
+                <conceptID source="sanaston nimi">Yleinen suomalainen asiasanasto</conceptID>
+                <term label="asiasana">sohvat</term>
+                <conceptID type="URI"/>
+                <term label="asiasana"/>
+                <conceptID source="asiasanateksti"/>
+                <term label="asiasana"/>
+              </subjectConcept>
+              <subjectConcept>
+                <conceptID type="URI"/>
+                <term label="asiasana"/>
+              </subjectConcept>
+            </subject>
+          </subjectSet>
+          <subjectSet>
+            <subject>
+              <subjectConcept>
+                <conceptID type="URI">http://www.yso.fi/onto/koko/p31096</conceptID>
+                <term label="asiasana">maalaukset</term>
+                <conceptID source="asiasanateksti"/>
+                <term label="asiasana"/>
+              </subjectConcept>
+              <subjectConcept>
+                <conceptID type="URI">http://www.yso.fi/onto/koko/p31096</conceptID>
+                <term label="asiasana">maalaukset, ei pilkottu</term>
+              </subjectConcept>
+              <subjectConcept>
+                <conceptID type="URI"></conceptID>
+                <term label="asiasana">maalaukset, pilkottuna</term>
+              </subjectConcept>
+              <subjectConcept>
+                <conceptID type="URI"/>
+                <term label="asiasana"/>
+              </subjectConcept>
+            </subject>
+          </subjectSet>
+        </subjectWrap>
+        <relatedWorksWrap>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject label="Julkaistu teoksessa">Helsinki = Empirekaupungin synty 1550-1850, Helsinki, s. 89</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">URN:ISBN:951-746-543-2</objectID>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is reproduced in</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>Multiple titles in one field; Should be discarded from search</displayObject>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is reproduced in</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject label="Verkkojulkaisu">Online publication, discarded from search</displayObject>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is reproduced in</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>This is a very long title and for better result, only the first 30 words should be included in search title, which means that its last word should be this. The rest of the title should be included only in display title.</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">URN:ISBN:951-772-866-2</objectID>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>julkaisu</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>A publication with no valid ISBN</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">12345678</objectID>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>kirjallisuus</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>Parent Archive</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">12345678</objectID>
+                <objectNote type="objectWorkType">archive</objectNote>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is part of</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>Parent Collection</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">23456789</objectID>
+                <objectNote type="objectWorkType">collection</objectNote>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is part of</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>Parent Subcollection 1</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">s1</objectID>
+                <objectNote type="objectWorkType">subcollection</objectNote>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is part of</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>Parent Subcollection 2</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">s2</objectID>
+                <objectNote type="objectWorkType">subcollection</objectNote>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is part of</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject>Parent Series</displayObject>
+              <object>
+                <objectWebResource/>
+                <objectID type="URI">series</objectID>
+                <objectNote type="objectWorkType">series</objectNote>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>is part of</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+        </relatedWorksWrap>
+      </objectRelationWrap>
+      <eventWrap>
+        <eventSet>
+          <event>
+            <eventType>
+              <term>valmistus</term>
+              <term lang="en">Creation</term>
+            </eventType>
+            <eventActor>
+              <actorInRole>
+                <actor>
+                  <actorID type="URI" source="ISNI">https://isni.org/isni/0000000109136025</actorID>
+                  <nameActorSet>
+                    <appellationValue>  Mattilainen, Meikä   </appellationValue>
+                  </nameActorSet>
+                  <vitalDatesActor>
+                    <earliestDate>1951</earliestDate>
+                    <latestDate>2019</latestDate>
+                  </vitalDatesActor>
+                </actor>
+                <roleActor>
+                  <term>haaveilija</term>
+                </roleActor>
+              </actorInRole>
+            </eventActor>
+            <eventActor>
+              <actorInRole>
+                <actor>
+                  <actorID type="URI" source="ISNI">https://isni.org/isni/0000000474486306</actorID>
+                  <actorID type="URI" source="finaf">http://urn.fi/URN:NBN:fi:au:finaf:000016723</actorID>
+                  <nameActorSet>
+                    <appellationValue>  Tiistai, Nietos  </appellationValue>
+                  </nameActorSet>
+                </actor>
+                <roleActor>
+                  <term>Työntekijä</term>
+                </roleActor>
+              </actorInRole>
+            </eventActor>
+            <culture>
+              <term>kulttuuri</term>
+            </culture>
+            <eventDate>
+              <displayDate lang="fi">valmistusaika noin 1910–1920</displayDate>
+              <displayDate lang="en">created ca 1910–1920</displayDate>
+              <date>
+                <earliestDate>1910</earliestDate>
+                <latestDate>1920</latestDate>
+              </date>
+            </eventDate>
+            <eventPlace>
+              <displayPlace lang="fi">Bulevardi, Helsinki</displayPlace>
+              <displayPlace lang="en">Bulevardi, Helsinki</displayPlace>
+              <place>
+                <placeID type="URI">http://www.yso.fi/onto/yso/p202484</placeID>
+                <namePlaceSet>
+                  <appellationValue lang="fi">Bulevardi</appellationValue>
+                </namePlaceSet>
+                <partOfPlace>
+                  <namePlaceSet>
+                    <appellationValue lang="fi">Helsinki</appellationValue>
+                  </namePlaceSet>
+                  <partOfPlace>
+                    <namePlaceSet>
+                      <appellationValue lang="fi">Suomi</appellationValue>
+                    </namePlaceSet>
+                  </partOfPlace>
+                </partOfPlace>
+              </place>
+            </eventPlace>
+            <eventMethod>
+              <conceptID type="URI" source="koko">http://www.yso.fi/onto/koko/p72845</conceptID>
+              <term lang="fi">tekniikka: ompelu</term>
+              <term lang="en">technique: sewing</term>
+            </eventMethod>
+            <eventMaterialsTech>
+              <materialsTech>
+                <termMaterialsTech>
+                  <conceptID type="URI">http://www.yso.fi/onto/koko/p33150</conceptID>
+                  <term lang="fi">materiaali: villa</term>
+                  <term lang="en">material: wool</term>
+                </termMaterialsTech>
+              </materialsTech>
+            </eventMaterialsTech>
+            <eventMaterialsTech>
+              <displayMaterialsTech lang="fi">vuori: sarka</displayMaterialsTech>
+              <displayMaterialsTech lang="en">lining: frieze</displayMaterialsTech>
+                <materialsTech>
+                  <termMaterialsTech>
+                    <conceptID type="URI">http://www.yso.fi/onto/koko/p30796</conceptID>
+                    <term lang="fi">sarka</term>
+                  </termMaterialsTech>
+                </materialsTech>
+            </eventMaterialsTech>
+            <eventDescriptionSet>
+              <descriptiveNoteValue lang="fi">valmistusprosessin kuvaus</descriptiveNoteValue>
+              <descriptiveNoteValue lang="en">description of the production process</descriptiveNoteValue>
+            </eventDescriptionSet>
+          </event>
+        </eventSet>
+         <eventSet>
+          <event>
+            <eventType>
+              <term>suunnittelu</term>
+            </eventType>
+            <eventActor>
+              <actorInRole>
+                <actor>
+                  <actorID type="Local Identifier">12345678</actorID>
+                  <actorID type="URI" source="finaf">http://urn.fi/URN:NBN:fi:au:finaf:000228701</actorID>
+                  <nameActorSet>
+                    <appellationValue>Puu, Teisto</appellationValue>
+                  </nameActorSet>
+                </actor>
+                <roleActor>
+                  <term>suunnittelija</term>
+                </roleActor>
+              </actorInRole>
+            </eventActor>
+            <eventDate>
+              <displayDate lang="fi">suunnittelu noin 1910</displayDate>
+              <displayDate lang="en">design ca 1910</displayDate>
+              <date>
+                <earliestDate>1910</earliestDate>
+                <latestDate>1910</latestDate>
+              </date>
+            </eventDate>
+          </event>
+        </eventSet>
+         <eventSet>
+          <event>
+            <eventType>
+              <term>outo tapahtuma</term>
+            </eventType>
+            <eventDate>
+              <date>
+                <earliestDate>1900</earliestDate>
+                <latestDate>1909</latestDate>
+              </date>
+            </eventDate>
+            <eventPlace>
+              <place>
+                <placeID type="local" source="lähde">outo</placeID>
+                <placeID type="URI">http://localhost/outo_id</placeID>
+                <namePlaceSet>
+                  <appellationValue>Outo kumpu</appellationValue>
+                </namePlaceSet>
+                <partOfPlace>
+                  <namePlaceSet>
+                    <appellationValue>Outo kaupunki</appellationValue>
+                  </namePlaceSet>
+                  <partOfPlace>
+                    <namePlaceSet>
+                      <appellationValue>Outo maa</appellationValue>
+                    </namePlaceSet>
+                  </partOfPlace>
+                </partOfPlace>
+              </place>
+            </eventPlace>
+          </event>
+          <event>
+            <eventType>
+              <term>toinen outo tapahtuma</term>
+            </eventType>
+            <eventDate>
+              <date>
+                <earliestDate>1900-10-02</earliestDate>
+                <latestDate>1909-11-13</latestDate>
+              </date>
+            </eventDate>
+          </event>
+        </eventSet>
+      </eventWrap>
     </descriptiveMetadata>
     <administrativeMetadata>
       <resourceWrap>
@@ -91,14 +527,22 @@
           </resourceRepresentation>
           <rightsResource>
             <rightsType>
-              <conceptID type="copyright">CC BY 4.0</conceptID>
+              <conceptID>CC BY 4.0</conceptID>
               <term lang="fi">Tässä on kuvien copyright.</term>
             </rightsType>
+            <rightsHolder>
+              <legalBodyName>
+                <appellationValue>Holder, Rights</appellationValue>
+              </legalBodyName>
+              <legalBodyWeblink>http://localhost/rightsholder</legalBodyWeblink>
+            </rightsHolder>
+            <creditLine>Credit: Holder, Rights</creditLine>
           </rightsResource>
         </resourceSet>
         <resourceSet>
           <resourceID type="ID">607643</resourceID>
-          <resourceDescription type="displayLink">Kuvan nimi</resourceDescription>
+          <resourceDescription type="displayLink" lang="en">Image name</resourceDescription>
+          <resourceDescription type="displayLink" lang="fi">Kuvan nimi</resourceDescription>
           <resourceRepresentation type="image_thumb">
             <linkResource>https://thumbkuvanlinkki2.com</linkResource>
           </resourceRepresentation>
@@ -134,18 +578,49 @@
           </resourceRepresentation>
           <rightsResource>
             <rightsType>
-              <conceptID type="copyright">InC</conceptID>
+              <conceptID>InC</conceptID>
               <term lang="fi">Tässä on kuvien copyright.</term>
             </rightsType>
           </rightsResource>
+          <resourceType>
+            <term>Type Term</term>
+          </resourceType>
+          <resourceRelType>
+            <term>Relation Type</term>
+          </resourceRelType>
+          <resourceDateTaken>
+            <displayDate>20.1.2026</displayDate>
+          </resourceDateTaken>
+          <resourcePerspective>
+            <term>Vääristynyt</term>
+          </resourcePerspective>
+          <resourcePerspective>
+            <term>Suoristettu</term>
+          </resourcePerspective>
         </resourceSet>
         <resourceSet>
           <resourceRepresentation type="preview_3D">
             <linkResource formatResource="glTF">https://gltfmalli.gltf</linkResource>
+            <resourceMeasurementsSet>
+              <measurementType lang="fi">koko</measurementType>
+              <measurementType lang="en">size</measurementType>
+              <measurementUnit lang="fi">tavua</measurementUnit>
+              <measurementUnit lang="en">bytes</measurementUnit>
+              <measurementValue>60840000</measurementValue>
+            </resourceMeasurementsSet>
           </resourceRepresentation>
           <resourceRepresentation type="preview_3D">
             <linkResource formatResource="glb">https://glbmalli.glb</linkResource>
           </resourceRepresentation>
+          <resourceRepresentation type="provided_3D">
+            <linkResource formatResource="text/html">https://sketchfab.com/test</linkResource>
+          </resourceRepresentation>
+          <rightsResource>
+            <rightsType>
+              <conceptID>InC</conceptID>
+              <term lang="fi">Tässä on mallien copyright.</term>
+            </rightsType>
+          </rightsResource>
         </resourceSet>
         <resourceSet>
           <resourceDescription type="displayLink">AudioTesti.mp3</resourceDescription>
@@ -157,6 +632,15 @@
           <resourceDescription type="displayLink">VideoTesti.mp4</resourceDescription>
           <resourceRepresentation type="preview_video">
             <linkResource formatResource="mp4">https://linkkivideoon.fi</linkResource>
+            <resourceMeasurementsSet>
+              <measurementType lang="fi">koko</measurementType>
+              <measurementType lang="en">size</measurementType>
+              <measurementType lang="sv">storlek</measurementType>
+              <measurementUnit lang="fi">tavua</measurementUnit>
+              <measurementUnit lang="en">byte</measurementUnit>
+              <measurementUnit lang="sv">byte</measurementUnit>
+              <measurementValue>74576596</measurementValue>
+            </resourceMeasurementsSet>
           </resourceRepresentation>
         </resourceSet>
         <resourceSet>
@@ -170,6 +654,12 @@
           <resourceRepresentation type="provided_text">
             <linkResource formatResource="docx">https://linkkiDocx.fi</linkResource>
           </resourceRepresentation>
+          <rightsResource>
+            <rightsType>
+              <conceptID>CC BY 4.0</conceptID>
+              <term lang="fi">Tekstitiedoston tarkempi käyttöoikeuskuvaus</term>
+            </rightsType>
+          </rightsResource>
         </resourceSet>
         <resourceSet>
           <resourceID type="ID">607644</resourceID>

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Factory for the "expire users" task.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2020.
  *
@@ -16,16 +17,17 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Util;
 
 use Laminas\ServiceManager\Exception\ServiceNotCreatedException;
@@ -33,6 +35,9 @@ use Laminas\ServiceManager\Exception\ServiceNotFoundException;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use Psr\Container\ContainerExceptionInterface as ContainerException;
 use Psr\Container\ContainerInterface;
+use VuFind\Account\UserAccountService;
+use VuFind\Db\Service\AuditEventServiceInterface;
+use VuFind\Db\Service\UserServiceInterface;
 
 /**
  * Factory for the "expire users" task.
@@ -42,12 +47,12 @@ use Psr\Container\ContainerInterface;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class ExpireUsersFactory implements FactoryInterface
 {
     /**
-     * Create an object
+     * Create an object.
      *
      * @param ContainerInterface $container     Service manager
      * @param string             $requestedName Service being created
@@ -63,12 +68,14 @@ class ExpireUsersFactory implements FactoryInterface
     public function __invoke(
         ContainerInterface $container,
         $requestedName,
-        array $options = null
+        ?array $options = null
     ) {
-        $tableManager = $container->get(\VuFind\Db\Table\PluginManager::class);
+        $dbServiceManager = $container->get(\VuFind\Db\Service\PluginManager::class);
         return new $requestedName(
-            $tableManager->get('User'),
-            $container->get(\VuFind\Config\PluginManager::class)->get('config')
+            $dbServiceManager->get(UserServiceInterface::class),
+            $dbServiceManager->get(AuditEventServiceInterface::class),
+            $container->get(UserAccountService::class),
+            $container->get(\VuFind\Config\ConfigManagerInterface::class)->getConfigObject('config')
         );
     }
 }

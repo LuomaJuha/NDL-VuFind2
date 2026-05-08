@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Context manager (useful for using render() instead of partial() for better
  * performance -- this allows us to set and roll back variables in the global
  * scope instead of relying on the overhead of building a whole new scope).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -18,8 +19,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -27,6 +28,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
 use Laminas\View\Helper\AbstractHelper;
@@ -87,7 +89,7 @@ class Context extends AbstractHelper
 
     /**
      * Render a template using a temporary context; restore the view to its
-     * original state when done.  This offers the template full access to the
+     * original state when done. This offers the template full access to the
      * global scope, modified by $context, then puts the global scope back
      * the way it was.
      *
@@ -105,13 +107,13 @@ class Context extends AbstractHelper
     }
 
     /**
-     * Grab the helper object so we can call methods on it.
+     * Grab the helper object, so we can call methods on it.
      *
-     * @param Renderer $view View object to modify.
+     * @param ?RendererInterface $view View object to modify.
      *
      * @return Context
      */
-    public function __invoke(RendererInterface $view = null)
+    public function __invoke(?RendererInterface $view = null)
     {
         if (null !== $view) {
             $this->setView($view);

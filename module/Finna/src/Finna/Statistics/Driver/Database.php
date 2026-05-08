@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Database driver for statistics
+ * Database driver for statistics.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Statistics
@@ -25,18 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Statistics\Driver;
 
-use Finna\Db\Table\FinnaPageViewStats;
-use Finna\Db\Table\FinnaRecordStats;
-use Finna\Db\Table\FinnaRecordStatsLog;
-use Finna\Db\Table\FinnaSessionStats;
-use Laminas\Db\TableGateway\AbstractTableGateway;
-use Laminas\Log\LoggerAwareInterface;
+use Finna\Db\Service\FinnaStatisticsServiceInterface;
+use Finna\Db\Type\FinnaStatisticsClientType;
+use Psr\Log\LoggerAwareInterface;
 use VuFind\Log\LoggerAwareTrait;
 
 /**
- * Database driver for statistics
+ * Database driver for statistics.
  *
  * @category VuFind
  * @package  Statistics
@@ -49,55 +48,16 @@ class Database implements DriverInterface, LoggerAwareInterface
     use LoggerAwareTrait;
 
     /**
-     * Table for session statistics
+     * Constructor.
      *
-     * @var FinnaSessionStats
+     * @param FinnaStatisticsServiceInterface $statisticsService Statistics database service
      */
-    protected $sessionTable;
-
-    /**
-     * Table for page view statistics
-     *
-     * @var FinnaPageViewStats
-     */
-    protected $pageViewTable;
-
-    /**
-     * Table for record summary statistics
-     *
-     * @var FinnaRecordStats
-     */
-    protected $recordTable;
-
-    /**
-     * Table for record view log
-     *
-     * @var FinnaRecordStatsLog
-     */
-    protected $recordLogTable;
-
-    /**
-     * Constructor
-     *
-     * @param FinnaSessionStats   $sessionTable   Session table
-     * @param FinnaPageViewStats  $pageViewTable  Page view table
-     * @param FinnaRecordStats    $recordTable    Record view table
-     * @param FinnaRecordStatsLog $recordLogTable Record view log table
-     */
-    public function __construct(
-        FinnaSessionStats $sessionTable,
-        FinnaPageViewStats $pageViewTable,
-        FinnaRecordStats $recordTable,
-        FinnaRecordStatsLog $recordLogTable
-    ) {
-        $this->sessionTable = $sessionTable;
-        $this->pageViewTable = $pageViewTable;
-        $this->recordTable = $recordTable;
-        $this->recordLogTable = $recordLogTable;
+    public function __construct(protected FinnaStatisticsServiceInterface $statisticsService)
+    {
     }
 
     /**
-     * Add a new session to statistics
+     * Add a new session to statistics.
      *
      * @param string $institution Institution code
      * @param string $view        View subpath (empty string for default view)
@@ -112,14 +72,16 @@ class Database implements DriverInterface, LoggerAwareInterface
         int $type,
         array $session
     ): void {
-        $date = date('Y-m-d');
-        $crawler = $type;
-        $params = compact('institution', 'view', 'crawler', 'date');
-        $this->processAdd($this->sessionTable, $params);
+        $session = $this->statisticsService->createSessionEntity()
+            ->setInstitution($institution)
+            ->setView($view)
+            ->setDate(date('Y-m-d'))
+            ->setType(FinnaStatisticsClientType::from($type));
+        $this->statisticsService->addSession($session);
     }
 
     /**
-     * Add a page view to statistics
+     * Add a page view to statistics.
      *
      * @param string $institution Institution code
      * @param string $view        View subpath (empty string for default view)
@@ -136,21 +98,18 @@ class Database implements DriverInterface, LoggerAwareInterface
         string $controller,
         string $action
     ): void {
-        $date = date('Y-m-d');
-        $crawler = $type;
-        $params = compact(
-            'institution',
-            'view',
-            'crawler',
-            'controller',
-            'action',
-            'date'
-        );
-        $this->processAdd($this->pageViewTable, $params);
+        $pageView = $this->statisticsService->createPageViewEntity()
+            ->setInstitution($institution)
+            ->setView($view)
+            ->setDate(date('Y-m-d'))
+            ->setType(FinnaStatisticsClientType::from($type))
+            ->setController($controller)
+            ->setAction($action);
+        $this->statisticsService->addPageView($pageView);
     }
 
     /**
-     * Add a record view to statistics
+     * Add a record view to statistics.
      *
      * @param string $institution Institution code
      * @param string $view        View subpath (empty string for default view)
@@ -176,83 +135,19 @@ class Database implements DriverInterface, LoggerAwareInterface
         array $rights,
         int $online
     ): void {
-        $date = date('Y-m-d');
-
-        // Summary log:
-        $crawler = $type;
-        $params = compact(
-            'institution',
-            'view',
-            'crawler',
-            'date',
-            'backend',
-            'source'
-        );
-        $this->processAdd($this->recordTable, $params);
-
-        // Record log:
-        $params['record_id'] = $recordId;
-        $params['formats'] = implode('|', $formats);
-        $params['usage_rights'] = implode('|', $rights);
-        $params['online'] = $online;
-        $this->processAdd($this->recordLogTable, $params);
-    }
-
-    /**
-     * Add or update a statistics table entry
-     *
-     * @param AbstractTableGateway $table  Table
-     * @param array                $params Row identification params
-     *
-     * @return void
-     *
-     * @throws \Exception
-     */
-    protected function processAdd(AbstractTableGateway $table, array $params): void
-    {
-        $exception = null;
-        for ($try = 1; $try < 5; $try++) {
-            try {
-                // Try update first, insert then:
-                if (!$this->incrementCount($table, $params)) {
-                    try {
-                        $row = $table->createRow();
-                        $row->populate($params, false);
-                        $row->save();
-                    } catch (\RuntimeException $e) {
-                        // Did someone else just add the row? Try update again!
-                        $this->incrementCount($table, $params);
-                    }
-                }
-                break;
-            } catch (\Exception $e) {
-                $exception = $e;
-                usleep(1000);
-            }
-        }
-        if (null !== $exception) {
-            throw $exception;
-        }
-    }
-
-    /**
-     * Increment count for an existing row
-     *
-     * @param AbstractTableGateway $table Table
-     * @param array                $where Fields for row identification
-     *
-     * @return bool Whether a row was updated
-     */
-    protected function incrementCount(
-        AbstractTableGateway $table,
-        array $where
-    ): bool {
-        $rowsAffected = $table->update(
-            [
-                'count' => new \Laminas\Db\Sql\Literal('count + 1')
-            ],
-            $where
-        );
-        return 0 !== $rowsAffected;
+        $recordView = $this->statisticsService->createRecordStatsLogEntity()
+            ->setInstitution($institution)
+            ->setView($view)
+            ->setDate(date('Y-m-d'))
+            ->setType(FinnaStatisticsClientType::from($type))
+            ->setBackend($backend)
+            ->setSource($source)
+            ->setRecordId($recordId)
+            ->setFormats(implode('|', $formats))
+            ->setUsageRights(implode('|', $rights))
+            ->setOnline($online)
+            ->setExtraMetadata(null);
+        $this->statisticsService->addRecordView($recordView);
+        $this->statisticsService->addRecordStatsLogEntry($recordView);
     }
 }

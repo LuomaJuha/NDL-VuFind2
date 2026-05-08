@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Flash message view helper
+ * Flash message view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,13 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\View\Helper\Root;
 
 use Laminas\Mvc\Plugin\FlashMessenger\FlashMessenger;
 use Laminas\View\Helper\AbstractHelper;
 
+use function is_array;
+
 /**
- * Flash message view helper
+ * Flash message view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -42,21 +46,21 @@ use Laminas\View\Helper\AbstractHelper;
 class Flashmessages extends AbstractHelper
 {
     /**
-     * Flash messenger controller helper
+     * Flash messenger controller helper.
      *
      * @var FlashMessenger
      */
     protected $fm;
 
     /**
-     * Flash messenger namespaces
+     * Flash messenger namespaces.
      *
      * @var string[]
      */
     protected $namespaces = ['error', 'warning', 'info', 'success', 'default'];
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param FlashMessenger $fm Flash messenger controller helper
      */
@@ -66,7 +70,7 @@ class Flashmessages extends AbstractHelper
     }
 
     /**
-     * Get the CSS class to correspond with a messenger namespace
+     * Get the CSS class to correspond with a messenger namespace.
      *
      * @param string $ns Namespace
      *
@@ -84,6 +88,9 @@ class Flashmessages extends AbstractHelper
      */
     public function __invoke()
     {
+        if (!empty($this->getView()->layout()->lightboxChild)) {
+            return '';
+        }
         $html = '';
         foreach ($this->namespaces as $ns) {
             $messages = array_merge(
@@ -126,7 +133,7 @@ class Flashmessages extends AbstractHelper
                         $default = $msg['default'] ?? null;
 
                         // Translate the message:
-                        $message = $translate($message, $tokens, $default);
+                        $message = $translate($message, $tokens, $default, $msg['icu'] ?? false);
                     }
                     // Escape the message unless requested not to:
                     if (!$msgHtml) {

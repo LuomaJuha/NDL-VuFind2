@@ -1,10 +1,11 @@
 <?php
+
 /**
  * Console service for anonymizing expired user accounts.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2022.
+ * Copyright (C) The National Library of Finland 2015-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
@@ -25,14 +26,25 @@
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Util;
 
-use Laminas\Db\Sql\Select;
+use DateTime;
+use Finna\Db\Service\UserServiceInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use VuFind\Account\UserAccountService;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\Db\Service\AuditEventServiceInterface;
+use VuFind\Db\Type\AuditEventSubtype;
+use VuFind\Db\Type\AuditEventType;
+
+use function floatval;
+use function sprintf;
 
 /**
  * Console service for anonymizing expired user accounts.
@@ -46,30 +58,24 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+#[AsCommand(
+    name: 'util/expire_users'
+)]
 class ExpireUsers extends AbstractUtilCommand
 {
     use \FinnaConsole\Command\Util\ConsoleLoggerTrait;
 
     /**
-     * The name of the command (the part after "public/index.php")
-     *
-     * @var string
-     */
-    protected static $defaultName = 'util/expire_users';
-
-    /**
-     * Table on which to expire rows
-     *
-     * @var \VuFind\Db\Table\User
-     */
-    protected $table;
-
-    /**
-     * Whether comments are deleted
+     * Whether comments are deleted.
      */
     protected $removeComments;
+
+    /**
+     * Whether ratingd are deleted.
+     */
+    protected $removeRatings;
 
     /**
      * Minimum (and default) legal age of rows to delete.
@@ -79,19 +85,22 @@ class ExpireUsers extends AbstractUtilCommand
     protected $minAge = 180;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Finna\Db\Table\User   $table  Table on which to expire rows
-     * @param \Laminas\Config\Config $config Main configuration
+     * @param UserServiceInterface       $userService        User database service
+     * @param AuditEventServiceInterface $auditEventService  Audit event database service
+     * @param UserAccountService         $userAccountService User account service
+     * @param \VuFind\Config\Config      $config             Main configuration
      */
     public function __construct(
-        \VuFind\Db\Table\User $table,
-        \Laminas\Config\Config $config
+        protected UserServiceInterface $userService,
+        protected AuditEventServiceInterface $auditEventService,
+        protected UserAccountService $userAccountService,
+        \VuFind\Config\Config $config
     ) {
-        $this->table = $table;
-        $this->removeComments
-            = $config->Authentication->delete_comments_with_user ?? true;
         parent::__construct();
+        $this->removeComments = $config->Authentication->delete_comments_with_user ?? true;
+        $this->removeRatings = $config->Authentication->delete_ratings_with_user ?? true;
     }
 
     /**
@@ -152,10 +161,15 @@ class ExpireUsers extends AbstractUtilCommand
             $users = $this->getExpiredUsers($daysOld);
             foreach ($users as $user) {
                 $this->msg(
-                    'Removing user: ' . $user->username . ' (' . $user->id . ')'
+                    'Removing user: ' . $user->getUsername() . ' (' . $user->getId() . ')'
                 );
                 if (!$reportOnly) {
-                    $user->delete($this->removeComments);
+                    $this->auditEventService->addEvent(
+                        AuditEventType::User,
+                        AuditEventSubtype::Delete,
+                        $user
+                    );
+                    $this->userAccountService->purgeUserData($user, $this->removeComments, $this->removeRatings);
                 }
                 $count++;
             }
@@ -167,11 +181,11 @@ class ExpireUsers extends AbstractUtilCommand
             }
         } catch (\Exception $e) {
             $this->err(
-                "Exception: " . $e->getMessage(),
+                'Exception: ' . $e->getMessage(),
                 'Exception occurred'
             );
             while ($e = $e->getPrevious()) {
-                $this->err("  Previous exception: " . $e->getMessage());
+                $this->err('  Previous exception: ' . $e->getMessage());
             }
             return 1;
         }
@@ -188,26 +202,11 @@ class ExpireUsers extends AbstractUtilCommand
      *
      * @param int $days Preserve users active less than provided amount of days ago
      *
-     * @return \Finna\Db\Row\User[]
+     * @return UserEntityInterface[]
      */
-    protected function getExpiredUsers($days)
+    protected function getExpiredUsers($days): array
     {
-        $expireDate = date('Y-m-d', strtotime(sprintf('-%d days', (int)$days)));
-
-        $listSelect = new Select('user_list');
-        $listSelect->columns(['user_id']);
-        $listSelect->where->equalTo('finna_protected', 1);
-
-        return $this->table->select(
-            function (Select $select) use ($expireDate, $listSelect) {
-                $select->where->lessThan('last_login', $expireDate);
-                $select->where->notEqualTo(
-                    'last_login',
-                    '2000-01-01 00:00:00'
-                );
-                $select->where->equalTo('finna_protected', 0);
-                $select->where->notIn('id', $listSelect);
-            }
-        );
+        $expireDate = new DateTime(sprintf('-%d days', (int)$days));
+        return $this->userService->getExpiringUsers($expireDate);
     }
 }

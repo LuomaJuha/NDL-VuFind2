@@ -1,8 +1,10 @@
-var previous = '<button class="popup-arrow popup-left-arrow previous-record" type="button"><i class="fa fa-angle-double-left" aria-hidden="true"></i></button>';
-var next = '<button class="popup-arrow popup-right-arrow next-record" type="button"><i class="fa fa-angle-double-right" aria-hidden="true"></i></button>';
-var closeTemplate = '<button class="finna-popup close-button" title="close_translation" aria-label="close_translation">x</button>';
-var srElement = '<span class="sr-only"></span>';
-
+/*global VuFind, unwrapJQuery, getFocusableNodes */
+/**
+ * Constructor for finna popup element
+ * @param {jQuery} trigger Element to act as a trigger
+ * @param {object} params Popup parameters
+ * @param {string} id Unique id of the trigger
+ */
 function FinnaPopup(trigger, params, id) {
   var _ = this;
   _.triggers = [];
@@ -52,8 +54,8 @@ function FinnaPopup(trigger, params, id) {
 
 /**
  * Adjusts a given src to match an embed link in popular services
- * 
- * @param {string} src
+ * @param {string} src Url to change into
+ * @returns {string} Embed src
  */
 FinnaPopup.prototype.adjustEmbedLink = function adjustEmbedLink(src) {
   var _ = this;
@@ -71,14 +73,13 @@ FinnaPopup.prototype.adjustEmbedLink = function adjustEmbedLink(src) {
 
 /**
  * Adds a trigger element to popups internal array, so it can be properly found
- * 
- * @param {HTMLElement} trigger
+ * @param {jQuery} trigger Trigger to display a popup
  */
 FinnaPopup.prototype.addTrigger = function addTrigger(trigger) {
   var _ = this;
   if (typeof trigger.data(_.triggerId) === 'undefined') {
     _.triggers.push(trigger);
-    trigger.data('popup-id', _.id);
+    trigger.attr('data-popup-id', _.id);
     trigger.data(_.triggerId, _.triggers.length - 1);
     _.onPopupInit(trigger);
   }
@@ -105,17 +106,16 @@ FinnaPopup.prototype.customClose = function customClose(){};
 FinnaPopup.prototype.reIndex = function reIndex() {
   var _ = this;
   _.triggers = [];
-  $(':data(popup-id)').each(function toList() {
+  $(`[data-popup-id="${_.id}"]`).each(function toList() {
     var trigger = $(this);
-    if (trigger.data('popup-id') === _.id) {
-      trigger.removeData(_.triggerId);
-      _.addTrigger(trigger);
-    }
+    trigger.removeData(_.triggerId);
+    _.addTrigger(trigger);
   });
 };
 
 /**
  * Returns the current open trigger
+ * @returns {jQuery} Current open trigger
  */
 FinnaPopup.prototype.currentTrigger = function currentTrigger() {
   var _ = this;
@@ -124,8 +124,7 @@ FinnaPopup.prototype.currentTrigger = function currentTrigger() {
 
 /**
  * Close a trigger and open the next one found from the internal array
- * 
- * @param {int} direction
+ * @param {number} direction -1 or 1 to look for a trigger
  */
 FinnaPopup.prototype.getTrigger = function getTrigger(direction) {
   var _ = this;
@@ -153,13 +152,16 @@ FinnaPopup.prototype.checkButtons = function checkButtons() {
  * Main function to open a popup and properly display it
  */
 FinnaPopup.prototype.show = function show() {
+  const next = '<button class="popup-arrow popup-right-arrow next-record" type="button">' + VuFind.icon('record-next', 'record-next-icon') + '</button>';
+  const previous = '<button class="popup-arrow popup-left-arrow previous-record" type="button">' + VuFind.icon('record-prev', 'record-prev-icon') + '</button>';
+  const closeTemplate = '<button class="finna-popup close-button" title="close_translation" aria-label="close_translation">' + VuFind.icon('popup-close', 'popup-close-icon') + '</button>';
+  const srElement = '<span class="visually-hidden"></span>';
   var _ = this;
   var hasParent = typeof _.parent !== 'undefined';
   if (!hasParent) {
     $(document).on('focusin.finna', function setFocusTrap(e) {
       _.focusTrap(e);
     });
-    _.toggleScroll(false);
   }
   _.setKeyBinds();
 
@@ -167,10 +169,13 @@ FinnaPopup.prototype.show = function show() {
     _.backDrop = $('<div class="finna-popup backdrop"></div>');
     $(document.body).prepend(_.backDrop);
     _.backDrop.off('click').on('click', function checkClose(e) {
-      if (!$.contains(_.modalHolder[0], e.target)) {
+      // Note: The parentElement check below is important to avoid an element removed from DOM from being considered
+      // outside of the modal holder.
+      if (e.target.parentElement && !$.contains(_.modalHolder[0], e.target)) {
         _.onPopupClose();
       }
     });
+    $(document.body).addClass('overflow-hidden');
   }
   if (typeof _.modalHolder !== 'undefined') {
     _.modalHolder.remove();
@@ -231,6 +236,8 @@ FinnaPopup.prototype.show = function show() {
 
 /**
  * Get translation for internal key
+ * @param {string} key Translation key to get
+ * @returns {string} Translation or the key if no translation found
  */
 FinnaPopup.prototype.getTranslation = function getTranslation(key) {
   var _ = this;
@@ -271,9 +278,8 @@ FinnaPopup.prototype.onPopupInit = function onPopupInit(/*trigger*/) { };
 
 /**
  * Handles the flow of opening modals
- * 
- * @param {function} open
- * @param {function} close
+ * @param {Function} open Function when the popup opens
+ * @param {Function} close Function when the popup closes
  */
 FinnaPopup.prototype.onPopupOpen = function onPopupOpen(open, close) {
   var _ = this;
@@ -293,21 +299,12 @@ FinnaPopup.prototype.onPopupOpen = function onPopupOpen(open, close) {
 };
 
 /**
- * Toggles the document body scroll state
- * 
- * @param {boolean} value
- */
-FinnaPopup.prototype.toggleScroll = function toggleScroll(value) {
-  $(document.body).css('overflow', value ? 'auto' : 'hidden');
-};
-
-/**
  * Function that handles the flow when a popup closes
  */
 FinnaPopup.prototype.onPopupClose = function onPopupClose() {
   var _ = this;
   if (typeof _.parent === 'undefined') {
-    _.toggleScroll(true);
+    $(document.body).removeClass('overflow-hidden');
     $(document).off('focusin.finna');
   }
   if (typeof _.backDrop !== 'undefined') {
@@ -338,13 +335,16 @@ FinnaPopup.prototype.onPopupClose = function onPopupClose() {
 
 /**
  * Way to keep users tab inside modal elements
- * 
- * @param {object} e
+ * @param {object} e Event handler object
  */
 FinnaPopup.prototype.focusTrap = function focusTrap(e) {
   var _ = this;
-  if (!$.contains(_.content[0], e.target)) {
-    _.content.find(':focusable').eq(0).focus();
+  const element = unwrapJQuery(_.content);
+  if (!$.contains(element, e.target)) {
+    const nodes = getFocusableNodes(element);
+    if (nodes.length) {
+      nodes[0].focus();
+    }
   }
 };
 

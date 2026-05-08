@@ -3,7 +3,7 @@
 /**
  * Lucene query syntax helper class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2020.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org
  */
+
 namespace FinnaSearch\Backend\Solr;
 
 use VuFindCode\ISBN;
@@ -43,14 +44,14 @@ use VuFindSearch\Backend\Exception\BackendException;
 class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
 {
     /**
-     * Unicode normalization form
+     * Unicode normalization form.
      *
      * @var string
      */
     protected $unicodeNormalizationForm;
 
     /**
-     * Search filters
+     * Search filters.
      *
      * @var array
      */
@@ -101,7 +102,7 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
     }
 
     /**
-     * Perform final normalizations to a search string
+     * Perform final normalizations to a search string.
      *
      * @param string $searchString Input search string
      *
@@ -113,7 +114,7 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
     }
 
     /**
-     * Check if passed string is an ISBN and convert to ISBN-13
+     * Check if passed string is an ISBN and convert to ISBN-13.
      *
      * @param string $searchString The query string
      *
@@ -121,7 +122,8 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
      */
     protected function normalizeISBN($searchString)
     {
-        if (!preg_match('/^\d{9}[\dxX]$/', $searchString)
+        if (
+            !preg_match('/^\d{9}[\dxX]$/', $searchString)
             || !ISBN::isValidISBN10($searchString)
         ) {
             return $searchString;
@@ -132,7 +134,7 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
     }
 
     /**
-     * Normalize UNICODE form
+     * Normalize UNICODE form.
      *
      * @param string $searchString Input search string
      *
@@ -141,14 +143,14 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
     protected function normalizeUnicodeForm($searchString)
     {
         switch ($this->unicodeNormalizationForm) {
-        case 'NFC':
-            return \Normalizer::normalize($searchString, \Normalizer::FORM_C);
-        case 'NFD':
-            return \Normalizer::normalize($searchString, \Normalizer::FORM_D);
-        case 'NFKC':
-            return \Normalizer::normalize($searchString, \Normalizer::FORM_KC);
-        case 'NFKD':
-            return \Normalizer::normalize($searchString, \Normalizer::FORM_KD);
+            case 'NFC':
+                return \Normalizer::normalize($searchString, \Normalizer::FORM_C);
+            case 'NFD':
+                return \Normalizer::normalize($searchString, \Normalizer::FORM_D);
+            case 'NFKC':
+                return \Normalizer::normalize($searchString, \Normalizer::FORM_KC);
+            case 'NFKD':
+                return \Normalizer::normalize($searchString, \Normalizer::FORM_KD);
         }
 
         return $searchString;
@@ -173,10 +175,10 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
                 $inQuotes = !$inQuotes;
             }
             if (!$inQuotes && '-' === $c) {
-                if ('!' === $prev && "\\" !== $prev2) {
+                if ('!' === $prev && '\\' !== $prev2) {
                     $result = substr($result, 0, -1) . '-';
                 } elseif (' ' === $prev) {
-                    $result .= "\\-";
+                    $result .= '\\-';
                 } else {
                     $result .= '-';
                 }
@@ -221,7 +223,8 @@ class LuceneSyntaxHelper extends \VuFindSearch\Backend\Solr\LuceneSyntaxHelper
         $result = preg_replace_callback(
             '/(^|[:\(]|[^\w\[\*]+?)([\*\?]+)($|[^\]\*])/u',
             function ($matches) {
-                if (':' === $matches[1] && '*' === $matches[2]
+                if (
+                    ':' === $matches[1] && '*' === $matches[2]
                     && ('' === $matches[3] || strncmp(' ', $matches[3], 1) === 0)
                 ) {
                     return ':*' . $matches[3];

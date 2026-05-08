@@ -1,0 +1,211 @@
+$iconFontSize: 1.3em !default;
+
+.record.sourceSolrAuth {
+  // .media and .media-body code added to fix IE11 display: table-cell issues
+  .media {
+    display: block;
+  }
+  .format {
+    font-weight: 700;
+  }
+}
+
+.record-accordions .authority-records {
+  .pagination-container {
+    margin-bottom: 20px;
+  }
+  .search-btn-container {
+    margin-top: 25px;
+    text-align: center;
+  }
+}
+
+.result {
+  &.condensed-list-view {
+    .condensed-collapse-toggle .condensed-body.authority {
+      width: 100%;
+    }
+    .title-container {
+      display: flex;
+      flex-wrap: wrap;
+    }
+  }
+  .authority-record-info .authority-record-summary-container {
+    display: flex;
+    gap: 20px;
+  }
+}
+
+a.authority-link {
+  display: inline-block;
+  .icon {
+    font-size: $iconFontSize;
+  }
+}
+
+.record-main .authority-records-summary {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  > div {
+    .info-row {
+      display: flex;
+      align-items: baseline;
+    }
+    .text {
+      width: 30%;
+      font-weight: 700;
+    }
+    .count {
+      font-size: 1.4em;
+    }
+  }
+}
+
+.authority-recommend {
+  .authoritybox {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    background-color: $gray-ultralight;
+    border: 1px solid $gray-lighter;
+    div:first-child {
+      padding-right: 0.3em;
+    }
+    .media-left,
+    .media-right {
+      flex: 1 1 100%;
+      flex-direction: column;
+    }
+    .media-left {
+      width: initial;
+    }
+    .media-right {
+      font-size: $font-size-small;
+      .access-rights .cc-rights {
+        padding: 0px;
+        margin: 0px;
+      }
+    }
+    &.filtered {
+      border-top: none;
+    }
+    h3 {
+      margin-top: 0.3em;
+      margin-bottom: 0.3em;
+    }
+    .roles {
+      margin-top: 1em;
+    }
+    .record-details th {
+      width: 20%;
+    }
+  }
+  .table.table-finna-record tbody tr > * {
+    background-color: transparent;
+  }
+  .tabs-table .nav-tabs {
+    position: relative;
+    display: flex;
+    margin-top: 0px;
+    margin-bottom: 0px;
+    border-bottom: 1px solid $gray-lighter;
+    > li {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: $body-bg;
+      cursor: pointer;
+      border: none;
+      &.active {
+        margin-top: 4px;
+        border: none;
+        border-bottom: 4px solid $main-tabs-active-color;
+      }
+      &.spinner {
+        position: absolute;
+        right: 40px;
+        bottom: 12px;
+        margin-left: 0px;
+      }
+      &.toggle {
+        position: absolute;
+        right: 8px;
+        bottom: 5px;
+        float: right;
+        font-family: finnaicons;
+        font-size: 24px;
+        color: $action-link-color;
+        background-color: transparent;
+        &:before {
+          content: "\e916";
+        }
+        &.collapsed:before {
+          content: "\e91a";
+        }
+      }
+      > a {
+        padding: 5px 10px;
+        color: $main-tabs-text-color;
+        background-color: $main-tabs-background-color;
+        border: 0px;
+        transition: none;
+        .icon {
+          vertical-align: middle;
+          font-size: 1.8em;
+          color: $link-color;
+        }
+      }
+    }
+  }
+}
+@media (max-width: 390px) {
+  .authority-recommend .tabs-table {
+    ul.nav-tabs.many-tabs > li {
+      max-width: 64px;
+      a {
+        min-height: 70px;
+        padding: 4px;
+        font-size: $font-size-small;
+      }
+    }
+  }
+}
+@include media-breakpoint-up(xs) {
+  .authoritybox .media-right {
+    padding-left: 20px;
+  }
+}
+@include media-breakpoint-only(sm) {
+  .authority-recommend .tabs-table {
+    ul.nav-tabs > li > a {
+      word-break: break-word;
+    }
+  }
+}
+@include media-breakpoint-down(sm) {
+  .authority-recommend .tabs-table {
+    ul.nav-tabs {
+      padding-top: 10px;
+    }
+  }
+}
+@include media-breakpoint-up(sm) {
+  .authority-recommend .authoritybox {
+    .media-left {
+      flex-basis: 60%;
+    }
+    .media-right {
+      flex-basis: 40%;
+    }
+  }
+}
+@include media-breakpoint-down(md) {
+  .authority-recommend .tabs-table {
+    ul.nav-tabs > li:not(.many-tabs) {
+      flex-basis: 50%;
+    }
+  }
+}

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Action Helper - Renewals Support Methods
+ * VuFind Action Helper - Renewals Support Methods.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller_Plugins
@@ -25,13 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Controller\Plugin;
 
 use Laminas\Mvc\Controller\Plugin\AbstractPlugin;
 use VuFind\Validator\CsrfInterface;
 
+use function is_array;
+
 /**
- * Action helper to perform renewal-related actions
+ * Action helper to perform renewal-related actions.
  *
  * @category VuFind
  * @package  Controller_Plugins
@@ -120,11 +124,40 @@ class Renewals extends AbstractPlugin
             );
             if ($renewResult !== false) {
                 // Assign Blocks to the Template
-                if (isset($renewResult['blocks'])
-                    && is_array($renewResult['blocks'])
-                ) {
+                if (is_array($renewResult['blocks'] ?? null)) {
                     foreach ($renewResult['blocks'] as $block) {
-                        $flashMsg->addMessage($block, 'info');
+                        $flashMsg->addInfoMessage($block);
+                    }
+                } elseif (is_array($renewResult['details'] ?? null)) {
+                    $bad = $good = 0;
+                    foreach ($renewResult['details'] as $next) {
+                        if ($next['success'] ?? false) {
+                            $good++;
+                        } else {
+                            $bad++;
+                        }
+                    }
+                    if ($good > 0) {
+                        $flashMsg->addSuccessMessage(
+                            [
+                                'msg' => 'renew_success_summary',
+                                'tokens' => [
+                                    'count' => $good,
+                                ],
+                                'icu' => true,
+                            ]
+                        );
+                    }
+                    if ($bad > 0) {
+                        $flashMsg->addErrorMessage(
+                            [
+                                'msg' => 'renew_error_summary',
+                                'tokens' => [
+                                    'count' => $bad,
+                                ],
+                                'icu' => true,
+                            ]
+                        );
                     }
                 }
 
@@ -132,11 +165,11 @@ class Renewals extends AbstractPlugin
                 return $renewResult['details'];
             } else {
                 // System failure:
-                $flashMsg->addMessage('renew_error', 'error');
+                $flashMsg->addErrorMessage('renew_error');
             }
         } elseif (!empty($all) || !empty($selected)) {
             // Button was clicked but no items were selected:
-            $flashMsg->addMessage('renew_empty_selection', 'error');
+            $flashMsg->addErrorMessage('renew_empty_selection');
         }
 
         return [];

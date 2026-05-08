@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Authentication Api Controller
+ * Authentication Api Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2017-2019.
  *
@@ -25,9 +26,12 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace FinnaApi\Controller;
 
 use VuFind\Exception\ILS as ILSException;
+
+use function in_array;
 
 /**
  * Provides an API for user authentication.
@@ -38,14 +42,15 @@ use VuFind\Exception\ILS as ILSException;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
-class AuthApiController extends \VuFindApi\Controller\ApiController
-    implements \VuFindApi\Controller\ApiInterface, \Laminas\Log\LoggerAwareInterface
+class AuthApiController extends \VuFindApi\Controller\ApiController implements
+    \VuFindApi\Controller\ApiInterface,
+    \Psr\Log\LoggerAwareInterface
 {
     use \VuFindApi\Controller\ApiTrait;
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * Execute the request
+     * Execute the request.
      *
      * @param \Laminas\Mvc\MvcEvent $e Event
      *
@@ -77,7 +82,7 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
     }
 
     /**
-     * Retrieve backends available for library card authentication
+     * Retrieve backends available for library card authentication.
      *
      * @return \Laminas\Http\Response
      */
@@ -111,7 +116,7 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
 
             $backend = [
                 'id' => $target,
-                'name' => $this->translate("source_$target", null, $target)
+                'name' => $this->translate("source_$target", null, $target),
             ];
             $backends[] = $backend;
         }
@@ -120,7 +125,7 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
     }
 
     /**
-     * Login with library card and return status
+     * Login with library card and return status.
      *
      * @return \Laminas\Http\Response
      */
@@ -129,7 +134,8 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
         $this->disableSessionWrites();
         $this->determineOutputMode();
 
-        if ($result = $this->isAccessDenied('access.finna.api.auth.librarycardlogin')
+        if (
+            $result = $this->isAccessDenied('access.finna.api.auth.librarycardlogin')
         ) {
             return $result;
         }
@@ -210,7 +216,7 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
 
     /**
      * Get Swagger specification JSON fragment for services provided by the
-     * controller
+     * controller.
      *
      * @return string
      */
@@ -239,12 +245,12 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
                                                     'id' => [
                                                         'description'
                                                             => 'Target identifier',
-                                                        'type' => 'string'
+                                                        'type' => 'string',
                                                     ],
                                                     'name' => [
                                                         'description'
                                                             => 'Target name',
-                                                        'type' => 'string'
+                                                        'type' => 'string',
                                                     ],
                                                 ],
                                             ],
@@ -252,25 +258,25 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
                                         'status' => [
                                             'description' => 'Status code',
                                             'type' => 'string',
-                                            'enum' => ['OK']
+                                            'enum' => ['OK'],
                                         ],
                                     ],
                                 ],
                             ],
-                            'required' => ['resultCount', 'status']
-                        ]
+                            'required' => ['resultCount', 'status'],
+                        ],
                     ],
                     'default' => [
                         'description' => 'Error',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
-                                    '$ref' => '#/components/schemas/Error'
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
+                                    '$ref' => '#/components/schemas/Error',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ];
         }
         if (!$this->isAccessDenied('access.finna.api.auth.backendlist')) {
@@ -295,38 +301,38 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
                                                     'id' => [
                                                         'description'
                                                             => 'Target identifier',
-                                                        'type' => 'string'
+                                                        'type' => 'string',
                                                     ],
                                                     'name' => [
                                                         'description'
                                                             => 'Target name',
-                                                        'type' => 'string'
+                                                        'type' => 'string',
                                                     ],
                                                 ],
-                                            ]
+                                            ],
                                         ],
                                         'status' => [
                                             'description' => 'Status code',
                                             'type' => 'string',
-                                            'enum' => ['OK']
-                                        ]
+                                            'enum' => ['OK'],
+                                        ],
                                     ],
-                                    'required' => ['resultCount', 'status']
-                                ]
-                            ]
-                        ]
+                                    'required' => ['resultCount', 'status'],
+                                ],
+                            ],
+                        ],
                     ],
                     'default' => [
                         'description' => 'Error',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
-                                    '$ref' => '#/components/schemas/Error'
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
+                                    '$ref' => '#/components/schemas/Error',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ];
         }
 
@@ -381,23 +387,23 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
                                         'status' => [
                                             'description' => 'Status code',
                                             'type' => 'string',
-                                            'enum' => ['OK']
-                                        ]
+                                            'enum' => ['OK'],
+                                        ],
                                     ],
-                                    'required' => ['resultCount', 'status']
-                                ]
-                            ]
-                        ]
+                                    'required' => ['resultCount', 'status'],
+                                ],
+                            ],
+                        ],
                     ],
                     '500' => [
                         'description' => 'Processing of the login request failed',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
-                                    '$ref' => '#/components/schemas/Error'
-                                ]
-                            ]
-                        ]
+                                    '$ref' => '#/components/schemas/Error',
+                                ],
+                            ],
+                        ],
                     ],
                     '503' => [
                         'description'
@@ -405,22 +411,22 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
                         'content' => [
                             'application/json' => [
                                 'schema' => [
-                                    '$ref' => '#/components/schemas/Error'
-                                ]
-                            ]
-                        ]
+                                    '$ref' => '#/components/schemas/Error',
+                                ],
+                            ],
+                        ],
                     ],
                     'default' => [
                         'description' => 'Error',
                         'content' => [
                             'application/json' => [
                                 'schema' => [
-                                    '$ref' => '#/components/schemas/Error'
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
+                                    '$ref' => '#/components/schemas/Error',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ];
         }
 
@@ -428,7 +434,7 @@ class AuthApiController extends \VuFindApi\Controller\ApiController
     }
 
     /**
-     * Get a list of available login targets
+     * Get a list of available login targets.
      *
      * @return array
      */

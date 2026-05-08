@@ -1,9 +1,9 @@
 <?php
 
 /**
- * RecordFieldMarkdown Test Class
+ * RecordFieldMarkdown Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -26,13 +26,13 @@
  * @license  https://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace FinnaTest\View\Helper\Root;
 
-use Finna\View\Helper\Root\CleanHtml;
 use Finna\View\Helper\Root\RecordFieldMarkdown;
 
 /**
- * RecordFieldMarkdown Test Class
+ * RecordFieldMarkdown Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -43,16 +43,19 @@ use Finna\View\Helper\Root\RecordFieldMarkdown;
 class RecordFieldMarkdownTest extends \PHPUnit\Framework\TestCase
 {
     use \VuFindTest\Feature\ViewTrait;
+    use \FinnaTest\Traits\ViewTrait;
 
     /**
      * Get view helper to test.
      *
      * @return RecordFieldMarkdown
      */
-    protected function getHelper()
+    protected function getHelper(): RecordFieldMarkdown
     {
         $view = $this->getPhpRenderer(
-            ['cleanHtml' => new CleanHtml(null, [])],
+            [
+                'cleanHtml' => $this->getCleanHtml([]),
+            ],
             'finna2'
         );
         $markdown = new RecordFieldMarkdown(
@@ -63,11 +66,11 @@ class RecordFieldMarkdownTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test basic markdown conversion with the default soft break
+     * Test basic markdown conversion with the default soft break.
      *
      * @return void
      */
-    public function testRecordFieldMarkdown()
+    public function testRecordFieldMarkdown(): void
     {
         $converted = $this->getHelper()->toHtml($this->getTestMarkdown());
         $expected = <<<EOT
@@ -75,15 +78,15 @@ class RecordFieldMarkdownTest extends \PHPUnit\Framework\TestCase
             <p>Another markdown paragraph<br>containing a line break</p>
 
             EOT;
-        $this->assertEquals($expected, $converted);
+        $this->assertSame($expected, $converted);
     }
 
     /**
-     * Test basic markdown conversion with a provided soft break
+     * Test basic markdown conversion with a provided soft break.
      *
      * @return void
      */
-    public function testRecordFieldMarkdownWithProvidedSoftBreak()
+    public function testRecordFieldMarkdownWithProvidedSoftBreak(): void
     {
         $converted = $this->getHelper()->toHtml($this->getTestMarkdown(), "\n");
         $expected = <<<EOT
@@ -95,10 +98,15 @@ class RecordFieldMarkdownTest extends \PHPUnit\Framework\TestCase
             containing a line break</p>
 
             EOT;
-        $this->assertEquals($expected, $converted);
+        $this->assertSame($expected, $converted);
     }
 
-    protected function getTestMarkdown()
+    /**
+     * Return test Markdown input.
+     *
+     * @return string
+     */
+    protected function getTestMarkdown(): string
     {
         return <<<EOT
             # Heading

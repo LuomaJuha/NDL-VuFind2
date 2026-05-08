@@ -1,8 +1,9 @@
 <?php
+
 /**
- * ComponentParts Test Class
+ * ComponentParts Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\RecordTab;
 
 use VuFind\RecordTab\ComponentParts;
 
 /**
- * ComponentParts Test Class
+ * ComponentParts Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -47,7 +49,7 @@ class ComponentPartsTest extends \PHPUnit\Framework\TestCase
      */
     public function testGetDescription(): void
     {
-        $searchObj=$this->getService();
+        $searchObj = $this->getService();
         $obj = new ComponentParts($searchObj);
         $expected = 'child_records';
         $this->assertSame($expected, $obj->getDescription());
@@ -60,7 +62,7 @@ class ComponentPartsTest extends \PHPUnit\Framework\TestCase
      */
     public function testGetMaxResults(): void
     {
-        $searchObj=$this->getService();
+        $searchObj = $this->getService();
         $obj = new ComponentParts($searchObj);
         $this->assertSame(100, $obj->getMaxResults());
     }
@@ -68,33 +70,31 @@ class ComponentPartsTest extends \PHPUnit\Framework\TestCase
     /**
      * Data provider for testIsActive.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function isActiveProvider(): array
+    public static function isActiveProvider(): \Iterator
     {
-        return ['no children' => [0, false], 'children' => [10, true]];
+        yield 'no children' => [0, false];
+        yield 'children' => [10, true];
     }
 
     /**
      * Test if the tab is active.
      *
-     * @param int  $childCount   Child count for record driver to report
+     * @param int  $childCount     Child count for record driver to report
      * @param bool $expectedResult Expected return value from isActive
      *
      * @return void
-     *
-     * @dataProvider isActiveProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('isActiveProvider')]
     public function testIsActive(int $childCount, bool $expectedResult): void
     {
         $searchObj = $this->getService();
         $obj = new ComponentParts($searchObj);
-        $recordDriver = $this->getMockBuilder(\VuFind\RecordDriver\DefaultRecord::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $recordDriver->expects($this->any())->method('tryMethod')
-            ->with($this->equalTo('getChildRecordCount'))
-            ->will($this->returnValue($childCount));
+        $recordDriver = $this->createMock(\VuFind\RecordDriver\DefaultRecord::class);
+        $recordDriver->method('tryMethod')
+            ->with('getChildRecordCount')
+            ->willReturn($childCount);
         $obj->setRecordDriver($recordDriver);
         $this->assertSame($expectedResult, $obj->isActive());
     }
@@ -106,53 +106,41 @@ class ComponentPartsTest extends \PHPUnit\Framework\TestCase
      */
     public function testGetResults(): void
     {
-        $service = $this->getMockBuilder(\VuFindSearch\Service::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $rci = $this->getMockBuilder(
-            \VuFindSearch\Response\RecordCollectionInterface::class
-        )->disableOriginalConstructor()->getMock();
-        $recordDriver = $this->getMockBuilder(\VuFind\RecordDriver\DefaultRecord::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $recordDriver->expects($this->any())->method('getUniqueID')
-            ->will($this->returnValue("foo"));
-        $recordDriver->expects($this->any())->method('getSourceIdentifier')
-            ->will($this->returnValue("bar"));
-        $commandObj = $this->getMockBuilder(\VuFindSearch\Command\AbstractBase::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $service = $this->createMock(\VuFindSearch\Service::class);
+        $rci = $this->createMock(\VuFindSearch\Response\RecordCollectionInterface::class);
+        $recordDriver = $this->createMock(\VuFind\RecordDriver\DefaultRecord::class);
+        $recordDriver->method('getUniqueID')->willReturn('foo');
+        $recordDriver->method('getSourceIdentifier')->willReturn('bar');
+        $commandObj = $this->createMock(\VuFindSearch\Command\AbstractBase::class);
         $commandObj->expects($this->once())->method('getResult')
-            ->will($this->returnValue($rci));
+            ->willReturn($rci);
         $checkCommand = function ($command) {
-            return get_class($command) === \VuFindSearch\Command\SearchCommand::class
-                && $command->getTargetIdentifier() === "bar"
+            return $command::class === \VuFindSearch\Command\SearchCommand::class
+                && $command->getTargetIdentifier() === 'bar'
                 && $command->getArguments()[0]->getAllTerms() === 'hierarchy_parent_id:"foo"'
                 && $command->getArguments()[1] === 0
                 && $command->getArguments()[2] === 101
                 && $command->getArguments()[3]->getArrayCopy() === [
-                    "hl" => ["false"],
-                    "sort" => ["hierarchy_sequence ASC,title ASC"]
+                    'hl' => ['false'],
+                    'sort' => ['hierarchy_sequence ASC,title ASC'],
                 ];
         };
         $service->expects($this->once())->method('invoke')
             ->with($this->callback($checkCommand))
-            ->will($this->returnValue($commandObj));
+            ->willReturn($commandObj);
         $obj = new ComponentParts($service);
         $obj->setRecordDriver($recordDriver);
         $this->assertEquals($rci, $obj->getResults());
     }
 
     /**
-     * get a Service object
+     * Get a Service object.
      *
      * @return Service
      */
     public function getService()
     {
-        $searchObj = $this->getMockBuilder(\VuFindSearch\Service::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $searchObj = $this->createMock(\VuFindSearch\Service::class);
         return $searchObj;
     }
 }

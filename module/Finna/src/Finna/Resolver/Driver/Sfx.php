@@ -1,8 +1,9 @@
 <?php
+
 /**
- * SFX Link Resolver Driver
+ * SFX Link Resolver Driver.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Royal Holloway, University of London
  * Copyright (C) The National Library of Finland 2015-2017.
@@ -17,32 +18,33 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Resolver_Drivers
  * @author   Graham Seaman <Graham.Seaman@rhul.ac.uk>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:link_resolver_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:link_resolver_drivers Wiki
  */
+
 namespace Finna\Resolver\Driver;
 
 /**
- * SFX Link Resolver Driver
+ * SFX Link Resolver Driver.
  *
  * @category VuFind
  * @package  Resolver_Drivers
  * @author   Graham Seaman <Graham.Seaman@rhul.ac.uk>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:link_resolver_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:link_resolver_drivers Wiki
  */
 class Sfx extends \VuFind\Resolver\Driver\Sfx
 {
     /**
-     * Parse Links
+     * Parse Links.
      *
      * Parses an XML file returned by a link resolver
      * and converts it to a standardised format for display
@@ -55,15 +57,34 @@ class Sfx extends \VuFind\Resolver\Driver\Sfx
     {
         $records = []; // array to return
         try {
-            $xml = new \SimpleXmlElement($xmlstr);
+            libxml_use_internal_errors(true);
+            libxml_clear_errors();
+            $xml = new \SimpleXMLElement($xmlstr);
+            if ($errors = libxml_get_errors()) {
+                $fatal = false;
+                foreach ($errors as $error) {
+                    error_log('SFX: Error parsing XML: ' . $error->message);
+                    if ($error->level === LIBXML_ERR_FATAL) {
+                        $fatal = true;
+                    }
+                }
+                error_log("SFX: XML: $xmlstr");
+                if ($fatal) {
+                    return [];
+                }
+            }
         } catch (\Exception $e) {
+            error_log('SFX: Exception parsing XML: ' . (string)$e . ", XML: $xmlstr");
             return $records;
+        } finally {
+            libxml_use_internal_errors(false);
         }
 
-        $root = $xml->xpath("//ctx_obj_targets");
+        $root = $xml->xpath('//ctx_obj_targets');
         $xml = $root[0];
         foreach ($xml->children() as $target) {
-            if ('getMessageNoFullTxt' === (string)$target->service_type
+            if (
+                'getMessageNoFullTxt' === (string)$target->service_type
                 || 'MESSAGE_NO_FULLTXT' === (string)$target->target_name
             ) {
                 continue;

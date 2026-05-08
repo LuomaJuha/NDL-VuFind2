@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Get Resolver Links" AJAX handler
+ * "Get Resolver Links" AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -26,18 +27,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
-use Laminas\Config\Config;
 use Laminas\Mvc\Controller\Plugin\Params;
 use Laminas\View\Renderer\RendererInterface;
+use VuFind\Config\Config;
 use VuFind\I18n\Translator\TranslatorAwareInterface;
 use VuFind\Resolver\Connection;
 use VuFind\Resolver\Driver\PluginManager as ResolverManager;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * "Get Resolver Links" AJAX handler
+ * "Get Resolver Links" AJAX handler.
  *
  * Fetch Links from resolver given an OpenURL and format as HTML
  * and output the HTML content in JSON object.
@@ -54,28 +56,28 @@ class GetResolverLinks extends AbstractBase implements TranslatorAwareInterface
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Resolver driver plugin manager
+     * Resolver driver plugin manager.
      *
      * @var ResolverManager
      */
     protected $pluginManager;
 
     /**
-     * View renderer
+     * View renderer.
      *
      * @var RendererInterface
      */
     protected $renderer;
 
     /**
-     * Top-level VuFind configuration (config.ini)
+     * Top-level VuFind configuration (config.ini).
      *
      * @var Config
      */
     protected $config;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param SessionSettings   $ss       Session settings
      * @param ResolverManager   $pm       Resolver driver plugin manager
@@ -123,21 +125,24 @@ class GetResolverLinks extends AbstractBase implements TranslatorAwareInterface
         // Sort the returned links into categories based on service type:
         $electronic = $print = $services = [];
         foreach ($result as $link) {
-            switch ($link['service_type'] ?? '') {
-            case 'getHolding':
-                $print[] = $link;
-                break;
-            case 'getWebService':
-                $services[] = $link;
-                break;
-            case 'getDOI':
-                // Special case -- modify DOI text for special display:
+            $serviceType = $link['service_type'] ?? '';
+            // Special case -- modify DOI text for special display, then apply
+            // default $electronic behavior below:
+            if ($serviceType === 'getDOI') {
                 $link['title'] = $this->translate('Get full text');
                 $link['coverage'] = '';
-            case 'getFullTxt':
-            default:
-                $electronic[] = $link;
-                break;
+            }
+            switch ($serviceType) {
+                case 'getHolding':
+                    $print[] = $link;
+                    break;
+                case 'getWebService':
+                    $services[] = $link;
+                    break;
+                case 'getFullTxt':
+                default:
+                    $electronic[] = $link;
+                    break;
             }
         }
 
@@ -151,14 +156,14 @@ class GetResolverLinks extends AbstractBase implements TranslatorAwareInterface
         }
 
         $moreOptionsLink = $resolver->supportsMoreOptionsLink()
-            ? $resolver->getResolverUrl($openUrl) : '';
+            ? $resolver->getResolverUrlForMoreOptions($openUrl) : '';
 
         // Render the links using the view:
         $view = [
             'openUrlBase' => $base, 'openUrl' => $openUrl, 'print' => $print,
             'electronic' => $electronic, 'services' => $services,
             'searchClassId' => $searchClassId,
-            'moreOptionsLink' => $moreOptionsLink
+            'moreOptionsLink' => $moreOptionsLink,
         ];
         $html = $this->renderer->render('ajax/resolverLinks.phtml', $view);
 

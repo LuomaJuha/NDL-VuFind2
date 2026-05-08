@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Helper class for system messages
+ * Helper class for system messages.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2023.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -25,15 +26,16 @@
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\View\Helper\Root;
 
-use Laminas\Config\Config;
 use Laminas\Session\Container;
+use VuFind\Config\Config;
 
 /**
- * Helper class for system messages
+ * Helper class for system messages.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -41,29 +43,29 @@ use Laminas\Session\Container;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
-class SystemMessages extends \Laminas\View\Helper\AbstractHelper
-    implements \VuFind\I18n\Translator\TranslatorAwareInterface
+class SystemMessages extends \Laminas\View\Helper\AbstractHelper implements
+    \VuFind\I18n\Translator\TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Core configuration
+     * Core configuration.
      *
      * @var Config
      */
     protected $coreConfig;
 
     /**
-     * Local system configuration
+     * Local system configuration.
      *
      * @var Config
      */
     protected $localConfig;
 
     /**
-     * Session container
+     * Session container.
      *
      * @var Container
      */
@@ -77,7 +79,7 @@ class SystemMessages extends \Laminas\View\Helper\AbstractHelper
     public const SESSION_NAME = 'SystemMessages';
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param Config    $coreConfig  Configuration
      * @param Config    $localConfig Local configuration
@@ -126,8 +128,7 @@ class SystemMessages extends \Laminas\View\Helper\AbstractHelper
         $scheduleStart = $scheduleStart ? new \DateTime($scheduleStart) : false;
         $scheduleEnd = $scheduleEnd ? new \DateTime($scheduleEnd) : false;
         $now = new \DateTime();
-        $scheduleOk = !(($scheduleStart && $now < $scheduleStart)
-            || ($scheduleEnd && $now > $scheduleEnd));
+        $scheduleOk = !($scheduleStart && $now < $scheduleStart) && !($scheduleEnd && $now > $scheduleEnd);
 
         if ($scheduleOk && !empty($this->coreConfig->Site->systemMessages)) {
             $messages = $getMessageFn(

@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Location Service.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,16 +17,19 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Content
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\LocationService;
+
+use function is_array;
 
 /**
  * Location Service.
@@ -34,21 +38,21 @@ namespace Finna\LocationService;
  * @package  Content
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class LocationService
 {
     /**
      * Location service configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config = null;
 
     /**
      * Constructor.
      *
-     * @param \Laminas\Config\Config $config Configuration
+     * @param \VuFind\Config\Config $config Configuration
      */
     public function __construct($config)
     {
@@ -58,12 +62,13 @@ class LocationService
     /**
      * Return configuration parameter for a Location Service link.
      *
-     * @param string $source     Record source
-     * @param string $title      Record title
-     * @param string $callnumber Callnumber that is used as a location code.
-     * @param string $collection Collection
-     * @param string $location   Location
-     * @param string $language   Language
+     * @param string  $source     Record source
+     * @param string  $title      Record title
+     * @param ?string $callnumber Callnumber that is used as a location code.
+     * @param ?string $collection Collection
+     * @param ?string $location   Location
+     * @param string  $language   Language
+     * @param array   $fields     Additional data fields
      *
      * @return array Array with the following keys:
      *   [url]   string  URL to the Location Service map.
@@ -76,9 +81,11 @@ class LocationService
         $callnumber,
         $collection,
         $location,
-        $language
+        $language,
+        $fields
     ) {
-        if (empty($this->config['General']['enabled'])
+        if (
+            empty($this->config['General']['enabled'])
             || empty($this->config['General']['url'])
             || empty($this->config[$source])
             || (empty($this->config[$source]['owner'])
@@ -93,21 +100,24 @@ class LocationService
         }
 
         if (is_array($url)) {
-            if (isset($url[$language])) {
-                $url = $url[$language];
-            } else {
-                $url = reset($url);
-            }
+            $url = $url[$language] ?? reset($url);
         }
 
+        $callnum = $fields['callnumber'] ?? '';
+        if ($callnum instanceof \VuFind\I18n\TranslatableString) {
+            $callnum = $callnum->getDisplayString();
+        }
+        [$lang] = explode('-', $language, 2);
         $params = [
-            'callno' => $callnumber,
+            'callno' => $callnum,
             'collection' => $collection,
             'location' => $location,
+            'branch' => $fields['branch'] ?? '',
+            'department' => $fields['department'] ?? '',
             'title' => $title,
-            'lang' => substr($language, 0, 2),
-            'owner' => $this->config[$source]['owner']
-               ?? ''
+            'lang' => $lang,
+            'locale' => $language,
+            'owner' => $this->config[$source]['owner'] ?? '',
         ];
 
         foreach ($params as $key => $val) {
@@ -118,14 +128,15 @@ class LocationService
            'url' => $url,
            'modal' => $this->config['General']['modal'] ?? true,
            'qrCodeRecord' => $this->config['General']['qr_code_record'] ?? false,
-           'qrCodeResults' => $this->config['General']['qr_code_results'] ?? false
+           'qrCodeResults' => $this->config['General']['qr_code_results'] ?? false,
+           'level' => $this->config[$source]['level'] ?? 'location',
         ];
     }
 
     /**
      * Check if QR-code option is enabled.
      *
-     * @return boolean
+     * @return bool
      */
     public function useQrCode()
     {

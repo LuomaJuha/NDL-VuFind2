@@ -27,6 +27,54 @@
         </classificationWrap>
       </objectClassificationWrap>
       <objectIdentificationWrap>
+        <titleWrap>
+          <titleSet>
+            <appellationValue>Otsikko näkyy partial.</appellationValue>
+            <appellationValue>Näkyy kokonaan.</appellationValue>
+            <appellationValue pref="http://terminology.lido-schema.org/lido00169">Ei näy preferred.</appellationValue>
+            <appellationValue pref="alternate">Ei näy alternate.</appellationValue>
+            <appellationValue pref="alternate" label="aiheen tarkenne">Aiheen tarkenne</appellationValue>
+          </titleSet>
+        </titleWrap>
+        <repositoryWrap>
+          <repositorySet type="Current location">
+            <displayRepository lang="fi">  </displayRepository>
+            <repositoryLocation>
+              <namePlaceSet>
+                <appellationValue label="tarkempi paikka">Huonenumero 123</appellationValue>
+              </namePlaceSet>
+              <namePlaceSet>
+                <appellationValue label="tarkempi paikka">Auditorio</appellationValue>
+              </namePlaceSet>
+              <partOfPlace>
+                <namePlaceSet>
+                  <appellationValue label="katuosoite">Mannerheimintie 999</appellationValue>
+                </namePlaceSet>
+                <partOfPlace>
+                  <namePlaceSet>
+                    <appellationValue label="kunta/kaupunki">Helsinki</appellationValue>
+                  </namePlaceSet>
+                </partOfPlace>
+              </partOfPlace>
+            </repositoryLocation>
+          </repositorySet>
+          <repositorySet type="http://terminology.lido-schema.org/lido01018">
+            <displayRepository lang="fi">Suomi</displayRepository>
+            <displayRepository lang="en">Finland</displayRepository>
+          </repositorySet>
+        </repositoryWrap>
+        <objectDescriptionWrap>
+          <objectDescriptionSet type="introduction">
+            <descriptiveNoteValue lang="fi" label="esittely">Ei saa näkyä.</descriptiveNoteValue>
+          </objectDescriptionSet>
+          <objectDescriptionSet>
+            <descriptiveNoteValue lang="fi">Otsikko</descriptiveNoteValue>
+          </objectDescriptionSet>
+          <objectDescriptionSet>
+            <descriptiveNoteValue lang="fi">Näkyy description untyped.</descriptiveNoteValue>
+            <descriptiveNoteValue lang="sv">Synas description untyped.</descriptiveNoteValue>
+          </objectDescriptionSet>
+        </objectDescriptionWrap>
         <objectMeasurementsWrap>
           <objectMeasurementsSet>
             <objectMeasurements>
@@ -35,7 +83,8 @@
                   <conceptID type="URI">http://urn.fi/URN:NBN:fi:au:mts:m8</conceptID>
                   <term lang="en">extent</term>
                 </measurementType>
-                <measurementUnit>kpl</measurementUnit>
+                <measurementUnit lang="fi">kpl</measurementUnit>
+                <measurementUnit lang="en">pcs</measurementUnit>
                 <measurementValue>1200</measurementValue>
               </measurementsSet>
               <measurementsSet>
@@ -47,11 +96,13 @@
                 <measurementValue>12</measurementValue>
               </measurementsSet>
               <measurementsSet>
-                <measurementType>syvyys</measurementType>
+                <measurementType lang="fi">syvyys</measurementType>
+                <measurementType lang="en">depth</measurementType>
                 <measurementUnit>cm</measurementUnit>
                 <measurementValue>50</measurementValue>
               </measurementsSet>
-              <extentMeasurements>kohde 1</extentMeasurements>
+              <extentMeasurements lang="fi">kohde 1</extentMeasurements>
+              <extentMeasurements lang="en">subject 1</extentMeasurements>
             </objectMeasurements>
           </objectMeasurementsSet>
           <objectMeasurementsSet>
@@ -76,9 +127,133 @@
               </measurementsSet>
             </objectMeasurements>
               <extentMeasurements>  </extentMeasurements>
-          </objectMeasurementsSet>                  
+          </objectMeasurementsSet>
         </objectMeasurementsWrap>
       </objectIdentificationWrap>
+      <objectRelationWrap>
+        <subjectWrap>
+          <subjectSet>
+            <displaySubject lang="fi" label="">Näkyy subject unlabeled.</displaySubject>
+            <displaySubject label="">Näkyy subject unlabeled.</displaySubject>
+          </subjectSet>
+          <subjectSet>
+            <subject>
+              <subjectActor>
+                <actor>
+                  <actorID type="URI">http://urn.fi/URN:NBN:fi:au:finaf:000211029</actorID>
+                  <nameActorSet>
+                    <appellationValue>Jussi, J&#xE4;n&#xF6;</appellationValue>
+                  </nameActorSet>
+                </actor>
+              </subjectActor>
+            </subject>
+          </subjectSet>
+          <subjectSet>
+            <subject>
+              <subjectPlace>
+                <displayPlace>Etelä-Suomi</displayPlace>
+                <place>
+                  <!--For URIs, get place type from type-->
+                  <placeID type="URI" source="YSO">http://www.yso.fi/onto/yso/p105917</placeID>
+                  <gml>
+                    <Point>
+                      <pos/>
+                    </Point>
+                  </gml>
+                </place>
+              </subjectPlace>
+              <subjectPlace>
+                <displayPlace>Rakennus</displayPlace>
+                <place>
+                  <!--For other identifiers, get place type from source-->
+                  <placeID type="Local identifier" source="prt">PRT</placeID>
+                </place>
+              </subjectPlace>
+              <subjectPlace>
+                <displayPlace>Rakennus2</displayPlace>
+                <place>
+                  <!--Map the values of source-->
+                  <placeID type="prt" source="VTJ">PRT2</placeID>
+                </place>
+              </subjectPlace>
+              <subjectPlace>
+                <displayPlace>Lohja</displayPlace>
+                <!--Use type if source not available-->
+                <place>
+                  <placeID type="mjr">123456</placeID>
+                  <placeID>extraid</placeID>
+                </place>
+              </subjectPlace>
+              <subjectPlace>
+                <displayPlace><!--empty data--></displayPlace>
+                <place>
+                  <placeID type="asd"></placeID>
+                  <placeID></placeID>
+                </place>
+              </subjectPlace>
+              <subjectPlace>
+                <place>
+                  <namePlaceSet>
+                    <appellationValue>Kauppakatu 5</appellationValue>
+                  </namePlaceSet>
+                  <partOfPlace>
+                    <namePlaceSet>
+                      <appellationValue>Lohja</appellationValue>
+                    </namePlaceSet>
+                    <partOfPlace>
+                      <namePlaceSet>
+                        <appellationValue>Uusimaa</appellationValue>
+                      </namePlaceSet>
+                      <partOfPlace>
+                        <namePlaceSet>
+                          <appellationValue>Suomi</appellationValue>
+                        </namePlaceSet>
+                      </partOfPlace>
+                    </partOfPlace>
+                  </partOfPlace>
+                </place>
+              </subjectPlace>
+              <subjectDate>
+                <displayDate lang="en">21st Century</displayDate>
+                <displayDate lang="fi">2000-luku</displayDate>
+              </subjectDate>
+            </subject>
+          </subjectSet>
+          <subjectSet>
+            <subject>
+              <subjectConcept>
+                <conceptID source="yso" type="URI">http://www.yso.fi/onto/yso/p5066</conceptID>
+                <term label="asiasana" lang="fi">porkkana</term>
+              </subjectConcept>
+              <subjectConcept>
+                <conceptID source="yso" type="URI">http://www.yso.fi/onto/yso/p5066</conceptID>
+                <term label="asiasana" lang="sv">morot</term>
+              </subjectConcept>
+              <subjectConcept>
+                <term label="asiasana">juures</term>
+              </subjectConcept>
+              <subjectConcept>
+                <conceptID source="yso" type="URI"><!-- empty data --></conceptID>
+                <term label="asiasana" lang="sv"><!-- no value --></term>
+              </subjectConcept>
+            </subject>
+          </subjectSet>
+        </subjectWrap>
+        <relatedWorksWrap>
+          <relatedWorkSet>
+            <relatedWork>
+              <displayObject label="kuuluu kokoelmaan">Onnellisen tietueen seikkailut</displayObject>
+              <object>
+                <objectWebResource>https://www.finna.fi/Record/eepos.3289017</objectWebResource>
+                <objectID type="URI" label="URN">URN:ISBN:978-952-65-1357-7</objectID>
+              </object>
+            </relatedWork>
+            <relatedWorkRelType>
+              <term>kuuluu kokoelmaan</term>
+            </relatedWorkRelType>
+          </relatedWorkSet>
+        </relatedWorksWrap>
+      </objectRelationWrap>
     </descriptiveMetadata>
   </lido>
 </lidoWrap>

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Collection Controller
+ * Collection Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2017-2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,10 +27,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\Controller;
 
+use Finna\Controller\Feature\FinnaRecordPreviewSupportTrait;
+
 /**
- * Collection Controller
+ * Collection Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -41,6 +45,7 @@ namespace Finna\Controller;
 class CollectionController extends \VuFind\Controller\CollectionController
 {
     use \Finna\Statistics\ReporterTrait;
+    use FinnaRecordPreviewSupportTrait;
 
     /**
      * Display a particular tab.
@@ -53,16 +58,14 @@ class CollectionController extends \VuFind\Controller\CollectionController
     protected function showTab($tab, $ajax = false)
     {
         // Call for login modal
-        if ($this->inLightbox()
+        if (
+            $this->inLightbox()
             && $this->params()->fromQuery('catalogLogin', 'false') == 'true'
         ) {
             return $this->catalogLogin();
         }
 
-        $view = parent::showTab($tab, $ajax);
-
-        $this->getSearchMemory()->rememberScrollData($view->scrollData);
-        return $view;
+        return parent::showTab($tab, $ajax);
     }
 
     /**
@@ -74,6 +77,7 @@ class CollectionController extends \VuFind\Controller\CollectionController
     {
         $result = parent::homeAction();
         $this->triggerStatsRecordView($result->driver ?? null);
+        $this->addValidationResultMessage();
         return $result;
     }
 }

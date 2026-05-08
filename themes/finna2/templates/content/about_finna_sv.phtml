@@ -1,6 +1,7 @@
 <!-- START of: finna - content/about_finna_sv.phtml -->
 
-<?php $this->headTitle($this->translate('Finna - en helhet bestående av söktjänster')); $this->content()->setHeading($this->translate('Finna - en helhet bestående av söktjänster'));  ?>
+<?php $this->headTitle($this->translate('Finna - en helhet bestående av söktjänster'));
+$this->content()->setHeading($this->translate('Finna - en helhet bestående av söktjänster')); ?>
 <p>Finna är ett hem för miljontals exemplar av kultur- och vetenskapsmaterial i Finland.</p>
 <p>Inhemska aktörer, såsom arkiv, bibliotek och museer, bidrar med unikt innehåll till Finna.</p>
 <p>Nationalbiblioteket administrerar och utvecklar kontinuerligt tjänsten i samarbete med arkiv, bibliotek och museer samt övriga samarbetspartner.</p>
@@ -11,7 +12,7 @@
     <div class="panel-body">
         <h3><a href="https://www.finna.fi">Finna.fi</a></h3>
         <p>I Finna.fi hittar du alla Finna-aktörers material på en och samma plats.</p>
-        <?php if ($template = $this->content()->findTemplateForLng("content/about_finnafi")): ?>
+        <?php if ($template = $this->content()->findTemplateForLng('content/about_finnafi')): ?>
             <p><a class="btn btn-primary" href="<?=$this->url('content-page', ['page' => 'about_finnafi'])?>">Läs mer</a></p>
         <?php endif; ?>
     </div>
@@ -28,7 +29,6 @@
             <li><a href="#thematic"><?=$this->translate('Thematic') ?></a></li>
             <li><a href="#polylib"><?=$this->translate('Polytechnic Libraries') ?></a></li>
             <li><a href="#speciallib"><?=$this->translate('Special libraries') ?></a></li>
-            <li><a href="#jointlib"><?=$this->translate('Joint libraries') ?></a></li>
             <li><a href="#publiclib"><?=$this->translate('Public Libraries') ?></a></li>
             <li><a href="#univlib"><?=$this->translate('University Libraries') ?></a></li>
             <li><a href="#regionallib"><?=$this->translate('Regional views') ?></a></li>

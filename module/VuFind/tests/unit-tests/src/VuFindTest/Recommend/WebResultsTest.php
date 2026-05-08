@@ -1,8 +1,9 @@
 <?php
+
 /**
- * WebResults Test Class
+ * WebResults Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\Recommend;
 
 use VuFind\Recommend\WebResults;
+use VuFindTest\Feature\ConfigRelatedServicesTrait;
 
 /**
- * WebResults Test Class
+ * WebResults Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -40,6 +43,8 @@ use VuFind\Recommend\WebResults;
  */
 class WebResultsTest extends \PHPUnit\Framework\TestCase
 {
+    use ConfigRelatedServicesTrait;
+
     /**
      * Test getting search class id.
      *
@@ -47,13 +52,11 @@ class WebResultsTest extends \PHPUnit\Framework\TestCase
      */
     public function testGetSearchClassId(): void
     {
-        $class = new \ReflectionClass('VuFind\Recommend\WebResults');
+        $class = new \ReflectionClass(WebResults::class);
         $method = $class->getMethod('getSearchClassId');
         $method->setAccessible(true);
-        $runner = $this->getMockBuilder(\VuFind\Search\SearchRunner::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-        $obj = new WebResults($runner);
+        $runner = $this->createMock(\VuFind\Search\SearchRunner::class);
+        $obj = new WebResults($runner, $this->getMockConfigManager());
 
         $this->assertSame('SolrWeb', $method->invoke($obj));
     }

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Summon Controller
+ * Summon Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,13 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
 use Laminas\Mvc\MvcEvent;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 
 /**
- * Summon Controller
+ * Summon Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -42,7 +44,7 @@ use Laminas\ServiceManager\ServiceLocatorInterface;
 class SummonController extends AbstractSearch
 {
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm Service locator
      */
@@ -50,19 +52,6 @@ class SummonController extends AbstractSearch
     {
         $this->searchClassId = 'Summon';
         parent::__construct($sm);
-    }
-
-    /**
-     * Is the result scroller active?
-     *
-     * @return bool
-     */
-    protected function resultScrollerActive()
-    {
-        $config = $this->serviceLocator->get(\VuFind\Config\PluginManager::class)
-            ->get('Summon');
-        return isset($config->Record->next_prev_navigation)
-            && $config->Record->next_prev_navigation;
     }
 
     /**
@@ -81,7 +70,7 @@ class SummonController extends AbstractSearch
     }
 
     /**
-     * Register the default events for this controller
+     * Register the default events for this controller.
      *
      * @return void
      */
@@ -97,7 +86,7 @@ class SummonController extends AbstractSearch
     }
 
     /**
-     * Handle an advanced search
+     * Handle an advanced search.
      *
      * @return mixed
      */
@@ -107,8 +96,8 @@ class SummonController extends AbstractSearch
         $view = parent::advancedAction();
 
         // Set up facet information:
-        $facets = $this->serviceLocator
-            ->get(\VuFind\Search\FacetCache\PluginManager::class)->get('Summon')
+        $facets = $this->getService(\VuFind\Search\FacetCache\PluginManager::class)
+            ->get('Summon')
             ->getList('Advanced');
         $view->facetList = $this->processAdvancedFacets($facets, $view->saved);
         $specialFacets = $this->parseSpecialFacetsSetting(
@@ -127,7 +116,7 @@ class SummonController extends AbstractSearch
     }
 
     /**
-     * Search action -- call standard results action
+     * Search action -- call standard results action.
      *
      * @return mixed
      */
@@ -156,7 +145,8 @@ class SummonController extends AbstractSearch
                 // If we haven't already found a selected facet and the current
                 // facet has been applied to the search, we should store it as
                 // the selected facet for the current control.
-                if ($searchObject
+                if (
+                    $searchObject
                     && $searchObject->getParams()->hasFilter($fullFilter)
                 ) {
                     $facetList[$facet]['list'][$key]['selected'] = true;

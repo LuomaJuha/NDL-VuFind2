@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Video handler class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,15 +17,16 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Video
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Video;
 
 use Finna\Video\Handler\PluginManager as HandlerPluginManager;
@@ -36,42 +38,42 @@ use Finna\Video\Handler\PluginManager as HandlerPluginManager;
  * @package  Video
  * @author   Juha Luoma <juha.luoma@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
 class Video
 {
     use \VuFind\Log\LoggerAwareTrait;
 
     /**
-     * HandlerPluginManager
+     * HandlerPluginManager.
      *
      * @var HandlerPluginManager
      */
     protected $pluginManager;
 
     /**
-     * Data source configuration
+     * Data source configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $config;
 
     /**
      * Constructor.
      *
-     * @param HandlerPluginManager   $pluginManager Instanciated Handler
-     * @param \Laminas\Config\Config $config        Datasource config
+     * @param HandlerPluginManager  $pluginManager Instanciated Handler
+     * @param \VuFind\Config\Config $config        Datasource config
      */
     public function __construct(
         HandlerPluginManager $pluginManager,
-        \Laminas\Config\Config $config
+        \VuFind\Config\Config $config
     ) {
         $this->pluginManager = $pluginManager;
         $this->config = $config;
     }
 
     /**
-     * Get video handler or null if not configured properly
+     * Get video handler or null if not configured properly.
      *
      * @param string $source Datasource
      *
@@ -119,7 +121,7 @@ class Video
      */
     public function isEnabled(string $source): bool
     {
-        return $this->getConfig($source) ? true : false;
+        return (bool)$this->getConfig($source);
     }
 
     /**

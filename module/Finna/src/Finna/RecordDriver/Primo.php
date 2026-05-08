@@ -1,11 +1,12 @@
 <?php
+
 /**
  * Model for Primo Central records.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
- * Copyright (C) The National Library of Finland 2012-2021.
+ * Copyright (C) The National Library of Finland 2012-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -26,9 +27,14 @@
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
+
+use function in_array;
+use function is_array;
+use function strlen;
 
 /**
  * Model for Primo Central records.
@@ -39,12 +45,11 @@ namespace Finna\RecordDriver;
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @author   Aleksi Peebles <aleksi.peebles@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
 class Primo extends \VuFind\RecordDriver\Primo
 {
     use Feature\FinnaRecordTrait;
-    use Feature\FinnaXmlReaderTrait;
 
     /**
      * Indicate whether export is disabled for a particular format.
@@ -58,7 +63,7 @@ class Primo extends \VuFind\RecordDriver\Primo
     public function exportDisabled($format)
     {
         // Support export for EndNote and RefWorks
-        return !in_array($format, ['EndNote', 'RefWorks', 'RIS']);
+        return !in_array($format, ['EndNote', 'RefWorks', 'RIS', 'ZoteroWebLibrary']);
     }
 
     /**
@@ -69,7 +74,8 @@ class Primo extends \VuFind\RecordDriver\Primo
     public function getCitationFormats()
     {
         // Default behavior: use all supported options.
-        if (!isset($this->mainConfig->Record->citation_formats)
+        if (
+            !isset($this->mainConfig->Record->citation_formats)
             || $this->mainConfig->Record->citation_formats === true
             || $this->mainConfig->Record->citation_formats === 'true'
         ) {
@@ -77,7 +83,8 @@ class Primo extends \VuFind\RecordDriver\Primo
         }
 
         // Citations disabled:
-        if ($this->mainConfig->Record->citation_formats === false
+        if (
+            $this->mainConfig->Record->citation_formats === false
             || $this->mainConfig->Record->citation_formats === 'false'
         ) {
             return [];
@@ -89,22 +96,6 @@ class Primo extends \VuFind\RecordDriver\Primo
             explode(',', $this->mainConfig->Record->citation_formats)
         );
         return array_intersect($allowed, $this->getSupportedCitationFormats());
-    }
-
-    /**
-     * Get an array of all the formats associated with the record.
-     *
-     * @return array
-     */
-    public function getFormats()
-    {
-        if (isset($this->fields['format'])) {
-            // No casting since the format may be a TranslatableString object as well
-            return is_array(($this->fields['format']))
-                ? $this->fields['format']
-                : [$this->fields['format']];
-        }
-        return [];
     }
 
     /**
@@ -120,17 +111,20 @@ class Primo extends \VuFind\RecordDriver\Primo
         // Try to take the part after the title. Account for any 'The' etc. in the
         // beginning.
         if ($containerTitle && ($p = strpos($partOf, $containerTitle)) !== false) {
-            return trim(
-                substr($partOf, $p + strlen($containerTitle) + 1),
-                " \t\n\r,"
+            $arrRef = explode(
+                ',',
+                trim(substr($partOf, $p + strlen($containerTitle) + 1), " \t\n\r,")
             );
+            // Remove month & day from date
+            $arrRef[0] = preg_replace('/\b(\d{4})(?:-\d{2}){0,2}\b/', '$1', $arrRef[0]);
+            return implode(',', $arrRef);
         }
         return $partOf;
     }
 
     /**
      * Get an array of strings representing citation formats supported
-     * by this record's data (empty if none).  For possible legal values,
+     * by this record's data (empty if none). For possible legal values,
      * see /application/themes/root/helpers/Citation.php, getCitation()
      * method.
      *
@@ -148,7 +142,7 @@ class Primo extends \VuFind\RecordDriver\Primo
      */
     public function getType()
     {
-        return $this->getXmlRecord()->type ?? null;
+        return $this->fields['format'][0] ?? '';
     }
 
     /**
@@ -168,45 +162,39 @@ class Primo extends \VuFind\RecordDriver\Primo
             return [];
         }
 
-        $urls = [];
-
-        $xml = $this->getXmlRecord();
-
+        $result = [];
         $links = ['linktorsrc' => false, 'backlink' => true];
+
         foreach ($links as $link => $citation) {
-            $url = '';
-            if (isset($xml->links->{$link})) {
-                $url = (string)$xml->links->{$link};
-                $parts = explode('$$', $url);
-                $url = substr($parts[1], 1);
-                $urlParts = parse_url($url);
-                if (empty($urlParts['host'])) {
-                    $url = '';
-                }
-            }
-            if ('' === $url && !empty($this->fields['resource_urls'][$link])) {
-                $url = (string)$this->fields['resource_urls'][$link];
-                $urlParts = parse_url($url);
-            }
-            if (empty($url) || empty($urlParts['host'])) {
+            if (!($urls = $this->fields['resource_urls'][$link] ?? [])) {
                 continue;
             }
-            $urls[] = [
-                'url' => $url,
-                'urlShort' => $urlParts['host'],
-                'citation' => $citation
-            ];
-            break;
+            foreach ((array)$urls as $current) {
+                if (is_array($current)) {
+                    $desc = $current['label'];
+                    $url = $current['url'];
+                } else {
+                    // Old style, could be cached:
+                    $desc = '';
+                    $url = $current;
+                }
+                $result[] = [
+                    'url' => $url,
+                    'urlShort' => parse_url($url, PHP_URL_HOST),
+                    'citation' => $citation,
+                    'desc' => $desc,
+                ];
+            }
         }
 
-        return $urls;
+        return $result;
     }
 
     /**
      * Check if Primo online URLs (local links from record metadata) should be
      * displayed for this record.
      *
-     * @return boolean
+     * @return bool
      */
     protected function showOnlineURLs()
     {
@@ -214,23 +202,19 @@ class Primo extends \VuFind\RecordDriver\Primo
             return true;
         }
 
-        $xml = $this->getXmlRecord();
-        if (!isset($xml->search->sourceid)) {
+        if (empty($this->fields['sourceid'])) {
             return true;
         }
 
         $fulltextAvailable = $this->getFulltextAvailable();
 
         $config = $this->recordConfig->OnlineURLs;
-        $hideFromSource = isset($config->hideFromSource)
-            ? $config->hideFromSource->toArray() : [];
-        $showFromSource = isset($config->showFromSource)
-            ? $config->showFromSource->toArray() : [];
+        $hideFromSource = $config?->hideFromSource?->toArray() ?? [];
+        $showFromSource = $config?->showFromSource?->toArray() ?? [];
 
         if ($fulltextAvailable) {
             if ($config->hideFromSourceWithFulltext) {
-                $hideFromSourceWithFulltext
-                    = $config->hideFromSourceWithFulltext->toArray();
+                $hideFromSourceWithFulltext = $config->hideFromSourceWithFulltext->toArray();
                 if (!is_array($hideFromSourceWithFulltext)) {
                     $hideFromSourceWithFulltext = [$hideFromSourceWithFulltext];
                 }
@@ -241,8 +225,7 @@ class Primo extends \VuFind\RecordDriver\Primo
             }
 
             if ($config->showFromSourceWithFulltext) {
-                $showFromSourceWithFulltext
-                    = $config->showFromSourceWithFulltext->toArray();
+                $showFromSourceWithFulltext = $config->showFromSourceWithFulltext->toArray();
                 if (!is_array($showFromSourceWithFulltext)) {
                     $showFromSourceWithFulltext = [$showFromSourceWithFulltext];
                 }
@@ -257,16 +240,11 @@ class Primo extends \VuFind\RecordDriver\Primo
             return true;
         }
 
-        $source = $xml->search->sourceid;
-
-        if ($showFromSource) {
-            if (!count(array_intersect($showFromSource, ['*', $source]))) {
+        foreach ($this->fields['sourceid'] as $sourceid) {
+            if ($showFromSource && !array_intersect($showFromSource, ['*', $sourceid])) {
                 return false;
             }
-        }
-
-        if ($hideFromSource) {
-            if (count(array_intersect($hideFromSource, ['*', $source]))) {
+            if ($hideFromSource && array_intersect($hideFromSource, ['*', $sourceid])) {
                 return false;
             }
         }
@@ -291,26 +269,28 @@ class Primo extends \VuFind\RecordDriver\Primo
     }
 
     /**
-     * Get the publication dates of the record.  See also getDateSpan().
+     * Get the publication dates of the record. See also getDateSpan().
      *
      * @return array
      */
     public function getPublicationDates()
     {
-        $xml = $this->getXmlRecord();
-        return (array)($xml->facets->creationdate ?? []);
+        $result = [];
+        $dates = (array)($this->fields['date'] ?? []);
+        foreach ($dates as $date) {
+            $result[] = preg_replace('/\b(\d{4})(?:-\d{2}){0,2}\b/', '$1', $date);
+        }
+        return $result;
     }
 
     /**
-     * Return DOI (false if none)
+     * Return DOI (false if none).
      *
      * @return mixed
      */
     public function getCleanDOI()
     {
-        $xml = $this->getXmlRecord();
-        return isset($xml->addata->doi)
-            ? (string)$xml->addata->doi : false;
+        return $this->fields['doi_str_mv'][0] ?? '';
     }
 
     /**
@@ -330,7 +310,7 @@ class Primo extends \VuFind\RecordDriver\Primo
     }
 
     /**
-     * Get primary author information with highlights applied (if applicable)
+     * Get primary author information with highlights applied (if applicable).
      *
      * @return array
      */
@@ -339,7 +319,8 @@ class Primo extends \VuFind\RecordDriver\Primo
         $authors = $this->getCreators();
         // Don't check for highlighted values if highlighting is disabled or we
         // don't have highlighting data:
-        if (!$this->highlight || !isset($this->fields['highlightDetails']['author'])
+        if (
+            !$this->highlight || !isset($this->fields['highlightDetails']['author'])
         ) {
             return $authors;
         }
@@ -393,7 +374,7 @@ class Primo extends \VuFind\RecordDriver\Primo
      */
     public function getRecordFormat()
     {
-        return $this->fields['format'];
+        return 'primo';
     }
 
     /**
@@ -407,17 +388,13 @@ class Primo extends \VuFind\RecordDriver\Primo
     }
 
     /**
-     * Return information whether fulltext is available
+     * Return information whether fulltext is available.
      *
      * @return bool
      */
     public function getFulltextAvailable()
     {
-        $xml = $this->getXmlRecord();
-        if (isset($xml->delivery->fulltext)) {
-            return $xml->delivery->fulltext == 'fulltext';
-        }
-        return false;
+        return 'fulltext' === $this->fields['fulltext'];
     }
 
     /**
@@ -462,11 +439,7 @@ class Primo extends \VuFind\RecordDriver\Primo
      */
     public function getPeerReviewed()
     {
-        $xml = $this->getXmlRecord();
-        if (isset($xml->display->lds50)) {
-            return ((string)$xml->display->lds50) === 'peer_reviewed';
-        }
-        return false;
+        return $this->fields['peer_reviewed'] ?? false;
     }
 
     /**
@@ -476,11 +449,7 @@ class Primo extends \VuFind\RecordDriver\Primo
      */
     public function getOpenAccess()
     {
-        $xml = $this->getXmlRecord();
-        if (isset($xml->display->oa)) {
-            return ((string)$xml->display->oa) === 'free_for_read';
-        }
-        return false;
+        return $this->fields['open_access'] ?? false;
     }
 
     /**
@@ -518,7 +487,7 @@ class Primo extends \VuFind\RecordDriver\Primo
 
         $params = [];
         // Take params from the OpenURL returned from Primo, if available
-        if ($link && strpos($link, 'url_ver=Z39.88-2004') !== false) {
+        if ($link && str_contains($link, 'url_ver=Z39.88-2004')) {
             parse_str(substr($link, strpos($link, '?') + 1), $params);
             $params = $this->processOpenUrlParams($params);
         }
@@ -538,7 +507,7 @@ class Primo extends \VuFind\RecordDriver\Primo
 
     /**
      * Utility function for processing OpenURL parameters.
-     * This duplicates 'rft_<param>' prefixed parameters as 'rft.<param>'
+     * This duplicates 'rft_<param>' prefixed parameters as 'rft.<param>'.
      *
      * @param array $params OpenURL parameters as key-value pairs
      *
@@ -547,7 +516,7 @@ class Primo extends \VuFind\RecordDriver\Primo
     protected function processOpenUrlParams($params)
     {
         foreach ($params as $key => $val) {
-            if (strpos($key, 'rft_') === 0) {
+            if (str_starts_with($key, 'rft_')) {
                 $params['rft.' . substr($key, 4)] = $val;
             }
         }

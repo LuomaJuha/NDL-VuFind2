@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Solr Search Parameters
+ * Solr Search Parameters.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2016.
+ * Copyright (C) The National Library of Finland 2015-2023.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Solr
@@ -26,12 +27,20 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\Solr;
 
+use VuFind\Config\Config;
+use VuFind\Config\ConfigManagerInterface;
 use VuFind\Solr\Utils;
 
+use function in_array;
+use function is_array;
+use function is_callable;
+use function strlen;
+
 /**
- * Solr Search Parameters
+ * Solr Search Parameters.
  *
  * @category VuFind
  * @package  Search_Solr
@@ -42,50 +51,37 @@ use VuFind\Solr\Utils;
  */
 class Params extends \VuFind\Search\Solr\Params
 {
+    use \Finna\Search\DateRangeFilterTrait;
     use \Finna\Search\FinnaParams;
     use ParamsSharedTrait;
 
     /**
-     * Date converter
+     * Maximum facet limit.
+     *
+     * @var int
+     */
+    public const MAX_FACET_LIMIT = 100;
+
+    /**
+     * Date converter.
      *
      * @var \Vufind\Date\Converter
      */
     protected $dateConverter;
 
     /**
-     * New items facet configuration
+     * New items facet configuration.
      *
      * @var array
      */
     protected $newItemsFacets = [];
 
     /**
-     * Query debug flag
+     * Query debug flag.
      *
      * @var bool
      */
     protected $debugQuery = false;
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @var bool
-     */
-    protected $checkboxFacetCounts = false;
-
-    // Date range index field (VuFind1)
-    public const SPATIAL_DATERANGE_FIELD_VF1 = 'search_sdaterange_mv';
-    public const SPATIAL_DATERANGE_FIELD_TYPE_VF1 = 'search_sdaterange_mvtype';
-
-    // Default daterange type value
-    public const DATERANGE_DEFAULT_TYPE = 'overlap';
-
-    /**
-     * Hierarchical facet limit when facets are requested.
-     *
-     * @var int|null
-     */
-    protected $hierarchicalFacetLimit = null;
 
     /**
      * Helper for formatting authority id filter display texts.
@@ -102,33 +98,32 @@ class Params extends \VuFind\Search\Solr\Params
     protected $facetFilters = [];
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFind\Search\Base\Options  $options         Options to use
-     * @param \VuFind\Config\PluginManager $configLoader    Config loader
-     * @param HierarchicalFacetHelper      $facetHelper     Hierarchical
-     * facet helper
-     * @param AuthorityHelper              $authorityHelper Authority helper
-     * @param \VuFind\Date\Converter       $dateConverter   Date converter
+     * @param \VuFind\Search\Base\Options $options         Options to use
+     * @param ConfigManagerInterface      $configManager   Config manager
+     * @param HierarchicalFacetHelper     $facetHelper     Hierarchical
+     *                                                     facet helper
+     * @param AuthorityHelper             $authorityHelper Authority helper
+     * @param \VuFind\Date\Converter      $dateConverter   Date converter
      */
     public function __construct(
         $options,
-        \VuFind\Config\PluginManager $configLoader,
+        ConfigManagerInterface $configManager,
         HierarchicalFacetHelper $facetHelper,
         AuthorityHelper $authorityHelper,
         \VuFind\Date\Converter $dateConverter
     ) {
-        parent::__construct($options, $configLoader, $facetHelper);
+        parent::__construct($options, $configManager, $facetHelper);
 
         $this->dateConverter = $dateConverter;
-        $config = $configLoader->get($options->getFacetsIni());
+        $this->authorityHelper = $authorityHelper;
 
         // New items facets
-        if (isset($config->SpecialFacets->newItems)) {
-            $this->newItemsFacets = $config->SpecialFacets->newItems->toArray();
+        $facetConfig = $configManager->getConfigArray($options->getFacetsIni());
+        if ($newItems = $facetConfig['SpecialFacets']['newItems'] ?? null) {
+            $this->newItemsFacets = $newItems;
         }
-
-        $this->authorityHelper = $authorityHelper;
     }
 
     /**
@@ -146,9 +141,9 @@ class Params extends \VuFind\Search\Solr\Params
             return;
         }
         // Convert any VuFind 1 spatial date range filter
-        if (isset($this->filterList[self::SPATIAL_DATERANGE_FIELD_VF1])) {
-            $dateRangeFilters = $this->filterList[self::SPATIAL_DATERANGE_FIELD_VF1];
-            unset($this->filterList[self::SPATIAL_DATERANGE_FIELD_VF1]);
+        if (isset($this->filterList[$this->spatialDateRangeFieldVF1])) {
+            $dateRangeFilters = $this->filterList[$this->spatialDateRangeFieldVF1];
+            unset($this->filterList[$this->spatialDateRangeFieldVF1]);
 
             foreach ($dateRangeFilters as $filter) {
                 if ($range = $this->parseDateRangeFilter($filter)) {
@@ -163,47 +158,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Does the object already contain the specified filter?
-     *
-     * @param string $filter A filter string from url : "field:value"
-     *
-     * @return void
-     */
-    public function addFilter($filter)
-    {
-        // Extract field and value from URL string:
-        [$field, $value] = $this->parseFilter($filter);
-
-        if ($field == $this->getDateRangeSearchField()
-            || $field == self::SPATIAL_DATERANGE_FIELD_VF1
-        ) {
-            // Date range filters are processed
-            // separately (see initSpatialDateRangeFilter)
-            return;
-        }
-        parent::addFilter($filter);
-    }
-
-    /**
-     * Return current date range filter.
-     *
-     * @return mixed false|array Filter
-     */
-    public function getDateRangeFilter()
-    {
-        $filterList = $this->getFilterList();
-        foreach ($filterList as $facet => $filters) {
-            foreach ($filters as $filter) {
-                if ($this->isDateRangeFilter($filter['field'])) {
-                    return $filter;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Format a Solr date for display
+     * Format a Solr date for display.
      *
      * @param string $date   Date
      * @param string $domain Translation domain
@@ -218,43 +173,14 @@ class Params extends \VuFind\Search\Solr\Params
         if (preg_match('/^NOW-(\w+)/', $date, $matches)) {
             return [
                 $this->translate("$domain::new_items_" . strtolower($matches[1])),
-                false
+                false,
             ];
         }
         $date = substr($date, 0, 10);
         return [
             $this->dateConverter->convertToDisplayDate('Y-m-d', $date),
-            true
+            true,
         ];
-    }
-
-    /**
-     * Return the current filters as an array of strings ['field:filter']
-     *
-     * @return array $filterQuery
-     */
-    public function getFilterSettings()
-    {
-        $result = parent::getFilterSettings();
-
-        // Special processing for date range filters
-        $dateRangeField = $this->getDateRangeSearchField();
-        if ($dateRangeField) {
-            foreach ($result as &$filter) {
-                $dateRange = strncmp(
-                    $filter,
-                    "$dateRangeField:",
-                    strlen($dateRangeField) + 1
-                ) == 0;
-                if ($dateRange) {
-                    [$field, $value] = $this->parseFilter($filter);
-                    [$op, $range] = explode('|', $value);
-                    $op = $op == 'within' ? 'Within' : 'Intersects';
-                    $filter = "{!field f=$dateRangeField op=$op}$range";
-                }
-            }
-        }
-        return $result;
     }
 
     /**
@@ -294,37 +220,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Return current facet configurations.
-     * Add checkbox facets to list.
-     *
-     * @return array $facetSet
-     */
-    public function getFacetSettings()
-    {
-        $facetSet = parent::getFacetSettings();
-        if (!empty($facetSet)
-            && null !== $this->hierarchicalFacetLimit
-            && $this->facetLimit !== $this->hierarchicalFacetLimit
-        ) {
-            $hierarchicalFacets = $this->getOptions()->getHierarchicalFacets();
-            foreach ($hierarchicalFacets as $field) {
-                $facetSet["f.{$field}.facet.limit"] = $this->hierarchicalFacetLimit;
-            }
-        }
-
-        // For checkbox counts
-        if ($this->checkboxFacetCounts && !empty($this->checkboxFacets)) {
-            foreach (array_keys($this->checkboxFacets) as $facetField) {
-                $facetField = '{!ex=' . $facetField . '_filter}' . $facetField;
-                $facetSet['field'][] = $facetField;
-            }
-        }
-
-        return $facetSet;
-    }
-
-    /**
-     * Pull the search parameters
+     * Pull the search parameters.
      *
      * @param \Laminas\Stdlib\Parameters $request Parameter object representing user
      * request.
@@ -360,7 +256,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Initialize coordinate filter (coordinates, VuFind1)
+     * Initialize coordinate filter (coordinates, VuFind1).
      *
      * @param \Laminas\Stdlib\Parameters $request Parameter object representing user
      * request.
@@ -392,79 +288,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Initialize date range filter (search_daterange_mv)
-     *
-     * @param \Laminas\Stdlib\Parameters $request Parameter object representing user
-     * request.
-     *
-     * @return void
-     */
-    public function initSpatialDateRangeFilter($request)
-    {
-        $dateRangeField = $this->getDateRangeSearchField();
-        if (!$dateRangeField) {
-            return;
-        }
-        $type = $request->get("{$dateRangeField}_type");
-        if (!$type) {
-            // VuFind 1
-            $type = $request->get(self::SPATIAL_DATERANGE_FIELD_TYPE_VF1);
-        }
-        if (!$type) {
-            $type = self::DATERANGE_DEFAULT_TYPE;
-        }
-
-        $from = $to = null;
-        $found = false;
-        // Date range filter
-        if (($reqFilters = $request->get('filter')) && is_array($reqFilters)) {
-            foreach ($reqFilters as $f) {
-                [$field, $value] = $this->parseFilter($f);
-                if ($field == $dateRangeField
-                    || $field == self::SPATIAL_DATERANGE_FIELD_VF1
-                ) {
-                    if ($range = $this->parseDateRangeFilter($f)) {
-                        $from = $range['from'];
-                        $to = $range['to'];
-                        if (isset($range['type'])
-                            && $range['type'] !== self::DATERANGE_DEFAULT_TYPE
-                        ) {
-                            $type = $range['type'];
-                        }
-                        $found = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Uninitialized VuFind1 date range query
-        if (!$found && $request->get('sdaterange')) {
-            // Search for VuFind1 search_sdaterange_mvfrom, search_sdaterange_mvto
-            $from = $request->get('search_sdaterange_mvfrom');
-            $to = $request->get('search_sdaterange_mvto');
-            if (!empty($from) || !empty($to)) {
-                if (empty($from)) {
-                    $from = -9999;
-                }
-                if (empty($to)) {
-                    $to = 9999;
-                }
-                $found = true;
-            }
-        }
-
-        if (!$found) {
-            return;
-        }
-
-        // Add filter. The final Solr filter is constructed in getFilterSettings.
-        $filter = "$dateRangeField:$type|[$from TO $to]";
-        parent::addFilter($filter);
-    }
-
-    /**
-     * Get query debug flag status
+     * Get query debug flag status.
      *
      * @return bool
      */
@@ -474,7 +298,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Enable or disable query debugging
+     * Enable or disable query debugging.
      *
      * @param bool $value Whether to enable debugging
      *
@@ -486,29 +310,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Whether to request checkbox facet counts
-     *
-     * @return bool
-     */
-    public function getCheckboxFacetCounts()
-    {
-        return $this->checkboxFacetCounts;
-    }
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @param bool $value Enable or disable
-     *
-     * @return void
-     */
-    public function setCheckboxFacetCounts($value)
-    {
-        $this->checkboxFacetCounts = $value;
-    }
-
-    /**
-     * Remove all hidden filters
+     * Remove all hidden filters.
      *
      * @return void
      */
@@ -518,7 +320,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Get current limit for hierarchical facets
+     * Get current limit for hierarchical facets.
      *
      * @return int
      */
@@ -528,7 +330,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Set limit for hierarchical facets
+     * Set limit for hierarchical facets.
      *
      * @param int $limit New limit
      *
@@ -555,25 +357,26 @@ class Params extends \VuFind\Search\Solr\Params
     /**
      * Return active author id filters.
      *
-     * @param boolean $includeRole Return role with author id
+     * @param bool $includeRole Return role with author id
      *
      * @return mixed null|array
      */
     public function getAuthorIdFilter($includeRole = false)
     {
         $result = [];
-        foreach ($this->getFilterList() as $key => $val) {
+        foreach ($this->getFilterList() as $val) {
             foreach ($val as $filterItem) {
                 $filter = $filterItem['value'] ?? null;
                 if (!$filter) {
                     continue;
                 }
                 $field = $filterItem['field'];
-                if (in_array(
-                    $field,
-                    [AuthorityHelper::AUTHOR2_ID_FACET,
-                     AuthorityHelper::TOPIC_ID_FACET]
-                )
+                if (
+                    in_array(
+                        $field,
+                        [AuthorityHelper::AUTHOR2_ID_FACET,
+                        AuthorityHelper::TOPIC_ID_FACET]
+                    )
                 ) {
                     // Author id filter
                     $result[] = $filter;
@@ -604,10 +407,12 @@ class Params extends \VuFind\Search\Solr\Params
      */
     protected function formatFilterListEntry($field, $value, $operator, $translate)
     {
-        if (!in_array($field, $this->newItemsFacets)
+        if (
+            !in_array($field, $this->newItemsFacets)
             || !($range = Utils::parseRange($value))
         ) {
-            if ($translate
+            if (
+                $translate
                 && in_array($field, $this->getOptions()->getHierarchicalFacets())
             ) {
                 return $this->translateHierarchicalFacetFilter(
@@ -665,38 +470,38 @@ class Params extends \VuFind\Search\Solr\Params
     /**
      * Get a user-friendly string to describe the provided facet field.
      *
-     * @param string $field   Facet field name.
-     * @param string $value   Facet value.
-     * @param string $default Default field name (null for default behavior).
+     * @param string $field               Facet field name.
+     * @param string $value               Facet value.
+     * @param string $default             Default field name (null for default behavior).
+     * @param bool   $allowCheckboxFacets Should checkbox facet labels be allowed too?
      *
-     * @return string         Human-readable description of field.
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @return string Human-readable description of field.
      */
-    public function getFacetLabel($field, $value = null, $default = null)
+    public function getFacetLabel($field, $value = null, $default = null, $allowCheckboxFacets = true)
     {
         if ($field === AuthorityHelper::AUTHOR2_ID_FACET) {
             return 'authority_id_label';
         }
-        if (strpos($field, '{!geofilt ') === 0) {
+        if (str_starts_with($field, '{!geofilt ')) {
             return 'Geographical Area';
         }
-        return parent::getFacetLabel($field, $value, $default);
+        return parent::getFacetLabel($field, $value, $default, $allowCheckboxFacets);
     }
 
     /**
      * Is author id filter active?
      *
-     * @return boolean
+     * @return bool
      */
     public function hasAuthorIdFilter()
     {
-        foreach ($this->getFilterList() as $field => $facets) {
+        foreach ($this->getFilterList() as $facets) {
             foreach ($facets as $facet) {
-                if (in_array(
-                    $facet['field'],
-                    $this->authorityHelper->getAuthorIdFacets()
-                )
+                if (
+                    in_array(
+                        $facet['field'],
+                        $this->authorityHelper->getAuthorIdFacets()
+                    )
                 ) {
                     return true;
                 }
@@ -722,7 +527,7 @@ class Params extends \VuFind\Search\Solr\Params
     }
 
     /**
-     * Initialize new items filter (first_indexed)
+     * Initialize new items filter (first_indexed and other configured ones).
      *
      * @param \Laminas\Stdlib\Parameters $request Parameter object representing user
      * request.
@@ -731,16 +536,49 @@ class Params extends \VuFind\Search\Solr\Params
      */
     protected function initNewItemsFilter($request)
     {
-        // first_indexed filter automatically included, no query param required
-        // (compatible with Finna 1 implementation)
-        $from = $request->get('first_indexedfrom', '');
-        $from = $this->formatDateForFullDateRange($from);
+        // first_indexed filter automatically included (compatible with Finna 1 implementation)
+        foreach (array_unique([...$this->newItemsFacets, 'first_indexed']) as $field) {
+            $queryField = $field . 'from';
+            $from = $request->get($queryField, '');
+            $from = $this->formatDateForFullDateRange($from);
 
-        if ($from != '*') {
-            $rangeFacet
-                = $this->buildFullDateRangeFilter('first_indexed', $from, '*');
-            $this->addFilter($rangeFacet);
+            if ($from != '*') {
+                $this->addFilter($this->buildFullDateRangeFilter($field, $from, '*'));
+            }
         }
+    }
+
+    /**
+     * Initialize facet limit from a Config object.
+     *
+     * @param ?Config $config Configuration
+     *
+     * @return void
+     */
+    protected function initFacetLimitsFromConfig(?Config $config = null)
+    {
+        parent::initFacetLimitsFromConfig($config);
+        $this->constrainFacetLimits();
+    }
+
+    /**
+     * Constrain facet limits to 1-100 (or -1 for full facet list in advanced
+     * search).
+     *
+     * @return void
+     */
+    protected function constrainFacetLimits(): void
+    {
+        if (-1 !== (int)$this->facetLimit) {
+            $this->facetLimit
+                = max(min((int)$this->facetLimit, static::MAX_FACET_LIMIT), 1);
+        }
+        foreach ($this->facetLimitByField as &$value) {
+            if (-1 !== (int)$value) {
+                $value = max(min((int)$value, static::MAX_FACET_LIMIT), 1);
+            }
+        }
+        unset($value);
     }
 
     /**
@@ -754,6 +592,17 @@ class Params extends \VuFind\Search\Solr\Params
      */
     public function setSort($sort, $force = false)
     {
+        // We used to include the tie breaker in all sort options, so strip it out before doing anything else so that
+        // any saved searches or links containing it still work properly and display the correct value:
+        if (
+            $sort
+            && is_callable([$this->getOptions(), 'getSortTieBreaker'])
+            && ($tieBreaker = $this->getOptions()->getSortTieBreaker())
+        ) {
+            if (str_ends_with($sort, ",$tieBreaker")) {
+                $sort = substr($sort, 0, -strlen($tieBreaker) - 1);
+            }
+        }
         if (!$force) {
             // Check if we need to convert the sort to a currently valid option
             // (it must be a prefix of a currently valid option):
@@ -761,7 +610,8 @@ class Params extends \VuFind\Search\Solr\Params
             if (!empty($sort) && !in_array($sort, $validOptions)) {
                 $sortLen = strlen($sort);
                 foreach ($validOptions as $valid) {
-                    if (strlen($valid) > $sortLen
+                    if (
+                        strlen($valid) > $sortLen
                         && strncmp($sort, $valid, $sortLen) === 0
                     ) {
                         $sort = $valid;

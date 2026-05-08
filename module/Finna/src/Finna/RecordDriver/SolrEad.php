@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Model for EAD records in Solr.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2012-2020.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
@@ -26,9 +27,14 @@
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Konsta Raunio <konsta.raunio@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
+
+use function count;
+use function in_array;
+use function is_array;
 
 /**
  * Model for EAD records in Solr.
@@ -43,12 +49,13 @@ namespace Finna\RecordDriver;
  * @author   Luke O'Sullivan <l.osullivan@swansea.ac.uk>
  * @author   Lutz Biedinger <lutz.Biedinger@gmail.com>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
-class SolrEad extends SolrDefault
-    implements \Laminas\Log\LoggerAwareInterface
+class SolrEad extends SolrDefault implements \Psr\Log\LoggerAwareInterface
 {
-    use Feature\SolrFinnaTrait;
+    use Feature\SolrFinnaTrait {
+        getSupportedCitationFormats as getSupportedCitationFormatsFinna;
+    }
     use Feature\FinnaXmlReaderTrait;
     use Feature\FinnaUrlCheckTrait;
     use \VuFind\Log\LoggerAwareTrait;
@@ -60,13 +67,13 @@ class SolrEad extends SolrDefault
     public const FILE_LEVELS = ['file'];
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \Laminas\Config\Config $mainConfig     VuFind main configuration (omit
+     * @param \VuFind\Config\Config $mainConfig     VuFind main configuration (omit
      * for built-in defaults)
-     * @param \Laminas\Config\Config $recordConfig   Record-specific configuration
+     * @param \VuFind\Config\Config $recordConfig   Record-specific configuration
      * file (omit to use $mainConfig as $recordConfig)
-     * @param \Laminas\Config\Config $searchSettings Search-specific configuration
+     * @param \VuFind\Config\Config $searchSettings Search-specific configuration
      * file
      */
     public function __construct(
@@ -85,13 +92,8 @@ class SolrEad extends SolrDefault
      */
     public function getAccessRestrictions()
     {
-        $origination = $this->getOrigination();
         $record = $this->getXmlRecord();
-        if ($origination == 'Kotimaisten kielten keskus') {
-            return $record->userestrict->p ?? [];
-        } else {
-            return $record->accessrestrict->p ?? [];
-        }
+        return $record->userestrict->p ?? $record->accessrestrict->p ?? [];
     }
 
     /**
@@ -156,15 +158,15 @@ class SolrEad extends SolrDefault
                 $role = (string)$attributes->role;
                 $size = '';
                 switch ($role) {
-                case 'image_thumbnail':
-                    $size = 'small';
-                    break;
-                case 'image_reference':
-                    $size = 'medium';
-                    break;
-                case 'image_full':
-                    $size = 'large';
-                    break;
+                    case 'image_thumbnail':
+                        $size = 'small';
+                        break;
+                    case 'image_reference':
+                        $size = 'medium';
+                        break;
+                    case 'image_full':
+                        $size = 'large';
+                        break;
                 }
                 if (!$size || !$this->isUrlLoadable($url, $this->getUniqueID())) {
                     continue;
@@ -185,18 +187,17 @@ class SolrEad extends SolrDefault
                     ?? $urls['small'];
             }
 
-            if (isset($daogrp->dapdesc->p) && $daogrp->dapdesc->p != 'Fotografi') {
-                $description = $daogrp->dapdesc->p;
-            } else {
-                $description = '';
+            $description = isset($daogrp->dapdesc->p) && $daogrp->dapdesc->p != 'Fotografi' ? $daogrp->dapdesc->p : '';
+            if (!$this->maxAmountOfImages()) {
+                $image = [
+                    'urls' => $urls,
+                    'description' => (string)$description,
+                    'rights' => $rights,
+                ];
+                $image['downloadable'] = $this->allowRecordImageDownload($image);
+                $result[] = $image;
             }
-            $image = [
-                'urls' => $urls,
-                'description' => (string)$description,
-                'rights' => $rights,
-            ];
-            $image['downloadable'] = $this->allowRecordImageDownload($image);
-            $result[] = $image;
+            $this->imagesCount++;
         }
 
         $this->cache[$cacheKey] = $result;
@@ -243,7 +244,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get identifier
+     * Get identifier.
      *
      * @return array
      */
@@ -283,18 +284,17 @@ class SolrEad extends SolrDefault
             }
         }
 
-        $parts = explode('_', $language);
-        $language = $parts[0];
+        [$language] = explode('-', $language);
         switch ($language) {
-        case 'fi':
-            $language = 'fin';
-            break;
-        case 'sv':
-            $language = 'swe';
-            break;
-        case 'en':
-            $language = 'eng';
-            break;
+            case 'fi':
+                $language = 'fin';
+                break;
+            case 'sv':
+                $language = 'swe';
+                break;
+            case 'en':
+                $language = 'eng';
+                break;
         }
 
         $desc = $this->getAccessRestrictions();
@@ -321,7 +321,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get origination
+     * Get origination.
      *
      * @return string
      */
@@ -332,7 +332,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get all originations
+     * Get all originations.
      *
      * @return array
      */
@@ -347,7 +347,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get extended origination
+     * Get extended origination.
      *
      * @return array
      */
@@ -362,7 +362,7 @@ class SolrEad extends SolrDefault
             if ($name) {
                 $result[] = [
                     'name' => $name,
-                    'date' => (string)($origination->ref->date ?? '')
+                    'date' => (string)($origination->ref->date ?? ''),
                 ];
             }
         }
@@ -370,7 +370,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get origination Id
+     * Get origination Id.
      *
      * @return string
      */
@@ -415,7 +415,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get an array of external service URLs
+     * Get an array of external service URLs.
      *
      * @return array Array of urls with 'url' and 'desc' keys
      */
@@ -424,7 +424,8 @@ class SolrEad extends SolrDefault
         $urls = [];
         $source = $this->getDataSource();
         $config = $this->recordConfig->Record;
-        if (isset($config->ead_document_order_link_template[$source])
+        if (
+            isset($config->ead_document_order_link_template[$source])
             && !$this->isDigitized()
             && in_array('1/Document/ArchiveItem/', $this->getFormats())
         ) {
@@ -432,17 +433,18 @@ class SolrEad extends SolrDefault
                 'url' => $this->replaceURLPlaceholders(
                     $config->ead_document_order_link_template[$source]
                 ),
-                'desc' => 'ead_document_order'
+                'desc' => 'ead_document_order',
             ];
         }
-        if (isset($config->ead_usage_permission_request_link_template[$source])
+        if (
+            isset($config->ead_usage_permission_request_link_template[$source])
             && $this->getAccessRestrictions()
         ) {
             $urls[] = [
                 'url' => $this->replaceURLPlaceholders(
                     $config->ead_usage_permission_request_link_template[$source]
                 ),
-                'desc' => 'ead_usage_permission_request'
+                'desc' => 'ead_usage_permission_request',
             ];
         }
         if (isset($config->ead_external_link_template[$source])) {
@@ -450,7 +452,7 @@ class SolrEad extends SolrDefault
                 'url' => $this->replaceURLPlaceholders(
                     $config->ead_external_link_template[$source]
                 ),
-                'desc' => 'ead_external_link_description'
+                'desc' => 'ead_external_link_description',
             ];
         }
         return $urls;
@@ -468,7 +470,8 @@ class SolrEad extends SolrDefault
         // schema, but we might as well support the array case just to be on the safe
         // side. If needed, handle a special case where the indexed description
         // consists of several joined paragraphs:
-        if (isset($this->fields['description'])
+        if (
+            isset($this->fields['description'])
             && !empty($this->fields['description'])
         ) {
             return is_array($this->fields['description'])
@@ -481,7 +484,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get unit ID (for reference)
+     * Get unit ID (for reference).
      *
      * @return string Unit ID
      */
@@ -510,6 +513,9 @@ class SolrEad extends SolrDefault
      */
     public function getURLs()
     {
+        if (isset($this->cache[__FUNCTION__])) {
+            return $this->cache[__FUNCTION__];
+        }
         $urls = [];
         $url = '';
         $record = $this->getXmlRecord();
@@ -525,11 +531,7 @@ class SolrEad extends SolrDefault
 
             $desc = '';
             if ($node->daodesc) {
-                if ($node->daodesc->p) {
-                    $desc = (string)$node->daodesc->p;
-                } else {
-                    $desc = (string)$node->daodesc;
-                }
+                $desc = $node->daodesc->p ? (string)$node->daodesc->p : (string)$node->daodesc;
             } else {
                 if ($p = $node->xpath('parent::*/daodesc/p')) {
                     $desc = (string)$p[0];
@@ -537,10 +539,13 @@ class SolrEad extends SolrDefault
             }
             $desc = empty($desc) ? $url : $desc;
             if (!$this->urlBlocked($url, $desc)) {
-                $urls[] = [
-                    'url' => $url,
-                    'desc' => $desc
-                ];
+                if (!$this->maxAmountOfURLs()) {
+                    $urls[] = [
+                        'url' => $url,
+                        'desc' => $desc,
+                    ];
+                }
+                $this->urlsCount++;
             }
         }
 
@@ -552,18 +557,21 @@ class SolrEad extends SolrDefault
                 $matches
             );
             if ($match && !$this->urlBlocked($matches[2], $matches[1])) {
-                $urls[] = [
-                    'url' => $matches[2],
-                    'desc' => $matches[1]
-                ];
+                if (!$this->maxAmountOfURLs()) {
+                    $urls[] = [
+                        'url' => $matches[2],
+                        'desc' => $matches[1],
+                    ];
+                }
+                $this->urlsCount++;
             }
         }
-        $urls = $this->resolveUrlTypes($urls);
-        return $urls;
+        $this->cache[__FUNCTION__] = $this->resolveUrlTypes($urls);
+        return $this->cache[__FUNCTION__];
     }
 
     /**
-     * Get the value of whether or not this is a collection level record
+     * Get the value of whether or not this is a collection level record.
      *
      * NOTE: \VuFind\Hierarchy\TreeDataFormatter\AbstractBase::isCollection()
      * duplicates some of this logic.
@@ -583,7 +591,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Check if the record is a fonds or a collection by format
+     * Check if the record is a fonds or a collection by format.
      *
      * @return bool
      */
@@ -600,12 +608,12 @@ class SolrEad extends SolrDefault
     /**
      * Check if record is digitized.
      *
-     * @return boolean True if the record is digitized
+     * @return bool True if the record is digitized
      */
     public function isDigitized()
     {
         $record = $this->getXmlRecord();
-        return $record->did->daogrp ? true : false;
+        return (bool)$record->did->daogrp;
     }
 
     /**
@@ -626,7 +634,24 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get parent archives
+     * Get an array of strings representing citation formats supported
+     * by this record's data (empty if none).  For possible legal values,
+     * see /application/themes/root/helpers/Citation.php, getCitation()
+     * method.
+     *
+     * @return array Strings representing citation formats.
+     */
+    protected function getSupportedCitationFormats()
+    {
+        $supportedFormats = $this->getSupportedCitationFormatsFinna();
+        if (isset($this->fields['hierarchy_top_id'])) {
+            $supportedFormats[] = 'Archive';
+        }
+        return $supportedFormats;
+    }
+
+    /**
+     * Get parent archives.
      *
      * @return array
      */
@@ -647,7 +672,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get parent series
+     * Get parent series.
      *
      * @return array
      */
@@ -664,7 +689,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Get parent files
+     * Get parent files.
      *
      * @return array
      */
@@ -687,7 +712,7 @@ class SolrEad extends SolrDefault
      *
      * @return array
      */
-    public function getHierarchyParentID(array $levels = []) : array
+    public function getHierarchyParentID(array $levels = []): array
     {
         if ($levels && !empty(array_diff($levels, self::SERIES_LEVELS))) {
             return [];
@@ -702,7 +727,7 @@ class SolrEad extends SolrDefault
      *
      * @return array
      */
-    public function getHierarchyParentTitle(array $levels = []) : array
+    public function getHierarchyParentTitle(array $levels = []): array
     {
         if ($levels && !empty(array_diff($levels, self::SERIES_LEVELS))) {
             return [];
@@ -715,7 +740,7 @@ class SolrEad extends SolrDefault
      *
      * @param mixed $data Raw data representing the record; Record Model
      * objects are normally constructed by Record Driver objects using data
-     * passed in from a Search Results object.  The exact nature of the data may
+     * passed in from a Search Results object. The exact nature of the data may
      * vary depending on the data source -- the important thing is that the
      * Record Driver + Search Results objects work together correctly.
      *
@@ -755,8 +780,9 @@ class SolrEad extends SolrDefault
         // Get unit id for comparison with it:
         $unitId = '';
         foreach ($xml->did->unitid ?? [] as $id) {
-            if ('Analoginen' === (string)$id['label']) {
-                $unitId = (string)$id . ' ';
+            $checkedId = (string)$id . ' ';
+            if (str_starts_with($mainTitle, \Normalizer::normalize($checkedId, \Normalizer::FORM_KC))) {
+                $unitId = $checkedId;
                 break;
             }
         }
@@ -770,7 +796,8 @@ class SolrEad extends SolrDefault
             // information appended to it:
             $len = mb_strlen($normalized, 'UTF-8');
             $lenId = mb_strlen($normalizedWithId, 'UTF-8');
-            if (mb_substr($mainTitle, 0, $len, 'UTF-8') !== $normalized
+            if (
+                mb_substr($mainTitle, 0, $len, 'UTF-8') !== $normalized
                 && mb_substr($mainTitle, 0, $lenId, 'UTF-8') !== $normalizedWithId
             ) {
                 $results[] = $title;
@@ -802,7 +829,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Replace placeholders in the URL with the values from the record
+     * Replace placeholders in the URL with the values from the record.
      *
      * @param string $url URL
      *
@@ -817,7 +844,7 @@ class SolrEad extends SolrDefault
             [
                 '{id}',
                 '{originationId}',
-                '{nonPrefixedOriginationId}'
+                '{nonPrefixedOriginationId}',
             ],
             [
                 urlencode($id),
@@ -830,7 +857,7 @@ class SolrEad extends SolrDefault
     }
 
     /**
-     * Build a record array for hierarchy display
+     * Build a record array for hierarchy display.
      *
      * @param array $ids    Record IDs
      * @param array $titles Record titles

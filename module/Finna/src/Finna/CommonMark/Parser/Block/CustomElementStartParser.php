@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Custom element block start parser
+ * Custom element block start parser.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  CommonMark
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\CommonMark\Parser\Block;
 
 use Finna\CommonMark\Node\Block\CustomElement;
@@ -34,8 +36,11 @@ use League\CommonMark\Parser\Cursor;
 use League\CommonMark\Parser\MarkdownParserStateInterface;
 use League\CommonMark\Util\RegexHelper;
 
+use function in_array;
+use function strlen;
+
 /**
- * Custom element block start parser
+ * Custom element block start parser.
  *
  * @category VuFind
  * @package  CommonMark
@@ -46,7 +51,7 @@ use League\CommonMark\Util\RegexHelper;
 class CustomElementStartParser implements BlockStartParserInterface
 {
     /**
-     * Regex for matching custom element opening tags
+     * Regex for matching custom element opening tags.
      *
      * @var string
      */
@@ -54,7 +59,7 @@ class CustomElementStartParser implements BlockStartParserInterface
         . RegexHelper::PARTIAL_ATTRIBUTE . '*\s*>/';
 
     /**
-     * Names of elements that can be server-side rendered
+     * Names of elements that can be server-side rendered.
      *
      * @var array
      */
@@ -74,7 +79,7 @@ class CustomElementStartParser implements BlockStartParserInterface
     }
 
     /**
-     * Check whether we should handle the block at the current position
+     * Check whether we should handle the block at the current position.
      *
      * @param Cursor                       $cursor      A cloned copy of the cursor
      * at the current parsing location

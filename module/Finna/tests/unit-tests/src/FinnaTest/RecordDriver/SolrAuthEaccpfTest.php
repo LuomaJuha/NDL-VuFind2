@@ -1,8 +1,9 @@
 <?php
+
 /**
- * SolrAuthEaccpf Test Class
+ * SolrAuthEaccpf Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace FinnaTest\RecordDriver;
 
 use Finna\RecordDriver\SolrAuthEaccpf;
 
 /**
- * SolrAuthEaccpf Record Driver Test Class
+ * SolrAuthEaccpf Record Driver Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -42,25 +44,64 @@ class SolrAuthEaccpfTest extends \PHPUnit\Framework\TestCase
 {
     use \VuFindTest\Feature\FixtureTrait;
 
-    public function testGetAlternativeTitles()
+    /**
+     * Test getAlternativeTitles.
+     *
+     * @return void
+     */
+    public function testGetAlternativeTitles(): void
     {
         $driver = $this->getDriver();
         $ndash = html_entity_decode('&#x2013;', ENT_NOQUOTES, 'UTF-8');
         $titles = [
           [
             'data' => 'Tokanimi, Etunimi',
-            'detail' => "1930 {$ndash} 1944, 1.1.1949 {$ndash} 2.2.1950"
+            'detail' => "1930 {$ndash} 1944, 1.1.1949 {$ndash} 2.2.1950",
           ],
           [
             'data' => 'Testi, Testaaja',
-            'detail' => "12.12.1900 {$ndash} 2.2.1920, 5.5.1925"
+            'detail' => "12.12.1900 {$ndash} 2.2.1920, 5.5.1925",
           ],
           [
             'data' => 'Testeri, Test',
-            'detail' => "1901 {$ndash} 1930, 13.10.1940, 12.12.1941 {$ndash} 11.11.1942"
-          ]
+            'detail' => "1901 {$ndash} 1930, 13.10.1940, 12.12.1941 {$ndash} 11.11.1942",
+          ],
         ];
         $this->assertEquals($titles, $driver->getAlternativeTitles());
+    }
+
+    /**
+     * Test getRelatedPublication.
+     *
+     * @return void
+     */
+    public function testGetRelatedPublications(): void
+    {
+        $driver = $this->getDriver();
+        $publications = [
+          [
+            'title' => 'Kansallisbiografia',
+            'searchTitle' => '',
+            'label' => '',
+            'url' => 'https://kansallisbiografia.fi/',
+            'isbn' => '',
+          ],
+          [
+            'title' => 'Ylioppilasmatrikkeli 1983',
+            'searchTitle' => '',
+            'label' => '',
+            'url' => 'https://ylioppilasmatrikkeli.helsinki.fi/1853-1899/',
+            'isbn' => '',
+          ],
+          [
+            'title' => 'Julkaisu ilman linkkiä',
+            'searchTitle' => '',
+            'label' => '',
+            'url' => '',
+            'isbn' => '',
+          ],
+        ];
+        $this->assertEquals($publications, $driver->getRelatedPublications());
     }
 
     /**
@@ -78,7 +119,7 @@ class SolrAuthEaccpfTest extends \PHPUnit\Framework\TestCase
         $record = new SolrAuthEaccpf(
             null,
             null,
-            new \Laminas\Config\Config($searchConfig)
+            new \VuFind\Config\Config($searchConfig)
         );
         $record->attachDateConverter($dateConverter);
         $record->setRawData(['fullrecord' => $fixture]);

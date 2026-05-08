@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Additional functionality for API controllers.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library 2015-2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,7 +26,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace VuFindApi\Controller;
+
+use Exception;
+use Laminas\Http\Exception\InvalidArgumentException;
+use Laminas\Http\Header\ContentType;
+use Laminas\Mvc\Exception\DomainException;
+use VuFind\DeveloperSettings\DeveloperSettingsService;
 
 /**
  * Additional functionality for API controllers.
@@ -39,33 +47,54 @@ namespace VuFindApi\Controller;
 trait ApiTrait
 {
     /**
-     * Callback function in JSONP mode
+     * Callback function in JSONP mode.
      *
-     * @var string
+     * @var ?string
      */
-    protected $jsonpCallback = null;
+    protected ?string $jsonpCallback = null;
 
     /**
-     * Whether to pretty-print JSON
+     * Whether to pretty-print JSON.
      *
      * @var bool
      */
-    protected $jsonPrettyPrint = false;
+    protected bool $jsonPrettyPrint = false;
 
     /**
-     * Type of output to use
+     * Type of output to use.
      *
      * @var string
      */
-    protected $outputMode = 'json';
+    protected string $outputMode = 'json';
 
     /**
-     * Execute the request
+     * Whether unicode should be returned or encoded in the output.
+     *
+     * @var bool
+     */
+    protected bool $returnUnicode = false;
+
+    /**
+     * Name of HTTP header.
+     *
+     * @var string
+     */
+    protected string $apiKeyHeaderField = VUFIND_API_KEY_DEFAULT_HEADER_FIELD;
+
+    /**
+     * API key service.
+     *
+     * @var ?DeveloperSettingsService
+     */
+    protected ?DeveloperSettingsService $developerSettingsService = null;
+
+    /**
+     * Execute the request.
      *
      * @param \Laminas\Mvc\MvcEvent $e Event
      *
      * @return mixed
-     * @throws Exception\DomainException
+     * @throws DomainException|InvalidArgumentException|Exception
      */
     public function onDispatch(\Laminas\Mvc\MvcEvent $e)
     {
@@ -92,7 +121,7 @@ trait ApiTrait
 
     /**
      * Determine the correct output mode based on content negotiation or the
-     * view parameter
+     * view parameter.
      *
      * @return void
      */
@@ -109,6 +138,13 @@ trait ApiTrait
             FILTER_VALIDATE_BOOLEAN
         );
         $this->outputMode = empty($this->jsonpCallback) ? 'json' : 'jsonp';
+        $charsetHeader = $request->getHeader('Accept-Charset');
+        if ($charsetHeader === false) {
+            $charsetHeader = $request->getHeader('Accept');
+        }
+        if ($charsetHeader && preg_match('/utf-8/i', $charsetHeader->toString())) {
+            $this->returnUnicode = true;
+        }
     }
 
     /**
@@ -116,12 +152,11 @@ trait ApiTrait
      *
      * @param string $permission Permission to check
      *
-     * @return \Laminas\Http\Response|boolean
+     * @return \Laminas\Http\Response|bool
      */
     protected function isAccessDenied($permission)
     {
-        $auth = $this->serviceLocator
-            ->get(\LmcRbacMvc\Service\AuthorizationService::class);
+        $auth = $this->getService(\Lmc\Rbac\Mvc\Service\AuthorizationService::class);
         if (!$auth->isGranted($permission)) {
             return $this->output(
                 [],
@@ -142,7 +177,7 @@ trait ApiTrait
      * @param string $message  Status message
      *
      * @return \Laminas\Http\Response
-     * @throws \Exception
+     * @throws Exception
      */
     protected function output($data, $status, $httpCode = null, $message = '')
     {
@@ -161,20 +196,73 @@ trait ApiTrait
         if ($message && !isset($output['statusMessage'])) {
             $output['statusMessage'] = $message;
         }
+        $contentTypeHeader = new ContentType();
         $jsonOptions = $this->jsonPrettyPrint ? JSON_PRETTY_PRINT : 0;
+        if ($this->returnUnicode) {
+            $contentTypeHeader->setCharset('utf-8');
+            $jsonOptions |= JSON_UNESCAPED_UNICODE;
+        }
         if ($this->outputMode == 'json') {
-            $headers->addHeaderLine('Content-type', 'application/json');
+            $contentTypeHeader->setMediaType('application/json');
             $response->setContent(json_encode($output, $jsonOptions));
-            return $response;
         } elseif ($this->outputMode == 'jsonp') {
-            $headers->addHeaderLine('Content-type', 'application/javascript');
+            $contentTypeHeader->setMediaType('application/javascript');
             $response->setContent(
                 $this->jsonpCallback . '(' . json_encode($output, $jsonOptions)
                 . ');'
             );
-            return $response;
         } else {
-            throw new \Exception('Invalid output mode');
+            throw new Exception('Invalid output mode');
         }
+        $headers->addHeader($contentTypeHeader);
+        return $response;
+    }
+
+    /**
+     * Init API key settings.
+     *
+     * @param array $settings API key settings from config.ini
+     *
+     * @return void;
+     */
+    protected function initApiKeySettings(array $settings): void
+    {
+        $this->developerSettingsService = $this->getService(DeveloperSettingsService::class);
+        if ($field = $settings['header_field'] ?? null) {
+            $this->apiKeyHeaderField = $field;
+        }
+    }
+
+    /**
+     * Check request for API key if mode is not set to disabled.
+     *
+     * @return bool
+     * @throws \Exception
+     */
+    protected function checkRequestForApiKey(): bool
+    {
+        if (!$this->developerSettingsService) {
+            throw new \Exception('ApiTrait: Developer settings service not initialized');
+        }
+        return $this->developerSettingsService->isApiKeyAllowed($this->getHeader($this->apiKeyHeaderField));
+    }
+
+    /**
+     * Return output if request is missing an API key and API keys are enforced.
+     *
+     * @return \Laminas\Http\Response
+     * @throws \Exception
+     */
+    protected function outputMissingAPIKey(): \Laminas\Http\Response
+    {
+        if (!$this->developerSettingsService) {
+            throw new \Exception('ApiTrait: Developer settings service not initialized');
+        }
+        return $this->output(
+            [],
+            ApiInterface::STATUS_UNAUTHORIZED,
+            401,
+            $this->developerSettingsService->getApiKeyMode()->getUnauthorizedMessage()
+        );
     }
 }

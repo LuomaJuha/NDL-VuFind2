@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Collections Controller
+ * Collections Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010, 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,15 +26,19 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\Controller;
 
-use Laminas\Config\Config;
 use Laminas\ServiceManager\ServiceLocatorInterface;
+use VuFind\Config\Config;
 use VuFindSearch\Command\SearchCommand;
 use VuFindSearch\Query\Query;
 
+use function array_slice;
+use function count;
+
 /**
- * Collections Controller
+ * Collections Controller.
  *
  * @category VuFind
  * @package  Controller
@@ -48,14 +53,14 @@ class CollectionsController extends AbstractBase implements
     use \VuFind\I18n\HasSorterTrait;
 
     /**
-     * VuFind configuration
+     * VuFind configuration.
      *
-     * @param \Laminas\Config\Config
+     * @var Config
      */
     protected $config;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param ServiceLocatorInterface $sm     Service manager
      * @param Config                  $config VuFind configuration
@@ -68,7 +73,7 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Search by title action
+     * Search by title action.
      *
      * @return mixed
      */
@@ -85,7 +90,7 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Browse action
+     * Browse action.
      *
      * @return mixed
      */
@@ -107,14 +112,14 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Show the Browse Menu
+     * Show the Browse Menu.
      *
      * @return mixed
      */
     protected function showBrowseAlphabetic()
     {
         // Process incoming parameters:
-        $source = "hierarchy";
+        $source = 'hierarchy';
         $from = $this->params()->fromQuery('from', '');
         $page = $this->params()->fromQuery('page', 0);
         $limit = $this->getBrowseLimit();
@@ -149,9 +154,9 @@ class CollectionsController extends AbstractBase implements
         $delimiter = $this->getBrowseDelimiter();
         foreach ($result['Browse']['items'] as $rkey => $collection) {
             $collectionIdNamePair
-                = explode($delimiter, $collection["heading"]);
+                = explode($delimiter, $collection['heading']);
             $finalresult[$rkey]['displayText'] = $collectionIdNamePair[0];
-            $finalresult[$rkey]['count'] = $collection["count"];
+            $finalresult[$rkey]['count'] = $collection['count'];
             $finalresult[$rkey]['value'] = $collectionIdNamePair[1];
         }
         $view->result = $finalresult;
@@ -161,7 +166,7 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Show the Browse Menu
+     * Show the Browse Menu.
      *
      * @return mixed
      */
@@ -173,10 +178,9 @@ class CollectionsController extends AbstractBase implements
         $appliedFilters = $this->params()->fromQuery('filter', []);
         $limit = $this->getBrowseLimit();
 
-        $browseField = "hierarchy_browse";
+        $browseField = 'hierarchy_browse';
 
-        $searchObject = $this->serviceLocator
-            ->get(\VuFind\Search\Results\PluginManager::class)->get('Solr');
+        $searchObject = $this->getService(\VuFind\Search\Results\PluginManager::class)->get('Solr');
         foreach ($appliedFilters as $filter) {
             $searchObject->getParams()->addFilter($filter);
         }
@@ -276,7 +280,7 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Function to normalize the names so they sort properly
+     * Function to normalize the names so they sort properly.
      *
      * @param array $result Array to sort (passed by reference to use less
      * memory)
@@ -297,7 +301,7 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Normalize the value for the browse sort
+     * Normalize the value for the browse sort.
      *
      * @param string $val Value to normalize
      *
@@ -307,7 +311,7 @@ class CollectionsController extends AbstractBase implements
     {
         $valNormalized = iconv('UTF-8', 'US-ASCII//TRANSLIT//IGNORE', $val);
         $valNormalized = strtolower($valNormalized);
-        $valNormalized = preg_replace("/[^a-zA-Z0-9\s]/", "", $valNormalized);
+        $valNormalized = preg_replace("/[^a-zA-Z0-9\s]/", '', $valNormalized);
         $valNormalized = trim($valNormalized);
         return $valNormalized;
     }
@@ -323,7 +327,7 @@ class CollectionsController extends AbstractBase implements
     }
 
     /**
-     * Get the collection browse page size
+     * Get the collection browse page size.
      *
      * @return int
      */
@@ -343,7 +347,7 @@ class CollectionsController extends AbstractBase implements
     {
         $title = addcslashes($title, '"');
         $query = new Query("is_hierarchy_title:\"$title\"", 'AllFields');
-        $searchService = $this->serviceLocator->get(\VuFindSearch\Service::class);
+        $searchService = $this->getService(\VuFindSearch\Service::class);
         $command = new SearchCommand(
             'Solr',
             $query,

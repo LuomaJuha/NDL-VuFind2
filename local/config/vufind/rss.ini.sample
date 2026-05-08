@@ -1,7 +1,7 @@
 ;; Mandatory settings:
 
 ; active = [0|1]
-; type = "[list|carousel|carousel-vertical|grid]"
+; type = "[list|carousel|carousel-vertical|grid|slider]"
 
 ; url[language code|*] = "<url>" Feed URL, for example:
 ;    Absolute URL: http://blogs.helsinki.fi/scriptaselecta/feed/
@@ -23,7 +23,7 @@
 ; up to <items> items are displayed. In grid visualItems determines the amount of items
 ; displayed before a "more" button. "More" button displays up to <items> items in the grid.
 ; title = "[rss|<translation-key>]" Feed title:
-;    'rss' = Use <title> element from feed
+;    'rss' = Use <title> element from feed [DEPRECATED -- leave title empty to use title from feed, or use a <translation-key>]
 ;    '<translation-key>' = Use local translation
 ; description = "Feed description|<translation-key>"
 ;    A free-form description text that may include HTML, or a translation key. Also
@@ -73,6 +73,15 @@
 ; content[contentDate] = 0
 ; content[xcal] = 0
 
+; Show/hide navigation on content page (default true)
+; feedcontentNavigation = true
+
+; Show next articles on content page (default 0)
+; feedcontentNextArticles = 5
+
+; Show additional content on content page or modal (by default empty)
+; feedcontentadditionalHtml = "<translation-key>"
+
 ;; Optional list settings:
 
 ; moreLink = [0|1] Display a "more" link.
@@ -81,11 +90,18 @@
 ;; Optional carousel settings:
 
 ; titlePosition = "bottom" Display item title below image.
+; titleTruncateSize = [size] // Title truncation size (default: 70).
 ; height = [pixels] Carousel height
 ; autoplay = [false|milliseconds] Autoplay slide change interval (autoplay is off by default).
 ; dots = [0|1] Display current slide indicator (default 1).
+; displayFormatHeader = [true|false] Determines whether to display the format in the carousel item's header (default: false).
 
+;; Optional slider settings:
 
+; This type only displays one item per page, but otherwise uses carousel settings.
+; backgroundColor = "#f7f7f7" Background colour of the slider (default none).
+; stackedHeight = [pixels] The height of the slider when it uses the stacked (vertical) layout, e.g. on mobile device (sets regular height value by default).
+; imagePlacement = [left|right] The side of which the image is on the slider when it uses the horizontal layout (default left).
 
 ; Number of visible items in the carousel
 
@@ -108,7 +124,8 @@
 ; content[link] = 0
 ; content[image] = 0
 ; content[date] = 0
-
+; content[description] = 0
+; content[format] = 0
 
 [carousel]
 type = "carousel"
@@ -166,4 +183,14 @@ title = "rss"
 content[text] = 0
 content[image] = 0
 linkTarget  = "_blank"
+
+[slider]
+type = "slider"
+active = 1
+url[*] = "https://musasto.wordpress.com/feed/"
+title = "rss"
+height = 450
+stackedHeight = 600
+backgroundColor = "#f7f7f7"
+imagePlacement = "left"
 

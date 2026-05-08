@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Model for Marc authority records in Solr.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,18 +17,21 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
+
 namespace Finna\RecordDriver;
 
 use Finna\Util\MetadataUtils;
+
+use function count;
 
 /**
  * Model for Forward authority records in Solr.
@@ -36,7 +40,7 @@ use Finna\Util\MetadataUtils;
  * @package  RecordDrivers
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsisnki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_drivers Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_drivers Wiki
  */
 class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
 {
@@ -88,7 +92,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
                     'id' => "$sourceId.$id",
                     'name' => $this->stripTrailingPunctuation($name, '. '),
                     'role' => $role,
-                    'type' => $code === '500' ? 'Personal Name' : 'Corporate Name'
+                    'type' => $code === '500' ? 'Personal Name' : 'Corporate Name',
                 ];
             }
         }
@@ -113,7 +117,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
     /**
      * Return birth date.
      *
-     * @param boolean $force Return established date for corporations?
+     * @param bool $force Return established date for corporations?
      *
      * @return string
      */
@@ -130,7 +134,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
     /**
      * Return death date.
      *
-     * @param boolean $force Return terminated date for corporations?
+     * @param bool $force Return terminated date for corporations?
      *
      * @return string
      */
@@ -145,7 +149,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
     }
 
     /**
-     * Return historical information
+     * Return historical information.
      *
      * @return array
      */
@@ -189,7 +193,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
                 'title' => $title,
                 'subtitle' => $subtitle,
                 'info' => $info ?: null,
-                'url' => $url ?: null
+                'url' => $url ?: null,
             ];
         }
         return $result;
@@ -203,9 +207,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
     public function getAlternativeTitles()
     {
         $result = [];
-        foreach (['400' => ['a', 'b', 'c'], '410' => ['a', 'b']]
-            as $fieldCode => $subfields
-        ) {
+        foreach (['400' => ['a', 'b', 'c'], '410' => ['a', 'b']] as $fieldCode => $subfields) {
             foreach ($this->getMarcReader()->getFields($fieldCode) as $field) {
                 if ($matches = $this->getSubfieldArray($field, $subfields, false)) {
                     $matches = array_map(
@@ -277,9 +279,9 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
     {
         $result = [];
         foreach ($this->getMarcReader()->getFields('370') as $field) {
-            $place = $this->getSubfield($field, 'e')
-                ?: $this->getSubfield($field, 'f');
-            if ($place) {
+            $places = $this->getSubfields($field, 'e')
+                ?: $this->getSubfields($field, 'f');
+            foreach ($places as $place) {
                 $startYear = $this->getSubfield($field, 's') ?: null;
                 $endYear = $this->getSubfield($field, 't') ?: null;
                 $date = null;
@@ -318,7 +320,7 @@ class SolrAuthMarc extends \VuFind\RecordDriver\SolrAuthMarc
     }
 
     /**
-     * Format date
+     * Format date.
      *
      * @param string $date   Date
      * @param string $format Format of converted date

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * List API Controller
+ * List API Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2021-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -25,22 +26,27 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace FinnaApi\Controller;
 
 use Exception;
-use Finna\Controller\ListController;
 use Laminas\Http\Response;
 use Laminas\ServiceManager\ServiceLocatorInterface;
 use Laminas\Stdlib\Parameters;
+use VuFind\Db\Service\TagServiceInterface;
 use VuFind\Exception\ListPermission as ListPermissionException;
 use VuFind\Exception\RecordMissing as RecordMissingException;
 use VuFind\Search\Results\PluginManager;
+use VuFind\View\Helper\Root\Record as RecordHelper;
 use VuFindApi\Controller\ApiInterface;
 use VuFindApi\Controller\ApiTrait;
 use VuFindApi\Formatter\RecordFormatter;
 
+use function count;
+use function is_array;
+
 /**
- * List API Controller
+ * List API Controller.
  *
  * Controls the List API functionality
  *
@@ -50,42 +56,39 @@ use VuFindApi\Formatter\RecordFormatter;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
-class ListApiController extends ListController implements ApiInterface
+class ListApiController extends \VuFind\Controller\AbstractBase implements ApiInterface
 {
     use ApiTrait;
+    use \Finna\Controller\Feature\FinnaUserListTrait;
 
     /**
-     * Record formatter
-     *
-     * @var RecordFormatter
-     */
-    protected $recordFormatter;
-
-    /**
-     * Default record fields to return if a request does not define the fields
+     * Default record fields to return if a request does not define the fields.
      *
      * @var array
      */
     protected $defaultRecordFields = [];
 
     /**
-     * Max limit of list records in API response (default 100);
+     * Max limit of list records in API response (default 100);.
      *
      * @var int
      */
     protected $maxLimit = 100;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param ServiceLocatorInterface $sm Service manager
-     * @param RecordFormatter         $rf Record formatter
+     * @param ServiceLocatorInterface $sm              Service manager
+     * @param RecordFormatter         $recordFormatter Record formatter
+     * @param RecordHelper            $recordHelper    Record view helper
      */
-    public function __construct(ServiceLocatorInterface $sm, RecordFormatter $rf)
-    {
+    public function __construct(
+        ServiceLocatorInterface $sm,
+        protected RecordFormatter $recordFormatter,
+        protected RecordHelper $recordHelper
+    ) {
         parent::__construct($sm);
-        $this->recordFormatter = $rf;
-        foreach ($rf->getRecordFields() as $fieldName => $fieldSpec) {
+        foreach ($recordFormatter->getRecordFields() as $fieldName => $fieldSpec) {
             if (!empty($fieldSpec['vufind.default'])) {
                 $this->defaultRecordFields[] = $fieldName;
             }
@@ -94,7 +97,7 @@ class ListApiController extends ListController implements ApiInterface
 
     /**
      * Get API specification JSON fragment for services provided by the
-     * controller
+     * controller.
      *
      * @return string
      */
@@ -121,7 +124,7 @@ class ListApiController extends ListController implements ApiInterface
     }
 
     /**
-     * List action
+     * List action.
      *
      * @return Response
      * @throws Exception
@@ -135,7 +138,8 @@ class ListApiController extends ListController implements ApiInterface
             return $this->output([], self::STATUS_ERROR, 400, 'Missing id');
         }
 
-        if (isset($request['limit'])
+        if (
+            isset($request['limit'])
             && (!ctype_digit($request['limit'])
             || $request['limit'] < 0 || $request['limit'] > $this->maxLimit)
         ) {
@@ -143,29 +147,28 @@ class ListApiController extends ListController implements ApiInterface
         }
 
         try {
-            $results = $this->serviceLocator
-                ->get(PluginManager::class)->get('Favorites');
+            $results = $this->serviceLocator->get(PluginManager::class)->get('Favorites');
             $results->getParams()->initFromRequest(new Parameters($request));
             $results->performAndProcessSearch();
             $listObj = $results->getListObject();
 
             $response = [
-                'id' => $listObj->id,
-                'title' => $listObj->title,
-                'recordCount' => $results->getResultTotal()
+                'id' => $listObj->getId(),
+                'title' => $listObj->getTitle(),
+                'recordCount' => $results->getResultTotal(),
             ];
 
-            $description = $listObj->description;
+            $description = $listObj->getDescription();
             if ('' !== $description) {
                 $response['description'] = $description;
             }
 
             if ($this->listTagsEnabled()) {
-                $tags = $this->getTable('Tags')->getForList($listObj->id);
-                if ($tags->count() > 0) {
+                $tags = $this->getDbService(TagServiceInterface::class)->getListTags($listObj, $listObj->getUser());
+                if (count($tags) > 0) {
                     $response['tags'] = [];
                     foreach ($tags as $tag) {
-                        $response['tags'][] = $tag->tag;
+                        $response['tags'][] = $tag['tag'];
                     }
                 }
             }
@@ -177,20 +180,20 @@ class ListApiController extends ListController implements ApiInterface
                 foreach ($results->getResults() as $result) {
                     $record = [
                         'record' => ($this->recordFormatter
-                            ->format([$result], $requestedFields))[0]
+                            ->format([$result], $requestedFields))[0],
                     ];
 
-                    $notes = $result->getListNotes($listObj->id);
+                    $notes = ($this->recordHelper)($result)->getListNotes($listObj);
                     if (!empty($notes)) {
                         $record['notes'] = $notes[0];
                     }
 
                     if ($this->tagsEnabled()) {
-                        $tags = $result->getTags($listObj->id);
-                        if ($tags->count() > 0) {
+                        $tags = ($this->recordHelper)($result)->getTags($listObj);
+                        if ($tags) {
                             $record['tags'] = [];
                             foreach ($tags as $tag) {
-                                $record['tags'][] = $tag->tag;
+                                $record['tags'][] = $tag->getTag();
                             }
                         }
                     }
@@ -206,7 +209,7 @@ class ListApiController extends ListController implements ApiInterface
     }
 
     /**
-     * Get field list based on the request
+     * Get field list based on the request.
      *
      * TODO: Move to ApiTrait
      *
@@ -223,6 +226,7 @@ class ListApiController extends ListController implements ApiInterface
             }
         } else {
             $fieldList = $this->defaultRecordFields;
+            $fieldList[] = '__index__';
         }
         return $fieldList;
     }

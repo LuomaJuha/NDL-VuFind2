@@ -2,14 +2,15 @@
 <?php if (!empty($data)): ?>
 <div class="truncate-field" data-rows="5">
   <?php foreach ($data as $field): ?>
-  <div class="subjectLine" property="keywords">
+  <div class="subjectLine">
     <?php $subject = ''; ?>
     <?php
       if (count($field['heading']) == 1) {
           $field['heading'] = explode('--', $field['heading'][0]);
       }
     ?>
-    <?php $i = 0; foreach ($field['heading'] as $subfield): ?>
+    <?php $i = 0;
+    foreach ($field['heading'] as $subfield): ?>
       <?php
         $first = $i++ === 0;
         $id = $first && isset($field['id']) ? $field['id'] : null;

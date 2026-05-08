@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Finto connection class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Connection
@@ -25,12 +26,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace Finna\Connection;
 
-use Laminas\Config\Config;
 use Laminas\Http\Client;
-use Laminas\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareInterface;
+use VuFind\Config\Config;
 use VuFind\Log\LoggerAwareTrait;
+
+use function count;
+use function in_array;
+use function is_array;
+use function is_string;
 
 /**
  * Finto connection class.
@@ -124,7 +131,7 @@ class Finto implements LoggerAwareInterface
             [
                 'timeout' => $this->config->get('http_timeout', 30),
                 'useragent' => 'VuFind',
-                'keepalive' => true
+                'keepalive' => true,
             ]
         );
 
@@ -189,7 +196,7 @@ class Finto implements LoggerAwareInterface
      * @param string      $vocid A Skosmos vocabulary identifier e.g. "stw" or "yso"
      * @param string      $uri   URI of the concept whose narrower concept to return
      * @param string|null $lang  Label language, e.g. "en" or "fi"
-     * @param boolean     $sort  Whether to sort results alphabetically or not
+     * @param bool        $sort  Whether to sort results alphabetically or not
      *
      * @return array Results
      * @throws \Exception
@@ -265,7 +272,8 @@ class Finto implements LoggerAwareInterface
             // There is only one result.
             $result = reset($results['results']);
 
-            if (((isset($result['altLabel'])
+            if (
+                ((isset($result['altLabel'])
                 && $result['altLabel'] === $query)
                 || (isset($result['hiddenLabel'])
                 && $result['hiddenLabel'] === $query))
@@ -276,12 +284,13 @@ class Finto implements LoggerAwareInterface
             } elseif ($narrower) {
                 // The result is not a non-descriptor so we will make an additional
                 // API call to see if there are narrower concepts.
-                if ($narrowerResults = $this->narrower(
-                    $result['vocab'],
-                    $result['uri'],
-                    $result['lang'],
-                    true
-                )
+                if (
+                    $narrowerResults = $this->narrower(
+                        $result['vocab'],
+                        $result['uri'],
+                        $result['lang'],
+                        true
+                    )
                 ) {
                     $extendedResults[Finto::RESULT_TYPE] = Finto::TYPE_HYPONYM;
                     $extendedResults[Finto::NARROWER_RESULTS] = $narrowerResults;

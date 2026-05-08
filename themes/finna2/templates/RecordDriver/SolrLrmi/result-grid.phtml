@@ -1,20 +1,21 @@
 <!-- START of: finna - RecordDriver/SolrLrmi/result-grid.phtml -->
 <?php
-/* We need to find out if we're supposed to display an OpenURL link ($openUrlActive),
-   but even if we don't plan to display the link, we still want to get the $openUrl
-   value for use in generating a COinS (Z3988) tag -- see bottom of file.
-*/
-$openUrl = $this->openUrl($this->driver, 'results');
-$openUrlActive = $openUrl->isActive();
-// Account for replace_other_urls setting
-$urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
+  /* We need to find out if we're supposed to display an OpenURL link ($openUrlActive),
+     but even if we don't plan to display the link, we still want to get the $openUrl
+     value for use in generating a COinS (Z3988) tag -- see bottom of file.
+  */
+  $openUrl = $this->openUrl($this->driver, 'results');
+  $openUrlActive = $openUrl->isActive();
+  // Account for replace_other_urls setting
+  $urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
+  $recordLinker = $this->recordLinker($this->results);
 ?>
 
-<div class="grid-result<?=$this->driver->supportsAjaxStatus()?' ajaxItem':''?>">
-  <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueID())?>" class="hiddenId" />
+<div class="grid-result<?=$this->driver->supportsAjaxStatus() ? ' ajaxItem' : ''?>">
+  <input type="hidden" value="<?=$this->escapeHtmlAttr($this->driver->getUniqueID())?>" class="hiddenId">
   <div class="grid-body">
-    <?php if (!isset($this->hideCartControls) && $this->cart()->isActive()): ?>
-      <?=$this->record($this->driver)->getCheckbox('', 'search-cart-form') ?><br/>
+    <?php if (!isset($this->hideCartControls) && $this->searchSettings($this->results->getParams())->checkboxesEnabled()): ?>
+      <?=$this->record($this->driver)->getCheckbox('', 'search-cart-form') ?><br>
     <?php endif; ?>
     <div class="text-center grid-image">
       <?php if ($this->params->getView() === 'grid'): ?>
@@ -30,8 +31,8 @@ $urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
     <?php endif; ?>
     <div class="text-center grid-title">
       <h2 class="title">
-        <a class="title" href="<?=$this->escapeHtmlAttr($this->recordLinker()->getUrl($this->driver))?>" title="<?=$this->escapeHtmlAttr($this->driver->getTitle())?>">
-          <?= $this->record($this->driver)->getTitleHtml(50); ?><span class="sr-only"> <?=$this->transEsc('To the record')?></span>
+        <a class="title" href="<?=$this->escapeHtmlAttr($recordLinker->getUrl($this->driver))?>" title="<?=$this->escapeHtmlAttr($this->driver->getTitle())?>">
+          <?= $this->record($this->driver)->getTitleHtml(50); ?><span class="visually-hidden"> <?=$this->transEsc('To the record')?></span>
         </a>
       </h2>
       <div class="dateyeartype">
@@ -55,7 +56,8 @@ $urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
           <?php endif; ?>
         <?php endif; ?>
 
-        <?php $journalTitle = $this->driver->getContainerTitle(); $summDate = $this->driver->getPublicationDates(); ?>
+        <?php $journalTitle = $this->driver->getContainerTitle();
+        $summDate = $this->driver->getPublicationDates(); ?>
         <?php if (!empty($journalTitle)): ?>
           <?=!empty($summAuthor) ? '' : ' '?>
           <?php $ref = $this->driver->getContainerReference();
@@ -77,7 +79,7 @@ $urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
       <?php if ($this->userlist()->getMode() !== 'disabled'): ?>
         <?php /* Add to favorites */ ?>
         <div class="save-record-container">
-          <a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getActionUrl($this->driver, 'Save'))?>" class="save-record" data-lightbox data-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>" title="<?=$this->transEsc('Add to favorites')?>" rel="nofollow"><i class="fa fa-heart"></i> <?=$this->transEsc('Add to favorites')?></a>
+          <a href="<?=$this->escapeHtmlAttr($recordLinker->getActionUrl($this->driver, 'Save'))?>" class="save-record" role="button" data-lightbox data-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>" title="<?=$this->transEsc('Add to favorites')?>" rel="nofollow"><?=$this->icon('favorite') ?> <?=$this->transEsc('Add to favorites')?></a>
         </div>
       <?php endif; ?>
       <?php if ($this->layout()->templateDir === 'list' && $this->params->getView() !== 'grid'): ?>
@@ -87,5 +89,5 @@ $urls = $this->record($this->driver)->getLinkDetails($openUrlActive);
   </div>
 </div>
 
-<?=$this->driver->supportsCoinsOpenUrl()?'<span class="Z3988" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenUrl()) . '"></span>':''?>
+<?=$this->driver->supportsCoinsOpenUrl() ? '<span class="Z3988" aria-hidden="true" title="' . $this->escapeHtmlAttr($this->driver->getCoinsOpenUrl()) . '"></span>' : ''?>
 <!-- END of: finna - RecordDriver/SolrLrmi/result-grid.phtml -->

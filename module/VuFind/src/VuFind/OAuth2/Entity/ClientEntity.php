@@ -1,8 +1,9 @@
 <?php
+
 /**
  * OAuth2 client entity implementation.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  OAuth2
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\OAuth2\Entity;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface;
@@ -43,10 +45,11 @@ use VuFind\Exception\BadConfig as BadConfigException;
  */
 class ClientEntity implements ClientEntityInterface
 {
-    use EntityTrait, ClientTrait;
+    use EntityTrait;
+    use ClientTrait;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array $config Client configuration
      */

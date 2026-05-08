@@ -1,9 +1,14 @@
 /*global VuFind, finna, L */
 finna.map = (function finnaMap() {
 
+  /**
+   * Add a remove button for leaflet popup
+   * @param {object} layer Leaflet layer to bind to
+   * @param {object} featureGroup Feature group to reference in remove button click
+   */
   function addRemoveButton(layer, featureGroup) {
     var button = $('<a/>')
-      .html('<i class="fa fa-times" aria-hidden="true"></i>')
+      .html(VuFind.icon('map-remove'))
       .on('click', function mapOnRemoveButtonClick(/*e*/) {
         layer.editing.disable();
         featureGroup.removeLayer(layer);
@@ -12,6 +17,10 @@ finna.map = (function finnaMap() {
     layer.bindPopup(button.get(0), {closeButton: false});
   }
 
+  /**
+   * Initialize map zooming
+   * @param {object} map Leaflet map layer
+   */
   function initMapZooming(map) {
     // Add zoom control with translated tooltips
     L.control.zoom({
@@ -31,6 +40,13 @@ finna.map = (function finnaMap() {
     map.scrollWheelZoom.disable();
   }
 
+  /**
+   * Initialize a map
+   * @param {jQuery} $mapContainer Container which acts as a canvas for the map
+   * @param {boolean} editable Is the map editable
+   * @param {object} _options Settings for the map
+   * @returns {object|void} Object if map canvas found and void if not
+   */
   function initMap($mapContainer, editable, _options) {
     var mapCanvas = $mapContainer;
     if (mapCanvas.length === 0) {
@@ -42,9 +58,9 @@ finna.map = (function finnaMap() {
     L.drawLocal.draw.handlers.circle.radius = VuFind.translate('radiusPrefix');
 
     var defaults = {
-      tileLayer: L.tileLayer('https://map-api.finna.fi/v1/rendered/{z}/{x}/{y}.png', {
+      tileLayer: L.tileLayer('https://map-api.finna.fi/v1/rendered/{z}/{x}/{y}.png?v=2', {
         tileSize: 256,
-        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+        attribution: 'Map data &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by/4.0/">CC-BY</a>'
       }),
       center: new L.LatLng(64.8, 26),
       zoom: 8,
@@ -68,7 +84,6 @@ finna.map = (function finnaMap() {
     }
 
     var map = new L.Map(mapCanvas.get(0), {
-      attributionControl: false,
       layers: [options.tileLayer, drawnItems],
       center: options.center,
       zoom: options.zoom,
@@ -100,14 +115,14 @@ finna.map = (function finnaMap() {
         },
         createButton: function createButton(cssClass, html, clickHandler/*, style*/) {
           var container = L.DomUtil.create('div', 'map-button btn ' + cssClass + ' leaflet-bar leaflet-control leaflet-control-custom');
-          $(container).html(html).click(clickHandler);
+          $(container).html(html).on("click", clickHandler);
           return container;
         }
       });
 
       var DeleteButton = FinnaMapButton.extend({
         onAdd: function mapOnDelete(/*mapTarget*/) {
-          var htmlElem = $('<div><i class="fa fa-times"></i>');
+          var htmlElem = $('<div>' + VuFind.icon('map-remove'));
           $('<span/>').text(' ' + VuFind.translate('clearCaption')).appendTo(htmlElem);
           return this.createButton('map-button-clear', htmlElem.html(), function mapClearLayersClick() {
             drawnItems.eachLayer(function disableEditing(layer) {
@@ -121,7 +136,7 @@ finna.map = (function finnaMap() {
 
       var CircleButton = FinnaMapButton.extend({
         onAdd: function mapOnAddCircle(mapTarget) {
-          var htmlElem = $('<div><i class="fa fa-crosshairs"></i>');
+          var htmlElem = $('<div>' + VuFind.icon('map-narrow'));
           $('<span/>').text(' ' + VuFind.translate('circleCaption')).appendTo(htmlElem);
           var button = this.createButton('map-button-circle btn-primary', htmlElem.html(), function mapCircleButtonClick() {
             $('.map-button-circle').addClass('active');

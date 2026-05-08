@@ -1,8 +1,9 @@
 <?php
+
 /**
  * GetRecordCover AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
@@ -33,6 +35,8 @@ use VuFind\Cache\CacheTrait;
 use VuFind\Cover\Router as CoverRouter;
 use VuFind\Record\Loader as RecordLoader;
 use VuFind\Session\Settings as SessionSettings;
+
+use function in_array;
 
 /**
  * GetRecordCover AJAX handler.
@@ -48,21 +52,21 @@ class GetRecordCover extends AbstractBase implements AjaxHandlerInterface
     use CacheTrait;
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var RecordLoader
      */
     protected $recordLoader;
 
     /**
-     * Cover router
+     * Cover router.
      *
      * @var CoverRouter
      */
     protected $coverRouter;
 
     /**
-     * PHP renderer
+     * PHP renderer.
      *
      * @var PhpRenderer
      */
@@ -70,7 +74,7 @@ class GetRecordCover extends AbstractBase implements AjaxHandlerInterface
 
     /**
      * If true we will render a fallback html template in case no image could be
-     * loaded
+     * loaded.
      *
      * @var bool
      */
@@ -102,7 +106,7 @@ class GetRecordCover extends AbstractBase implements AjaxHandlerInterface
     }
 
     /**
-     * Handle request
+     * Handle request.
      *
      * @param Params $params Request parameters
      *
@@ -135,7 +139,7 @@ class GetRecordCover extends AbstractBase implements AjaxHandlerInterface
                     'html' => $this->renderer->render(
                         'record/coverReplacement',
                         ['driver' => $record]
-                    )
+                    ),
                 ]
             );
     }

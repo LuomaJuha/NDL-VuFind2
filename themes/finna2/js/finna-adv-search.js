@@ -1,6 +1,9 @@
 /* global finna */
 finna.advSearch = (function advSearch() {
 
+  /**
+   * Initialize advanced search form
+   */
   function initForm() {
     var form = $('.template-dir-search #advSearchForm');
     var container = form.find('.ranges-container .slider-container').closest('fieldset');
@@ -53,8 +56,7 @@ finna.advSearch = (function advSearch() {
 
   /**
    * Initialize advanced search map
-   *
-   * @param options Array of options:
+   * @param {object} _options Array of options:
    *   tileLayer     L.tileLayer Tile layer
    *   center        L.LatLng    Map center point
    *   zoom          int         Initial zoom level
@@ -76,7 +78,7 @@ finna.advSearch = (function advSearch() {
         filters += value;
       });
       if (filters) {
-        var field = $('<input type="hidden" name="filter[]"/>').val(filters);
+        var field = $('<input type="hidden" name="filter[]">').val(filters);
         mapCanvas.closest('form').append(field);
       }
     });

@@ -1,8 +1,9 @@
 <?php
+
 /**
- * FinnaSuggestions Recommendations Module
+ * FinnaSuggestions Recommendations Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Recommendations
@@ -25,12 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Recommend;
 
 use Laminas\Http\Client;
 
+use function in_array;
+
 /**
- * FinnaSuggestions Recommendations Module
+ * FinnaSuggestions Recommendations Module.
  *
  * This class provides recommendations via VuFind REST API (deferred).
  *
@@ -44,56 +48,56 @@ class FinnaSuggestions implements
     \VuFind\I18n\Translator\TranslatorAwareInterface,
     \VuFind\Recommend\RecommendInterface,
     \VuFindHttp\HttpServiceAwareInterface,
-    \Laminas\Log\LoggerAwareInterface
+    \Psr\Log\LoggerAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
     use \VuFind\Log\LoggerAwareTrait;
     use \VuFindHttp\HttpServiceAwareTrait;
 
     /**
-     * API url
+     * API url.
      *
      * @var string
      */
     protected $apiUrl;
 
     /**
-     * Search URL
+     * Search URL.
      *
      * @var string
      */
     protected $searchUrl;
 
     /**
-     * Settings from searches.ini
+     * Settings from searches.ini.
      *
      * @var string
      */
     protected $settings;
 
     /**
-     * Search term
+     * Search term.
      *
      * @var string
      */
     protected $lookfor;
 
     /**
-     * Search handler
+     * Search handler.
      *
      * @var string
      */
     protected $searchHandler;
 
     /**
-     * Search type
+     * Search type.
      *
      * @var string
      */
     protected $searchType;
 
     /**
-     * Result count
+     * Result count.
      *
      * @var int
      */
@@ -114,7 +118,7 @@ class FinnaSuggestions implements
     protected $urlHelper;
 
     /**
-     * Search handlers that are supported in Finna.fi
+     * Search handlers that are supported in Finna.fi.
      *
      * @var array
      */
@@ -123,9 +127,9 @@ class FinnaSuggestions implements
     /**
      * FinnaSuggestions constructor.
      *
-     * @param Client $client HTTP client
+     * @param ?Client $client HTTP client
      */
-    public function __construct(Client $client = null)
+    public function __construct(?Client $client = null)
     {
         $this->client = $client;
         $this->resetSearch();
@@ -156,7 +160,8 @@ class FinnaSuggestions implements
 
         // Output suggestions only for basic search with
         // AllFields handler and no filters.
-        if (!empty($lookfor)
+        if (
+            !empty($lookfor)
             && !$params->getRawFilters()
             && in_array($searchHandler, $this->supportedSearchHandlers)
             && $searchType === 'basic'
@@ -179,7 +184,7 @@ class FinnaSuggestions implements
         return [
             'lookfor' => $this->lookfor,
             'resultCount' => $this->resultCount,
-            'searchLink' => $this->getSearchLink()
+            'searchLink' => $this->getSearchLink(),
         ];
     }
 
@@ -199,7 +204,7 @@ class FinnaSuggestions implements
     }
 
     /**
-     * Called after the Search Results object has performed its main search.  This
+     * Called after the Search Results object has performed its main search. This
      * may be used to extract necessary information from the Search Results object
      * or to perform completely unrelated processing.
      *
@@ -222,7 +227,7 @@ class FinnaSuggestions implements
         $client->setOptions(
             [
                 'timeout' => 30,
-                'useragent' => 'FinnaSuggestions VuFind'
+                'useragent' => 'FinnaSuggestions VuFind',
             ]
         );
         $client->getRequest()->getHeaders()->addHeaderLine(
@@ -247,7 +252,7 @@ class FinnaSuggestions implements
     }
 
     /**
-     * Reset search parameters
+     * Reset search parameters.
      *
      * @return void
      */
@@ -259,7 +264,7 @@ class FinnaSuggestions implements
     }
 
     /**
-     * Get search link to Finna
+     * Get search link to Finna.
      *
      * @return string
      */
@@ -270,7 +275,7 @@ class FinnaSuggestions implements
             [
                 urlencode($this->lookfor),
                 urlencode($this->searchHandler),
-                urlencode($this->getTranslatorLocale())
+                urlencode($this->getTranslatorLocale()),
             ],
             $this->searchUrl
         );

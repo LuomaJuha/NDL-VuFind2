@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Blender Search Parameters
+ * Blender Search Parameters.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Blender
@@ -25,14 +26,18 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\Blender;
 
 use Finna\Search\Solr\AuthorityHelper;
+use VuFind\Config\ConfigManagerInterface;
 use VuFind\Search\Solr\HierarchicalFacetHelper;
 use VuFindSearch\ParamBag;
 
+use function in_array;
+
 /**
- * Blender Search Parameters
+ * Blender Search Parameters.
  *
  * @category VuFind
  * @package  Search_Blender
@@ -45,80 +50,37 @@ class Params extends \VuFind\Search\Blender\Params
     use \Finna\Search\Solr\ParamsSharedTrait;
 
     /**
-     * Helper for formatting authority id filter display texts.
+     * Constructor.
      *
-     * @var AuthorityHelper
-     */
-    protected $authorityHelper = null;
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @var bool
-     */
-    protected $checkboxFacetCounts = false;
-
-    /**
-     * Constructor
-     *
-     * @param \VuFind\Search\Base\Options  $options       Options to use
-     * @param \VuFind\Config\PluginManager $configLoader  Config loader
-     * @param HierarchicalFacetHelper      $facetHelper   Hierarchical facet helper
-     * @param array                        $searchParams  Search params for backends
-     * @param \Laminas\Config\Config       $blenderConfig Blender configuration
-     * @param array                        $mappings      Blender mappings,
-     * @param AuthorityHelper              $authHelper    Authority helper
+     * @param \VuFind\Search\Base\Options $options         Options to use
+     * @param ConfigManagerInterface      $configManager   Config manager
+     * @param HierarchicalFacetHelper     $facetHelper     Hierarchical facet helper
+     * @param array                       $searchParams    Search params for backends
+     * @param \VuFind\Config\Config       $blenderConfig   Blender configuration
+     * @param array                       $mappings        Blender mappings
+     * @param AuthorityHelper             $authorityHelper Authority helper
      */
     public function __construct(
         \VuFind\Search\Base\Options $options,
-        \VuFind\Config\PluginManager $configLoader,
+        ConfigManagerInterface $configManager,
         HierarchicalFacetHelper $facetHelper,
         array $searchParams,
-        \Laminas\Config\Config $blenderConfig,
+        \VuFind\Config\Config $blenderConfig,
         array $mappings,
-        AuthorityHelper $authHelper
+        protected AuthorityHelper $authorityHelper
     ) {
         parent::__construct(
             $options,
-            $configLoader,
+            $configManager,
             $facetHelper,
             $searchParams,
             $blenderConfig,
             $mappings
         );
-
-        $this->authorityHelper = $authHelper;
     }
 
     /**
-     * Whether to request checkbox facet counts
-     *
-     * @return bool
-     */
-    public function getCheckboxFacetCounts()
-    {
-        return $this->checkboxFacetCounts;
-    }
-
-    /**
-     * Whether to request checkbox facet counts
-     *
-     * @param bool $value Enable or disable
-     *
-     * @return void
-     */
-    public function setCheckboxFacetCounts($value)
-    {
-        $this->checkboxFacetCounts = $value;
-        foreach ($this->searchParams as $params) {
-            if (is_callable([$params, 'setCheckboxFacetCounts'])) {
-                $params->setCheckboxFacetCounts($value);
-            }
-        }
-    }
-
-    /**
-     * Get the date range field from options, if available
+     * Get the date range field from options, if available.
      *
      * @return string
      */
@@ -195,7 +157,8 @@ class Params extends \VuFind\Search\Blender\Params
      */
     protected function formatFilterListEntry($field, $value, $operator, $translate)
     {
-        if ($translate
+        if (
+            $translate
             && in_array($field, $this->getOptions()->getHierarchicalFacets())
         ) {
             return $this->translateHierarchicalFacetFilter(
@@ -230,11 +193,11 @@ class Params extends \VuFind\Search\Blender\Params
     }
 
     /**
-     * Check if the given filter is a date range filter
+     * Check if the given filter is a date range filter.
      *
      * @param string $field Filter field
      *
-     * @return boolean
+     * @return bool
      */
     protected function isDateRangeFilter($field)
     {
@@ -290,7 +253,7 @@ class Params extends \VuFind\Search\Blender\Params
         $regex = '/(\w+)\|\[([\d-]+|\*)\s+TO\s+([\d-]+|\*)\]/';
         if (preg_match($regex, $filter, $matches)) {
             return [
-                'from' => $matches[2], 'to' => $matches[3], 'type' => $matches[1]
+                'from' => $matches[2], 'to' => $matches[3], 'type' => $matches[1],
             ];
         }
 
@@ -299,7 +262,7 @@ class Params extends \VuFind\Search\Blender\Params
         $regex = '/\[([\d-]+|\*)\s+TO\s+([\d-]+|\*)\]/';
         if (preg_match($regex, $filter, $matches)) {
             return [
-                'from' => $matches[1], 'to' => $matches[2], 'type' => 'overlap'
+                'from' => $matches[1], 'to' => $matches[2], 'type' => 'overlap',
             ];
         }
 

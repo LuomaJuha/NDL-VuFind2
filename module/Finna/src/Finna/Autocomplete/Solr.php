@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Solr Autocomplete Module
+ * Solr Autocomplete Module.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Autocomplete
@@ -25,12 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:autosuggesters Wiki
  */
+
 namespace Finna\Autocomplete;
 
 use VuFindCode\ISBN;
 
+use function in_array;
+use function is_bool;
+
 /**
- * Solr Autocomplete Module
+ * Solr Autocomplete Module.
  *
  * This class provides suggestions by using the local Solr index.
  *
@@ -40,81 +45,80 @@ use VuFindCode\ISBN;
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:autosuggesters Wiki
  */
-class Solr extends \VuFind\Autocomplete\Solr
-    implements \VuFind\I18n\Translator\TranslatorAwareInterface
+class Solr extends \VuFind\Autocomplete\Solr implements \VuFind\I18n\Translator\TranslatorAwareInterface
 {
     use \VuFind\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Autocomplete faceting settings
+     * Autocomplete faceting settings.
      *
      * @var array
      */
     protected $facetSettings;
 
     /**
-     * Facet configuration
+     * Facet configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $facetConfig;
 
     /**
-     * Hierarchical facets
+     * Hierarchical facets.
      *
      * @var array
      */
     protected $hierarchicalFacets;
 
     /**
-     * Checkbox facets
+     * Checkbox facets.
      *
      * @var array
      */
     protected $checkboxFacets;
 
     /**
-     * OR facets
+     * OR facets.
      *
      * @var array
      */
     protected $orFacets;
 
     /**
-     * Search configuration
+     * Search configuration.
      *
-     * @var \Laminas\Config\Config
+     * @var \VuFind\Config\Config
      */
     protected $searchConfig;
 
     /**
-     * Facet translations
+     * Facet translations.
      *
      * @var array
      */
     protected $facetTranslations;
 
     /**
-     * Current request
+     * Current request.
      *
      * @var \Laminas\Stdlib\Parameters
      */
     protected $request = null;
 
     /**
-     * Url helper
+     * Url helper.
      *
      * @var Url
      */
     protected $urlHelper;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param PluginManager          $results      Results plugin manager
-     * @param \Laminas\Config\Config $facetConfig  Facet configuration
-     * @param \Laminas\Config\Config $searchConfig Search configuration
-     * @param Url                    $urlHelper    Url helper
+     * @param PluginManager         $results      Results plugin manager
+     * @param \VuFind\Config\Config $facetConfig  Facet configuration
+     * @param \VuFind\Config\Config $searchConfig Search configuration
+     * @param Url                   $urlHelper    Url helper
      */
     public function __construct(
         \VuFind\Search\Results\PluginManager $results,
@@ -123,19 +127,14 @@ class Solr extends \VuFind\Autocomplete\Solr
         $urlHelper
     ) {
         $settings = [];
-        $facets = isset($searchConfig->Autocomplete_Sections->facets)
-            ? $searchConfig->Autocomplete_Sections->facets->toArray() : null;
+        $facets = $searchConfig?->Autocomplete_Sections?->facets?->toArray() ?? [];
 
-        $this->hierarchicalFacets
-            = isset($facetConfig->SpecialFacets->hierarchical)
-            ? $facetConfig->SpecialFacets->hierarchical->toArray() : [];
+        $this->hierarchicalFacets = $facetConfig?->SpecialFacets?->hierarchical?->toArray() ?? [];
 
         $this->checkboxFacets = [];
-        if (isset($facetConfig->CheckboxFacets)) {
-            foreach ($facetConfig->CheckboxFacets as $facet => $label) {
-                [$field, $val] = explode(':', $facet, 2);
-                $this->checkboxFacets[] = $field;
-            }
+        foreach ($facetConfig->CheckboxFacets ?? [] as $facet => $label) {
+            [$field, $val] = explode(':', $facet, 2);
+            $this->checkboxFacets[] = $field;
         }
         $this->urlHelper = $urlHelper;
         $pos = 0;
@@ -152,25 +151,22 @@ class Solr extends \VuFind\Autocomplete\Solr
             }
             $settings[$field][] = [
                 'pos' => $pos++, 'limit' => $limit,
-                'filter' => $filter, 'tabs' => $tabs
+                'filter' => $filter, 'tabs' => $tabs,
             ];
         }
 
         $this->facetConfig = $facetConfig;
         $this->searchConfig = $searchConfig;
         $this->facetSettings = $settings;
-        $this->facetTranslations = $facetConfig->Results->toArray();
-        foreach ($facetConfig->CheckboxFacets->toArray() as $field => $val) {
+        $this->facetTranslations = $facetConfig?->Results?->toArray() ?? [];
+        foreach ($facetConfig?->CheckboxFacets?->toArray() ?? [] as $field => $val) {
             [$field, ] = explode(':', $field);
             $this->facetTranslations[$field] = $val;
         }
 
         $this->orFacets = [];
-        if (isset($this->facetConfig->Results_Settings->orFacets)) {
-            $this->orFacets = array_map(
-                'trim',
-                explode(',', $this->facetConfig->Results_Settings->orFacets)
-            );
+        if (null !== ($orFacets = $this->facetConfig->Results_Settings->orFacets ?? null)) {
+            $this->orFacets = array_map('trim', explode(',', $orFacets));
         }
         parent::__construct($results);
     }
@@ -196,7 +192,8 @@ class Solr extends \VuFind\Autocomplete\Solr
                 ? str_replace('###', ':', $this->request->tab) : '';
             foreach ($this->facetSettings as $field => $facets) {
                 foreach ($facets as $key => $facet) {
-                    if (!empty($facet['tabs'])
+                    if (
+                        !empty($facet['tabs'])
                         && (!$searchTab || !in_array($searchTab, $facet['tabs']))
                     ) {
                         unset($this->facetSettings[$field][$key]);
@@ -289,7 +286,7 @@ class Solr extends \VuFind\Autocomplete\Solr
 
     /**
      * Get a record from the search results if the
-     * query matches record ISBN
+     * query matches record ISBN.
      *
      * @param $query search query
      *
@@ -318,7 +315,7 @@ class Solr extends \VuFind\Autocomplete\Solr
                                 'record',
                                 ['id' => $current['id']]
                             ),
-                            'recordId' => $current['id']
+                            'recordId' => $current['id'],
                         ];
                     }
                 }
@@ -402,9 +399,9 @@ class Solr extends \VuFind\Autocomplete\Solr
     /**
      * Collect facet data for output.
      *
-     * @param string  $facet             Facet field.
-     * @param array   $values            Facet values.
-     * @param boolean $hierarchicalFacet Is this a hierarchical facet?
+     * @param string $facet             Facet field.
+     * @param array  $values            Facet values.
+     * @param bool   $hierarchicalFacet Is this a hierarchical facet?
      *
      * @return array Filtered values
      */
@@ -474,11 +471,12 @@ class Solr extends \VuFind\Autocomplete\Solr
     /**
      * Process the user query to make it suitable for a Solr query.
      *
-     * @param string $query Incoming user query
+     * @param string $query   Incoming user query
+     * @param array  $options Array of extra parameters
      *
-     * @return string       Processed query
+     * @return string        Processed query
      */
-    protected function mungeQuery($query)
+    protected function mungeQuery(string $query, array $options = []): string
     {
         return $query;
     }
@@ -488,7 +486,7 @@ class Solr extends \VuFind\Autocomplete\Solr
      *
      * @param string $facet Facet
      *
-     * @return boolean
+     * @return bool
      */
     protected function useOrFacet($facet)
     {
@@ -504,7 +502,7 @@ class Solr extends \VuFind\Autocomplete\Solr
      *
      * @param string $facet Facet
      *
-     * @return boolean
+     * @return bool
      */
     protected function isCheckboxFacet($facet)
     {

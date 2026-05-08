@@ -24,10 +24,9 @@ var translations = {
 
 /**
  * Initializer function
- *
- * @param {object} images
- * @param {object} settings
- * @param {boolean} isList
+ * @param {HTMLElement} element Trigger element for paginator
+ * @param {object} images       Object containing images
+ * @param {object} settings     Object containing settings
  */
 function FinnaPaginator(element, images, settings) {
   var _ = this;
@@ -65,6 +64,11 @@ function FinnaPaginator(element, images, settings) {
   _.onDocumentLoadCallbacks = [];
   _.openImageIndex = 0;
   _.imagePopup = $(imageElement).clone();
+  // Prevent toggletip click event from propagating to other elements.
+  _.root.find('.finna-toggletip .partial-images').on('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+  });
   _.init();
 }
 
@@ -84,8 +88,7 @@ FinnaPaginator.prototype.clearTracks = function clearTracks() {
 
 /**
  * Add an element to an active track
- *
- * @param {HTMLElement} elem
+ * @param {HTMLElement} elem Element to append into a track
  */
 FinnaPaginator.prototype.appendTracks = function appendTracks(elem) {
   var _ = this;
@@ -100,9 +103,8 @@ FinnaPaginator.prototype.appendTracks = function appendTracks(elem) {
 
 /**
  * Helper function to show a button and hide another
- *
- * @param {HTMLElement} show
- * @param {HTMLElement} hide
+ * @param {HTMLElement} show Button to show
+ * @param {HTMLElement} hide Button to hide
  */
 function toggleButtons(show, hide) {
   show.show();
@@ -136,9 +138,6 @@ FinnaPaginator.prototype.init = function init() {
 
 /**
  * Function to set references when state of paginator changes or is created
- *
- * @param {HTMLElement} covers
- * @param {boolean} isPopup
  */
 FinnaPaginator.prototype.setReferences = function setReferences() {
   var _ = this;
@@ -149,10 +148,12 @@ FinnaPaginator.prototype.setReferences = function setReferences() {
   _.leftBrowseBtn = _.root.find('.next-image.left');
   _.rightBrowseBtn = _.root.find('.next-image.right');
   _.triggerImage = _.trigger.find('img');
-  _.pagerInfo = _.settings.isList ? _.covers.find('.paginator-info') : _.trigger.find('.paginator-info');
+  _.pagerInfo = _.trigger.find('.paginator-info');
   if (_.images.length < 2) {
     _.covers.hide();
     _.pagerInfo.hide();
+    _.leftBrowseBtn.hide();
+    _.rightBrowseBtn.hide();
   }
   if (_.images.length <= _.settings.imagesPerRow) {
     $('.recordcovers-more').hide();
@@ -167,6 +168,7 @@ FinnaPaginator.prototype.setReferences = function setReferences() {
 
 /**
  * Function to set browse button states
+ * @param {boolean} isList Is current paginator in a list view?
  */
 FinnaPaginator.prototype.setBrowseButtons = function setBrowseButtons(isList) {
   var _ = this;
@@ -251,8 +253,7 @@ FinnaPaginator.prototype.readQuery = function readQuery() {
 
 /**
  * Function to toggle proper canvas element to show video, image in popup
- *
- * @param {string} type
+ * @param {string} type Type of the canvas to set
  */
 FinnaPaginator.prototype.setCanvasElement = function setCanvasElement(type) {
   var _ = this;
@@ -265,9 +266,28 @@ FinnaPaginator.prototype.setCanvasElement = function setCanvasElement(type) {
 };
 
 /**
+ * Create a 3D model viewer
+ * @param {object} image Object containing image data
+ * @returns {HTMLElement} Finna model viewer
+ */
+FinnaPaginator.prototype.createModelViewer = function createModelViewer(image) {
+  var _ = this;
+
+  var viewer = document.createElement('finna-model-viewer');
+  viewer.src = `${VuFind.path}/AJAX/JSON?${image.data('params')}`;
+  viewer.texture = `${VuFind.path}${image.data('texture')}`;
+  viewer.scripts = `${VuFind.path}${image.data('scripts')}`;
+  viewer.translations = _.settings.modelTranslations;
+  viewer.debug = _.settings.viewerDebug;
+  if (image.attr('href')) {
+    viewer.previewsrc = image.attr('href');
+  }
+  return viewer;
+};
+
+/**
  * Function which is executed after nonzoomable image has been opened to a popup
- *
- * @param {object} image
+ * @param {object} image Object containing image data
  */
 FinnaPaginator.prototype.onNonZoomableClick = function onNonZoomableClick(image) {
   var _ = this;
@@ -277,23 +297,7 @@ FinnaPaginator.prototype.onNonZoomableClick = function onNonZoomableClick(image)
   _.canvasElements.noZoom.find('img').css('opacity', '0.5');
   _.openImageIndex = image.attr('index');
 
-  var img = new Image();
-  img.src = image.data('large');
-  $(img).attr('alt', image.data('alt'));
-  img.onload = function onLoad() {
-    if (typeof _.canvasElements.noZoom === 'undefined') {
-      return;
-    }
-    if (this.naturalWidth && this.naturalWidth === 10 && this.naturalHeight === 10) {
-      _.canvasElements.noZoom.addClass('no-image');
-      icon.show();
-      $(this).attr('alt', translations.no_cover);
-    } else if (_.canvasElements.noZoom.hasClass('no-image')) {
-      icon.hide();
-    }
-    _.canvasElements.noZoom.find('img').replaceWith($(this));
-  };
-
+  // Toggle canvas element first to ensure that it is correctly sized for model viewer:
   _.setCanvasElement('noZoom');
   _.setCurrentVisuals();
   _.setPagerInfo();
@@ -301,15 +305,42 @@ FinnaPaginator.prototype.onNonZoomableClick = function onNonZoomableClick(image)
     _.loadImageInformation();
   }
   _.setBrowseButtons();
+
+  if (image.data('type') === 'model') {
+    var viewer = _.createModelViewer(image);
+    _.canvasElements.noZoom.find('img,finna-model-viewer').replaceWith($(viewer));
+  } else {
+    var img = new Image();
+    img.src = image.data('large');
+    $(img).attr('alt', image.data('alt'));
+    img.onload = function onLoad() {
+      if (typeof _.canvasElements.noZoom === 'undefined') {
+        return;
+      }
+      if (this.naturalWidth && this.naturalWidth === 10 && this.naturalHeight === 10) {
+        _.canvasElements.noZoom.addClass('no-image');
+        icon.show();
+        $(this).attr('alt', translations.no_cover);
+      } else if (_.canvasElements.noZoom.hasClass('no-image')) {
+        icon.hide();
+      }
+      _.canvasElements.noZoom.find('img,finna-model-viewer').replaceWith($(this));
+    };
+  }
 };
 
 /**
  * Function to consume image objects data and load a zoomable version to leaflet
- *
- * @param {HTMLElement} image
+ * @param {HTMLElement} image Image element
  */
 FinnaPaginator.prototype.onLeafletImageClick = function onLeafletImageClick(image) {
   var _ = this;
+
+  if (image.data('type') === 'model') {
+    // Redirect to non-zoomable image for models:
+    _.onNonZoomableClick(image);
+    return;
+  }
 
   if (_.openImageIndex !== image.attr('index')) {
     _.openImageIndex = image.attr('index');
@@ -359,20 +390,34 @@ FinnaPaginator.prototype.onLeafletImageClick = function onLeafletImageClick(imag
 
     var offsetPercentage = _.settings.leaflet.offsetPercentage;
 
+    /**
+     * Calculate bounds for leaflet image so it is displayed in a proper manner
+     * @param {number} boundWidth Width of the area around the image
+     * @param {number} imageWidth Image width inside the area
+     * @param {number} boundHeight Height of the area around the image
+     * @param {number} imageHeight Image height inside the area
+     * @returns {object} Object containing height and width
+     */
     function calculateBounds(boundWidth, imageWidth, boundHeight, imageHeight) {
-      var heightPercentage = 0;
-      var widthPercentage = 0;
-      var newHeight = imageHeight;
-      var newWidth = imageWidth;
+      var heightPercentage;
+      var widthPercentage;
+      var newHeight;
+      var newWidth;
 
       if (imageHeight >= boundHeight) {
         newHeight = boundHeight - (boundHeight / 100 * offsetPercentage);
         heightPercentage = 100 - (newHeight / imageHeight * 100);
+      } else {
+        newHeight = boundHeight - imageHeight / 100;
+        heightPercentage = 100 - (newHeight / boundHeight * 100);
       }
 
       if (imageWidth >= boundWidth) {
         newWidth = boundWidth - (boundWidth / 100 * offsetPercentage);
         widthPercentage = 100 - (newWidth / imageWidth * 100);
+      } else {
+        newWidth = boundWidth - imageWidth / 100;
+        widthPercentage = 100 - (newWidth / boundWidth * 100);
       }
 
       if (heightPercentage > widthPercentage) {
@@ -404,8 +449,7 @@ FinnaPaginator.prototype.onLeafletImageClick = function onLeafletImageClick(imag
 
 /**
  * Function to browse images presented in image holder object
- *
- * @param int direction to try and find an image from
+ * @param {number} direction Direction to move -1 | 1
  */
 FinnaPaginator.prototype.onBrowseButton = function onBrowseButton(direction) {
   var _ = this;
@@ -427,8 +471,7 @@ FinnaPaginator.prototype.onBrowseButton = function onBrowseButton(direction) {
 
 /**
  * Function to decide which image will be loaded on list type paginator, determined by direction
- *
- * @param {int} direction
+ * @param {number} direction -1 or 1 for next or previous image
  */
 FinnaPaginator.prototype.onListButton = function onListButton(direction) {
   var _ = this;
@@ -497,13 +540,16 @@ FinnaPaginator.prototype.setButtons = function setButtons() {
 FinnaPaginator.prototype.setPagerInfo = function setPagerInfo() {
   var _ = this;
   var imageIndex = +_.openImageIndex + 1;
-  var advanced = translations.image + ' ' + imageIndex + ' / ' + _.images.length;
-  var plain = imageIndex + ' / ' + _.images.length;
+  let imageOfImages = `${imageIndex} / ${_.images.length}`;
+  if (_.images.length < _.settings.totalImagesCount) {
+    imageOfImages += ` (${_.settings.totalImagesCount})`;
+  }
+  var advanced = `${translations.image} ${imageOfImages}`;
 
   if (_.popup.pagerInfo) {
     _.popup.pagerInfo.find('.image-index').html(advanced);
   }
-  _.pagerInfo.find('.image-index').html(plain);
+  _.pagerInfo.find('.image-index').html(imageOfImages);
 };
 
 /**
@@ -512,7 +558,7 @@ FinnaPaginator.prototype.setPagerInfo = function setPagerInfo() {
 FinnaPaginator.prototype.setRecordIndex = function setRecordIndex() {
   var _ = this;
   if (_.popup.pagerInfo) {
-    var paginationSimple = $('.paginationSimple').first();
+    var paginationSimple = $('.pagination-simple').first();
     var total = paginationSimple.find('.total').html();
     var current = +paginationSimple.find('.index').html() + $.fn.finnaPopup.getCurrent('paginator');
     if (current && total && _.popup.pagerInfo) {
@@ -524,8 +570,7 @@ FinnaPaginator.prototype.setRecordIndex = function setRecordIndex() {
 /**
  * Function to consume imagepopup elements data to create image trigger
  * When the image does not exist, we remove the trigger event and let the user navigate directly to record
- *
- * @param {HTMLElement} imagePopup
+ * @param {HTMLElement} imagePopup Small image element to get data from to open trigger image
  */
 FinnaPaginator.prototype.changeTriggerImage = function changeTriggerImage(imagePopup) {
   var _ = this;
@@ -535,21 +580,36 @@ FinnaPaginator.prototype.changeTriggerImage = function changeTriggerImage(imageP
   if (_.openImageIndex !== imagePopup.attr('index')) {
     img.css('opacity', 0.5);
   }
+  /**
+   * Set image properties when image has loaded
+   * @param {HTMLImageElement} image Image to set
+   */
   function setImageProperties(image) {
     $(image).css('opacity', '');
     _.setDimensions();
-    if (image.naturalWidth && image.naturalWidth === 10 && image.naturalHeight === 10) {
-      _.trigger.addClass('no-image').trigger('removeclick');
-      $(image).attr('alt', '');
-      if (_.settings.isList) {
-        if (_.images.length < 2) {
-          _.settings.enableImageZoom = false;
+    var width = image.naturalWidth;
+    var height = image.naturalHeight;
+    const recordCoverContainer = img.closest('.recordcover-container');
+    var containerWidth = recordCoverContainer.width();
+    var containerHeight = recordCoverContainer.height();
+    if (width) {
+      if (width === 10 && height === 10) {
+        _.trigger.addClass('no-image').trigger('removeclick');
+        $(image).attr('alt', '');
+        if (_.settings.isList) {
+          if (_.images.length < 2) {
+            _.settings.enableImageZoom = false;
+          }
+          $(image).parents('.grid').addClass('no-image');
         }
-        $(image).parents('.grid').addClass('no-image');
-      }
-      if (!_.settings.isList && _.images.length <= 1) {
-        _.root.css('display', 'none');
-        _.root.siblings('.image-details-container:not(:has(.image-rights))').addClass('hidden');
+        if (!_.settings.isList && _.images.length <= 1) {
+          _.root.css('display', 'none');
+          _.root.siblings('.image-details-container:not(:has(.image-rights))').addClass('hidden');
+        }
+      // If the image measurements are less than 60% of their container's measurements
+      } else if (_.root.parents().hasClass('record-main') && (width / containerWidth < 0.6) && (height / containerHeight < 0.6)) {
+        _.trigger.css('aspect-ratio', 'auto');
+        $('.image-description').css('text-align', 'center');
       }
     } else if (_.trigger.hasClass('no-image')) {
       _.trigger.removeClass('no-image');
@@ -563,6 +623,9 @@ FinnaPaginator.prototype.changeTriggerImage = function changeTriggerImage(imageP
     }
     setImageProperties(this);
   });
+  if (_.trigger.hasClass('no-image')) {
+    _.trigger.removeClass('no-image');
+  }
   VuFind.observerManager.observe(
     'LazyImages',
     img[0].parentNode.querySelectorAll('img[data-src]')
@@ -584,10 +647,9 @@ FinnaPaginator.prototype.showImageDetails = function showImageDetails(imagePopup
 /**
  * Function to clear track of images and load new amount of images with direction.
  * If openimageindex is set, loads images from that image. If imagesperpage is set updates the amount of images to show in total
- *
- * @param {int} direction
- * @param {int} openImageIndex
- * @param {int} imagesPerPage
+ * @param {number} direction -1 or 1 for loading new images into paginator track
+ * @param {number} openImageIndex Current open image index
+ * @param {number} imagesPerPage How many images for the current page
  */
 FinnaPaginator.prototype.loadPage = function loadPage(direction, openImageIndex, imagesPerPage) {
   var _ = this;
@@ -644,8 +706,8 @@ FinnaPaginator.prototype.loadPage = function loadPage(direction, openImageIndex,
 
 /**
  * Function to find a single image from array with direction
- *
- * @param {int} direction
+ * @param {number} direction -1 or 1 for next or previous image
+ * @returns {object} Found image object from the images
  */
 FinnaPaginator.prototype.getImageFromArray = function getImageFromArray(direction) {
   var _ = this;
@@ -679,7 +741,14 @@ FinnaPaginator.prototype.loadImageInformation = function loadImageInformation() 
   if (typeof listId !== 'undefined') {
     src += '&listId=' + listId;
   }
-  _.popup.collapseArea.html('<div class="large-spinner"><i class="fa fa-spinner fa-spin"/></div>');
+
+  // Include current search id
+  const searchId = VuFind.getCurrentSearchId();
+  if (searchId) {
+    src += "&sid=" + encodeURIComponent(searchId);
+  }
+
+  _.popup.collapseArea.html('<div class="large-spinner">' + VuFind.icon('spinner') + '</div>');
   $.ajax({
     url: src,
     dataType: 'html'
@@ -737,9 +806,9 @@ FinnaPaginator.prototype.loadBookDescription = function loadBookDescription() {
 
 /**
  * Function to create small images for popup track consuming the data from image object
- *
- * @param {object} image
- * @param {number} index
+ * @param {object} image Object containing image data
+ * @param {number} index Index of the image
+ * @returns {jQuery} Image element
  */
 FinnaPaginator.prototype.createImagePopup = function createImagePopup(image, index) {
   var _ = this;
@@ -749,16 +818,13 @@ FinnaPaginator.prototype.createImagePopup = function createImagePopup(image, ind
       var img = new Image();
       img.src = image.urls.small;
       img.alt = image.description;
-      img.title = image.title;
-      holder.append(img, $('<i class="fa fa-spinner fa-spin"/>'));
+      img.title = image.title || '';
+      holder.append(img, VuFind.icon('spinner', 'spinner-icon'));
       img.onload = function onLoad() {
-        $(this).siblings('i').remove();
+        $(this).siblings('.spinner-icon').remove();
       };
     } else if (image.type === 'model') {
-      if (_.popup.track) {
-        return undefined;
-      }
-      holder.append($('<i class="fa-finna-3d"/>'));
+      holder.append(VuFind.icon('model-3d', 'model-3d-icon'));
     }
   }
   holder.attr({
@@ -771,9 +837,10 @@ FinnaPaginator.prototype.createImagePopup = function createImagePopup(image, ind
     'data-alt': image.description
   });
 
-  if (image.type === 'model') {
+  if (image.type === 'model' && image.models) {
+    const previewModel = image.models.find(el => el.type === 'preview');
     holder.attr({
-      'data-params': image.params,
+      'data-params': previewModel.params,
       'data-texture': image.texture,
       'data-scripts': image.scripts
     });
@@ -793,8 +860,6 @@ FinnaPaginator.prototype.setCurrentVisuals = function setCurrentVisuals() {
 
 /**
  * Sets the max amount of images to show in the track. Popup has different amounts determined.
- *
- * @param {int} amount
  */
 FinnaPaginator.prototype.setMaxImages = function setMaxImages() {
   var _ = this;
@@ -835,9 +900,8 @@ FinnaPaginator.prototype.setDimensions = function setDimensions() {
 };
 
 /**
- * Lets create a popup object to handle images properly
- *
- * @param {jQuery} popup
+ * Create a popup object to handle images properly
+ * @param {jQuery} popup Popup modal container
  */
 FinnaPaginator.prototype.createPopupObject = function createPopupObject(popup) {
   var _ = this;
@@ -862,6 +926,8 @@ FinnaPaginator.prototype.createPopupObject = function createPopupObject(popup) {
   _.canvasElements.video.attr('id', 'video-player');
   if (_.images.length < 2) {
     _.popup.covers.parent().hide();
+    _.popup.leftBrowseBtn.hide();
+    _.popup.rightBrowseBtn.hide();
   }
   popup.toggleClass('nonzoomable', !_.settings.enableImageZoom);
 
@@ -881,6 +947,7 @@ FinnaPaginator.prototype.createPopupObject = function createPopupObject(popup) {
 
 /**
  * Function to set image popup trigger click event and logic when popup is being opened
+ * @param {jQuery} imagePopup Small image from image track
  */
 FinnaPaginator.prototype.setTrigger = function setTrigger(imagePopup) {
   var _ = this;
@@ -916,17 +983,10 @@ FinnaPaginator.prototype.setTrigger = function setTrigger(imagePopup) {
     _.viewer = undefined;
   }
   if (imageType === 'model') {
-    _.viewer = document.createElement('finna-model-viewer');
-    _.viewer.proxy = `${VuFind.path}/AJAX/JSON?${imagePopup.data('params')}`;
-    _.viewer.texture = `${VuFind.path}${imagePopup.data('texture')}`;
-    _.viewer.scripts = `${VuFind.path}${imagePopup.data('scripts')}`;
-    _.viewer.translations = _.settings.modelTranslations;
-    _.viewer.debug = _.settings.viewerDebug;
-    if (imagePopup.attr('href')) {
-      _.viewer.previewsrc = imagePopup.attr('href');
-    }
+    _.viewer = _.createModelViewer(imagePopup);
     _.trigger.append(_.viewer);
     _.trigger.trigger('removeclick.finna');
+    _.trigger.removeClass('no-image');
     _.trigger.on('click', (e) => { e.preventDefault(); });
   } else {
     _.trigger.finnaPopup({
@@ -1007,6 +1067,7 @@ FinnaPaginator.prototype.zoomButtonState = function zoomButtonState() {
 
 /**
  * Function to set list image trigger function
+ * @param {object} image Object from images object holder
  */
 FinnaPaginator.prototype.setListTrigger = function setListTrigger(image) {
   var _ = this;
@@ -1022,8 +1083,8 @@ FinnaPaginator.prototype.setListTrigger = function setListTrigger(image) {
 
 /**
  * Function to find an image element from imageHolder track
- *
- * @param index int index of wanted image element
+ * @param {number} index int index of wanted image element
+ * @returns {jQuery} Found image from paginator track
  */
 FinnaPaginator.prototype.findSmallImage = function findSmallImage(index) {
   var _ = this;
@@ -1035,8 +1096,7 @@ FinnaPaginator.prototype.findSmallImage = function findSmallImage(index) {
 /**
  * Function to add callbacks after document is fully loaded or immediately, if the document is already
  * loaded
- *
- * @param callback function to add
+ * @param {Function} callback function to add
  */
 FinnaPaginator.prototype.addDocumentLoadCallback = function addDocumentLoadCallback(callback) {
   var _ = this;
@@ -1052,7 +1112,7 @@ FinnaPaginator.prototype.addDocumentLoadCallback = function addDocumentLoadCallb
  */
 FinnaPaginator.prototype.onDocumentLoad = function onDocumentLoad() {
   var _ = this;
-  $(document).ready(function doDocumentLoadCallbacks() {
+  $(function doDocumentLoadCallbacks() {
     for (var i = 0; i < _.onDocumentLoadCallbacks.length; i++) {
       _.onDocumentLoadCallbacks[i]();
     }

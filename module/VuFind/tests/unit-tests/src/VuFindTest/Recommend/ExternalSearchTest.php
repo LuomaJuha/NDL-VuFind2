@@ -1,8 +1,9 @@
 <?php
+
 /**
- * ExternalSearch recommendation module Test Class
+ * ExternalSearch recommendation module Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2019.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\Recommend;
 
 use VuFind\Recommend\ExternalSearch;
 
 /**
- * ExternalSearch recommendation module Test Class
+ * ExternalSearch recommendation module Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -41,7 +43,7 @@ use VuFind\Recommend\ExternalSearch;
 class ExternalSearchTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * Run a test scenario
+     * Run a test scenario.
      *
      * @param string $label       Link text
      * @param string $template    Link template
@@ -68,7 +70,7 @@ class ExternalSearchTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test concatenation behavior
+     * Test concatenation behavior.
      *
      * @return void
      */
@@ -83,7 +85,7 @@ class ExternalSearchTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test template insertion behavior
+     * Test template insertion behavior.
      *
      * @return void
      */

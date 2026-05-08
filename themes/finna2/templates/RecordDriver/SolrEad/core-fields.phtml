@@ -6,22 +6,28 @@
       = ['access_restrictions_general'];
   $coreFieldGroups = $formatter->getGroupedData($this->driver, $formatter->getGroupedFields([
     ['label' => 'Context',
-      'lines' => ['Archive Origination', 'Archive', 'Archive Series', 'Archive File']
-    ],
-    ['lines' => [
-        'Format', 'Authors', 'Secondary Authors', 'Unit ID', 'Unit IDs','Subjects',
-        'subjects_extended', 'Dates', 'Material Condition']
-    ],
-    ['label' => 'access_restrictions_general',
-      'lines' => ['Access Restrictions Extended']
+      'lines' => ['Archive Origination', 'Archive', 'Archive Series', 'Archive File'],
     ],
     [
-      'lines' => ['Access Restrictions']
-    ]
+      'lines' => ['Format', 'Unit ID', 'Unit IDs',],
+    ],
+    ['label' => 'archive_authors',
+    'lines' => ['archive_authors', 'Archive Relations', 'archive_other_authors'],
+    ],
+    ['lines' => [
+        'Authors', 'Subject Actor', 'Subject Place', 'Subjects',
+        'subjects_extended', 'Dates', 'Material Condition'],
+    ],
+    ['label' => 'access_restrictions_general',
+      'lines' => ['Access Restrictions Extended'],
+    ],
+    [
+      'lines' => ['Access Restrictions'],
+    ],
   ], $coreFields));
 ?>
 <?php if (!empty($coreFieldGroups)): ?>
-  <table class="table table-finna-record record-details record-field-groups" role="presentation">
+  <table class="table table-finna-record record-details record-field-groups" role="presentation" tabindex="-1">
     <?=$this->record($this->driver)->renderTemplate('core-field-groups.phtml', ['data' => $coreFieldGroups]);?>
   </table>
 <?php endif; ?>

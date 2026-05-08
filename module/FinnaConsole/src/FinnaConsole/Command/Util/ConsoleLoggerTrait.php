@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Trait for logs in console services.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2020.
  *
@@ -16,20 +17,27 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Util;
 
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+
+use function is_array;
+use function is_bool;
+use function is_float;
+use function is_int;
+use function is_object;
 
 /**
  * Trait for logs in console services.
@@ -39,17 +47,29 @@ use Symfony\Component\Console\Output\OutputInterface;
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  * @todo     Use Symfony output
  */
 trait ConsoleLoggerTrait
 {
     /**
-     * Output interface
+     * Output interface.
      *
      * @var OutputInterface
      */
     protected $output = null;
+
+    /**
+     * Log an error.
+     *
+     * @param string $msg Message
+     *
+     * @return void
+     */
+    public function logError($msg)
+    {
+        $this->msg("ERROR: $msg");
+    }
 
     /**
      * Log an exception triggered by ZF2 for administrative purposes.
@@ -62,10 +82,10 @@ trait ConsoleLoggerTrait
     {
         // We need to build a variety of pieces so we can supply
         // information at five different verbosity levels:
-        $baseError = get_class($error) . ' : ' . $error->getMessage();
+        $baseError = $error::class . ' : ' . $error->getMessage();
         $prev = $error->getPrevious();
         while ($prev) {
-            $baseError .= ' ; ' . get_class($prev) . ' : ' . $prev->getMessage();
+            $baseError .= ' ; ' . $prev::class . ' : ' . $prev->getMessage();
             $prev = $prev->getPrevious();
         }
         $backtrace = "\nBacktrace:\n";
@@ -99,7 +119,7 @@ trait ConsoleLoggerTrait
     }
 
     /**
-     * Convert function argument to a loggable string
+     * Convert function argument to a loggable string.
      *
      * @param mixed $arg Argument
      *
@@ -108,7 +128,7 @@ trait ConsoleLoggerTrait
     protected function argumentToString($arg)
     {
         if (is_object($arg)) {
-            return get_class($arg) . ' Object';
+            return $arg::class . ' Object';
         }
         if (is_array($arg)) {
             $args = [];
@@ -130,7 +150,7 @@ trait ConsoleLoggerTrait
     }
 
     /**
-     * Output a message with a timestamp
+     * Output a message with a timestamp.
      *
      * @param string $msg     Message
      * @param int    $verbose Verbosity level (one of OutputInterface::VERBOSITY_*
@@ -149,7 +169,7 @@ trait ConsoleLoggerTrait
     }
 
     /**
-     * Output an error message with a timestamp
+     * Output an error message with a timestamp.
      *
      * @param string $msg          Message
      * @param string $publishedMsg Published version of the error message. Must
@@ -176,7 +196,7 @@ trait ConsoleLoggerTrait
     }
 
     /**
-     * Output a warning message with a timestamp
+     * Output a warning message with a timestamp.
      *
      * @param string $msg Message
      *

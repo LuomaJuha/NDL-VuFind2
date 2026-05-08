@@ -3,7 +3,7 @@
 /**
  * ResultScroller controller plugin tests.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -26,6 +26,7 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\Controller\Plugin;
 
 use Laminas\Session\Container;
@@ -42,11 +43,12 @@ use VuFind\Controller\Plugin\ResultScroller;
  */
 class ResultScrollerTest extends \PHPUnit\Framework\TestCase
 {
-    use \VuFindTest\Feature\ConfigPluginManagerTrait;
+    use \VuFindTest\Feature\ConfigRelatedServicesTrait;
 
     /**
      * Test next_prev_nav bug
-     * Expect next_prev to behave like it's disabled if the last search didn't return any results
+     * Expect next_prev to behave like it's disabled if the last search didn't return
+     * any results.
      *
      * @return void
      */
@@ -59,7 +61,7 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => null, 'lastRecord' => null,
             'previousRecord' => null, 'nextRecord' => null,
-            'currentPosition' => null, 'resultTotal' => null
+            'currentPosition' => null, 'resultTotal' => null,
         ];
 
         $this->assertEquals(
@@ -71,27 +73,35 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test disabled behavior
+     * Test disabled behavior.
      *
      * @return void
      */
     public function testDisabled()
     {
-        $mockManager = $this->getMockBuilder(\VuFind\Search\Results\PluginManager::class)
-            ->disableOriginalConstructor()->getMock();
-        $plugin = new ResultScroller(new Container('test'), $mockManager, false);
+        $mockManager = $this->createMock(\VuFind\Search\Results\PluginManager::class);
+        $mockMemory = $this->createMock(\VuFind\Search\Memory::class);
+        $plugin = new ResultScroller(
+            new Container('test'),
+            $mockManager,
+            $mockMemory,
+            true
+        );
         $results = $this->getMockResults();
         $this->assertFalse($plugin->init($results));
         $expected = [
             'firstRecord' => null, 'lastRecord' => null,
             'previousRecord' => null, 'nextRecord' => null,
-            'currentPosition' => null, 'resultTotal' => null
+            'currentPosition' => null, 'resultTotal' => null,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(1)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(1))
+        );
     }
 
     /**
-     * Test scrolling on single-record set
+     * Test scrolling on single-record set.
      *
      * @return void
      */
@@ -103,13 +113,16 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|1',
             'previousRecord' => null, 'nextRecord' => null,
-            'currentPosition' => 1, 'resultTotal' => 1
+            'currentPosition' => 1, 'resultTotal' => 1,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(1)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(1))
+        );
     }
 
     /**
-     * Test scrolling for a record in the middle of the page
+     * Test scrolling for a record in the middle of the page.
      *
      * @return void
      */
@@ -121,9 +134,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|10',
             'previousRecord' => 'Solr|4', 'nextRecord' => 'Solr|6',
-            'currentPosition' => 5, 'resultTotal' => 10
+            'currentPosition' => 5, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(5)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(5))
+        );
     }
 
     /**
@@ -139,9 +155,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|10',
             'previousRecord' => null, 'nextRecord' => 'Solr|2',
-            'currentPosition' => 1, 'resultTotal' => 10
+            'currentPosition' => 1, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(1)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(1))
+        );
     }
 
     /**
@@ -157,9 +176,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|10',
             'previousRecord' => null, 'nextRecord' => 'Solr|2',
-            'currentPosition' => 1, 'resultTotal' => 10
+            'currentPosition' => 1, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(1)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(1))
+        );
     }
 
     /**
@@ -176,9 +198,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|10',
             'previousRecord' => 'Solr|9', 'nextRecord' => null,
-            'currentPosition' => 10, 'resultTotal' => 10
+            'currentPosition' => 10, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(10)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(10))
+        );
     }
 
     /**
@@ -195,9 +220,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|9',
             'previousRecord' => 'Solr|8', 'nextRecord' => null,
-            'currentPosition' => 9, 'resultTotal' => 9
+            'currentPosition' => 9, 'resultTotal' => 9,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(9)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(9))
+        );
     }
 
     /**
@@ -214,13 +242,16 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => null, 'lastRecord' => null,
             'previousRecord' => 'Solr|4', 'nextRecord' => 'Solr|6',
-            'currentPosition' => 5, 'resultTotal' => 10
+            'currentPosition' => 5, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(5)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(5))
+        );
     }
 
     /**
-     * Test scrolling for a record at the start of the first page
+     * Test scrolling for a record at the start of the first page.
      *
      * @return void
      */
@@ -232,13 +263,16 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|10',
             'previousRecord' => null, 'nextRecord' => 'Solr|2',
-            'currentPosition' => 1, 'resultTotal' => 10
+            'currentPosition' => 1, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(1)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(1))
+        );
     }
 
     /**
-     * Test scrolling for a record at the end of the last page (single-page example)
+     * Test scrolling for a record at the end of the last page (single-page example).
      *
      * @return void
      */
@@ -250,13 +284,16 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|10',
             'previousRecord' => 'Solr|9', 'nextRecord' => null,
-            'currentPosition' => 10, 'resultTotal' => 10
+            'currentPosition' => 10, 'resultTotal' => 10,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(10)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(10))
+        );
     }
 
     /**
-     * Test scrolling for a record at the end of the last page (multi-page example)
+     * Test scrolling for a record at the end of the last page (multi-page example).
      *
      * @return void
      */
@@ -268,9 +305,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|17',
             'previousRecord' => 'Solr|16', 'nextRecord' => null,
-            'currentPosition' => 17, 'resultTotal' => 17
+            'currentPosition' => 17, 'resultTotal' => 17,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(17)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(17))
+        );
     }
 
     /**
@@ -286,9 +326,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|30',
             'previousRecord' => 'Solr|10', 'nextRecord' => 'Solr|12',
-            'currentPosition' => 11, 'resultTotal' => 30
+            'currentPosition' => 11, 'resultTotal' => 30,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(11)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(11))
+        );
     }
 
     /**
@@ -314,9 +357,12 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|1', 'lastRecord' => 'Solr|30',
             'previousRecord' => 'Solr|19', 'nextRecord' => 'Solr|21',
-            'currentPosition' => 20, 'resultTotal' => 30
+            'currentPosition' => 20, 'resultTotal' => 30,
         ];
-        $this->assertEquals($expected, $plugin->getScrollData($results->getMockRecordDriver(20)));
+        $this->assertEquals(
+            $expected,
+            $plugin->getScrollData($results->getMockRecordDriver(20))
+        );
     }
 
     /**
@@ -332,7 +378,7 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $expected = [
             'firstRecord' => 'Solr|sorted1', 'lastRecord' => 'Solr|sorted30',
             'previousRecord' => 'Solr|sorted19', 'nextRecord' => 'Solr|sorted21',
-            'currentPosition' => 20, 'resultTotal' => 30
+            'currentPosition' => 20, 'resultTotal' => 30,
         ];
         $this->assertEquals(
             $expected,
@@ -343,7 +389,7 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Get mock search results
+     * Get mock search results.
      *
      * @param int    $page      Current page number
      * @param int    $limit     Page size
@@ -360,20 +406,18 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
         $firstLast = true,
         $sort = null
     ): \VuFindTest\Search\TestHarness\Results {
-        $pm = $this->getMockConfigPluginManager(
+        $mockConfigManager = $this->getMockConfigManager(
             ['config' => $firstLast ? $this->getFirstLastConfig() : []]
         );
-        $options = new \VuFindTest\Search\TestHarness\Options($pm);
-        $params = new \VuFindTest\Search\TestHarness\Params($options, $pm);
+        $options = new \VuFindTest\Search\TestHarness\Options($mockConfigManager);
+        $params = new \VuFindTest\Search\TestHarness\Params($options, $mockConfigManager);
         $params->setPage($page);
         $params->setLimit($limit);
         if (null !== $sort) {
             $params->setSort($sort, true);
         }
-        $ss = $this->getMockBuilder(\VuFindSearch\Service::class)
-            ->disableOriginalConstructor()->getMock();
-        $rl = $this->getMockBuilder(\VuFind\Record\Loader::class)
-            ->disableOriginalConstructor()->getMock();
+        $ss = $this->createMock(\VuFindSearch\Service::class);
+        $rl = $this->createMock(\VuFind\Record\Loader::class);
         $results = new \VuFindTest\Search\TestHarness\Results(
             $params,
             $ss,
@@ -384,59 +428,71 @@ class ResultScrollerTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Get mock result scroller
+     * Get mock result scroller.
      *
-     * @param \VuFind\Search\Base\Results $results restoreLastSearch results
-     * (null to ignore)
-     * @param array                       $methods Methods to mock
+     * @param \VuFind\Search\Base\Results $results restoreSearch results (null to ignore)
      *
-     * @return ResultScrollerMock
+     * @return ResultScroller
      */
-    protected function getMockResultScroller($results): ResultScrollerMock
+    protected function getMockResultScroller($results): ResultScroller
     {
-        $mockManager = $this->getMockBuilder(\VuFind\Search\Results\PluginManager::class)
-            ->disableOriginalConstructor()->getMock();
-        return new ResultScrollerMock($mockManager, $results);
-    }
-}
+        $mockManager = $this->createMock(\VuFind\Search\Results\PluginManager::class);
+        $mockMemory = $this->createMock(\VuFind\Search\Memory::class);
+        $mockMemory->method('getLastSearchId')->willReturn(-123);
+        $params = [
+            new Container('test'),
+            $mockManager,
+            $mockMemory,
+            true,
+        ];
+        // Create an anonymous class to stub out some behavior:
+        $resultScroller = new class (...$params) extends ResultScroller {
+            /**
+             * Search results to return.
+             *
+             * @var \VuFind\Search\Base\Results
+             */
+            protected $testResults;
 
-/**
- * Mock class to stub search results
- */
-class ResultScrollerMock extends \VuFind\Controller\Plugin\ResultScroller
-{
-    /**
-     * Search results to return
-     *
-     * @var \VuFind\Search\Base\Results
-     */
-    protected $testResults;
+            /**
+             * Set results to remember for restoreSearch.
+             *
+             * @param \VuFind\Search\Base\Results $testResults Results
+             *
+             * @return void
+             */
+            public function setResults(?\VuFind\Search\Base\Results $testResults): void
+            {
+                $this->testResults = $testResults;
+            }
 
-    public function __construct($mockManager, $testResults)
-    {
-        parent::__construct(new Container('test'), $mockManager);
-        $this->testResults = $testResults;
-    }
+            /**
+             * Stubbed.
+             *
+             * @param int $searchId Search ID
+             *
+             * @return ?\VuFind\Search\Base\Results
+             */
+            protected function restoreSearch(int $searchId): ?\VuFind\Search\Base\Results
+            {
+                return $this->testResults->getSearchId() === $searchId
+                    ? $this->testResults : null;
+            }
 
-    /**
-     * Stubbed
-     *
-     * @return \VuFind\Search\Base\Results
-     */
-    protected function restoreLastSearch()
-    {
-        return $this->testResults;
-    }
+            /**
+             * Stubbed.
+             *
+             * @param \VuFind\Search\Base\Results $search Search object to remember.
+             *
+             * @return void
+             */
+            protected function rememberSearch($search)
+            {
+                // Do nothing
+            }
+        };
 
-    /**
-     * Stubbed
-     *
-     * @param \VuFind\Search\Base\Results $search Search object to remember.
-     *
-     * @return void
-     */
-    protected function rememberSearch($search)
-    {
-        return null;
+        $resultScroller->setResults($results);
+        return $resultScroller;
     }
 }

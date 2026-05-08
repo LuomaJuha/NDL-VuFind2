@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Base class for Authority records record tabs.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2020.
  *
@@ -16,15 +17,16 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  RecordTabs
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_tabs Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_tabs Wiki
  */
+
 namespace Finna\RecordTab;
 
 use VuFind\I18n\Translator\TranslatorAwareInterface;
@@ -37,15 +39,14 @@ use VuFind\I18n\Translator\TranslatorAwareTrait;
  * @package  RecordTabs
  * @author   Samuli Sillanpää <samuli.sillanpaa@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:record_tabs Wiki
+ * @link     https://vufind.org/wiki/development:plugins:record_tabs Wiki
  */
-abstract class AuthorityRecordsBase extends \VuFind\RecordTab\AbstractBase
-    implements TranslatorAwareInterface
+abstract class AuthorityRecordsBase extends \VuFind\RecordTab\AbstractBase implements TranslatorAwareInterface
 {
     use TranslatorAwareTrait;
 
     /**
-     * Authority helper
+     * Authority helper.
      *
      * @var \Finna\Search\Solr\AuthorityHelper
      */
@@ -59,7 +60,7 @@ abstract class AuthorityRecordsBase extends \VuFind\RecordTab\AbstractBase
     protected $records = null;
 
     /**
-     * Record count
+     * Record count.
      *
      * @var int
      */
@@ -73,7 +74,7 @@ abstract class AuthorityRecordsBase extends \VuFind\RecordTab\AbstractBase
     protected $driver;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param \Finna\Search\Solr\AuthorityHelper $authorityHelper Authority helper
      */
@@ -169,14 +170,14 @@ abstract class AuthorityRecordsBase extends \VuFind\RecordTab\AbstractBase
     }
 
     /**
-     * Get record tab label
+     * Get record tab label.
      *
      * @return string
      */
     abstract protected function getLabel();
 
     /**
-     * Return index field used when listing records
+     * Return index field used when listing records.
      *
      * @return string
      */

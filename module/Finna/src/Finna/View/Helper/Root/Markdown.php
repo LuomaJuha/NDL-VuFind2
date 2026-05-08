@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Markdown view helper
+ * Markdown view helper.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2016-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -26,12 +27,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     http://vufind.org   Main Site
  */
+
 namespace Finna\View\Helper\Root;
 
 use League\CommonMark\Util\RegexHelper;
 
 /**
- * Markdown view helper
+ * Markdown view helper.
  *
  * @category VuFind
  * @package  View_Helpers
@@ -58,7 +60,7 @@ class Markdown extends \VuFind\View\Helper\Root\Markdown
             $markdown = $this->replaceDeprecatedTags($markdown);
         } else {
             // Fix for deprecated tags.
-            $markdown = str_replace("</summary>", "</summary>\n", $markdown);
+            $markdown = str_replace('</summary>', "</summary>\n", $markdown);
         }
 
         // Clean HTML while in Markdown format, since HTML from server-side rendered
@@ -78,7 +80,7 @@ class Markdown extends \VuFind\View\Helper\Root\Markdown
     }
 
     /**
-     * Converts markdown to html
+     * Converts markdown to html.
      *
      * Finna: back-compatibility with default param and call logic
      *
@@ -86,7 +88,7 @@ class Markdown extends \VuFind\View\Helper\Root\Markdown
      *
      * @return string
      */
-    public function __invoke(string $markdown = null)
+    public function __invoke(?string $markdown = null)
     {
         return null === $markdown ? $this : parent::__invoke($markdown);
     }

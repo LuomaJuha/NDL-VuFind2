@@ -1,8 +1,7 @@
 <?php
-declare(strict_types=1);
 
 /**
- * Class Database
+ * Class Database.
  *
  * PHP version 8
  *
@@ -19,8 +18,8 @@ declare(strict_types=1);
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Form
@@ -30,16 +29,20 @@ declare(strict_types=1);
  * @license  https://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
+declare(strict_types=1);
+
 namespace Finna\Form\Handler;
 
-use Finna\Db\Table\FinnaFeedback;
-use Laminas\Log\LoggerAwareInterface;
+use Finna\Db\Service\FinnaFeedbackServiceInterface;
 use Laminas\View\Renderer\RendererInterface;
+use Psr\Log\LoggerAwareInterface;
+use VuFind\Db\Entity\UserEntityInterface;
 use VuFind\Form\Handler\HandlerInterface;
 use VuFind\Log\LoggerAwareTrait;
 
 /**
- * Class Database
+ * Class Database.
  *
  * @category VuFind
  * @package  Form
@@ -54,41 +57,17 @@ class Database implements HandlerInterface, LoggerAwareInterface
     use LoggerAwareTrait;
 
     /**
-     * View renderer
+     * Constructor.
      *
-     * @var RendererInterface
-     */
-    protected $viewRenderer;
-
-    /**
-     * Feedback table
-     *
-     * @var FinnaFeedback
-     */
-    protected $table;
-
-    /**
-     * Site base url
-     *
-     * @var string
-     */
-    protected $baseUrl;
-
-    /**
-     * Constructor
-     *
-     * @param \VuFind\Db\Table\Feedback $feedbackTable Feedback db table
-     * @param string                    $baseUrl       Site base url
-     * @param RendererInterface         $viewRenderer  View renderer
+     * @param FinnaFeedbackServiceInterface $feedbackService Feedback database service
+     * @param string                        $baseUrl         Site base url
+     * @param RendererInterface             $viewRenderer    View renderer
      */
     public function __construct(
-        FinnaFeedback $feedbackTable,
-        string $baseUrl,
-        RendererInterface $viewRenderer
+        protected FinnaFeedbackServiceInterface $feedbackService,
+        protected string $baseUrl,
+        protected RendererInterface $viewRenderer
     ) {
-        $this->table = $feedbackTable;
-        $this->baseUrl = $baseUrl;
-        $this->viewRenderer = $viewRenderer;
     }
 
     /**
@@ -96,19 +75,17 @@ class Database implements HandlerInterface, LoggerAwareInterface
      *
      * @param \VuFind\Form\Form                     $form   Submitted form
      * @param \Laminas\Mvc\Controller\Plugin\Params $params Request params
-     * @param ?\VuFind\Db\Row\User                  $user   Authenticated user
+     * @param ?UserEntityInterface                  $user   Authenticated user
      *
      * @return bool
      */
     public function handle(
         \VuFind\Form\Form $form,
         \Laminas\Mvc\Controller\Plugin\Params $params,
-        ?\VuFind\Db\Row\User $user = null
+        ?UserEntityInterface $user = null
     ): bool {
         $fields = $form->mapRequestParamsToFieldValues($params->fromPost());
         $save = array_column($fields, 'value', 'name');
-
-        $userId = $user ? $user->id : null;
 
         $subject = $form->getEmailSubject($params->fromPost());
         $save['emailSubject'] = $subject;
@@ -122,13 +99,13 @@ class Database implements HandlerInterface, LoggerAwareInterface
         $message = $subject . PHP_EOL . '-----' . PHP_EOL . PHP_EOL . $emailMessage;
 
         try {
-            $this->table->saveFeedback(
-                $this->baseUrl,
-                $form->getFormId(),
-                $userId,
-                $message,
-                $messageJson
-            );
+            $feedback = $this->feedbackService->createEntity()
+                ->setUser($user)
+                ->setSiteUrl($this->baseUrl)
+                ->setFormName($form->getFormId())
+                ->setMessage($message)
+                ->setFormData($save);
+            $this->feedbackService->persistEntity($feedback);
         } catch (\Exception $e) {
             $this->logError('Could not save feedback data: ' . $e->getMessage());
             return false;

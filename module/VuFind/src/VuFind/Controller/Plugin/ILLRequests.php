@@ -1,8 +1,9 @@
 <?php
+
 /**
- * VuFind Action Helper - ILL Requests Support Methods
+ * VuFind Action Helper - ILL Requests Support Methods.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2010.
  * Copyright (C) The National Library of Finland 2014.
@@ -17,8 +18,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller_Plugins
@@ -27,10 +28,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Controller\Plugin;
 
+use function in_array;
+
 /**
- * Action helper to perform ILL request related actions
+ * Action helper to perform ILL request related actions.
  *
  * @category VuFind
  * @package  Controller_Plugins
@@ -57,7 +61,8 @@ class ILLRequests extends AbstractRequestBase
     {
         // Generate form details for cancelling requests if enabled
         if ($cancelStatus) {
-            if ($cancelStatus['function'] == 'getCancelILLRequestsLink'
+            if (
+                $cancelStatus['function'] == 'getCancelILLRequestsLink'
             ) {
                 // Build OPAC URL
                 $ilsDetails['cancel_link']
@@ -110,7 +115,7 @@ class ILLRequests extends AbstractRequestBase
 
         if (!empty($details)) {
             // Confirm?
-            if ($params->fromPost('confirm') === "0") {
+            if ($params->fromPost('confirm') === '0') {
                 $url = $this->getController()->url()
                     ->fromRoute('myresearch-illrequests');
                 if ($params->fromPost('cancelAll') !== null) {
@@ -121,7 +126,7 @@ class ILLRequests extends AbstractRequestBase
                         'confirm_ill_request_cancel_all_text',
                         [
                             'cancelAll' => 1,
-                            'cancelAllIDS' => $params->fromPost('cancelAllIDS')
+                            'cancelAllIDS' => $params->fromPost('cancelAllIDS'),
                         ]
                     );
                 } else {
@@ -133,7 +138,7 @@ class ILLRequests extends AbstractRequestBase
                         [
                             'cancelSelected' => 1,
                             'cancelSelectedIDS' =>
-                                $params->fromPost('cancelSelectedIDS')
+                                $params->fromPost('cancelSelectedIDS'),
                         ]
                     );
                 }
@@ -142,8 +147,8 @@ class ILLRequests extends AbstractRequestBase
             foreach ($details as $info) {
                 // If the user input contains a value not found in the session
                 // legal list, something has been tampered with -- abort the process.
-                if (!in_array($info, $this->getSession()->validIds)) {
-                    $flashMsg->addMessage('error_inconsistent_parameters', 'error');
+                if (!in_array($info, $this->getValidIds())) {
+                    $flashMsg->addErrorMessage('error_inconsistent_parameters');
                     return [];
                 }
             }
@@ -153,20 +158,31 @@ class ILLRequests extends AbstractRequestBase
                 ['details' => $details, 'patron' => $patron]
             );
             if ($cancelResults == false) {
-                $flashMsg->addMessage('ill_request_cancel_fail', 'error');
+                $flashMsg->addErrorMessage('ill_request_cancel_fail');
             } else {
+                $failed = 0;
+                foreach ($cancelResults['items'] ?? [] as $item) {
+                    if (!$item['success']) {
+                        ++$failed;
+                    }
+                }
+                if ($failed) {
+                    $flashMsg->addErrorMessage(
+                        ['msg' => 'ill_request_cancel_fail_items', 'tokens' => ['%%count%%' => $failed]]
+                    );
+                }
                 if ($cancelResults['count'] > 0) {
-                    $msg = $this->getController()
-                        ->translate(
-                            'ill_request_cancel_success_items',
-                            ['%%count%%' => $cancelResults['count']]
-                        );
-                    $flashMsg->addMessage($msg, 'success');
+                    $flashMsg->addSuccessMessage(
+                        [
+                            'msg' => 'ill_request_cancel_success_items',
+                            'tokens' => ['%%count%%' => $cancelResults['count']],
+                        ]
+                    );
                 }
                 return $cancelResults;
             }
         } else {
-            $flashMsg->addMessage('ill_request_empty_selection', 'error');
+            $flashMsg->addErrorMessage('ill_request_empty_selection');
         }
         return [];
     }

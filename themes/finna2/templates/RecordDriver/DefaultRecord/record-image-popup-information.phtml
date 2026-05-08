@@ -27,24 +27,24 @@ if ($otherTitles):?>
           <?=$this->escapeHtml($author) ?>
         <?php endif; ?>
         <?php if ($dates = $this->driver->tryMethod('getResultDateRange')): ?>
-          <?=$this->escapeHtml($dates[0]);?><?php if (isset($dates[1]) && $dates[1] != $dates[0]): ?>&ndash;<?=$this->escapeHtml($dates[1])?><?php endif; ?>
+          <?=implode('&ndash;', array_map($this->escapeHtml, $dates)) ?>
         <?php else: ?>
-          <?php foreach ($this->driver->getPublicationDates() as $date): ?>
-            <?=$this->escapeHtml($date) ?>
-          <?php endforeach ?>
+          <?php if ($summDate = $this->driver->tryMethod('getPublicationDateRange')): ?>
+            <?=implode('&ndash;', array_map($this->escapeHtml, $summDate)) ?>
+          <?php endif; ?>
         <?php endif; ?>
       </p>
     <?php else: ?>
       <?php if ($results = $this->driver->getNonPresenterAuthors()): ?>
         <div class="truncate-field">
-        <?php foreach($results as $index => $author): ?>
+        <?php foreach ($results as $index => $author): ?>
           <?=($index > 0 ? '; ' : '')?><?=$this->escapeHtml($author['name'])?><?php if (!empty($author['role'])): ?>, <?=$this->escapeHtml($author['role'])?><?php endif; ?>
         <?php endforeach; ?>
         <?php if ($dates = $this->driver->getResultDateRange()): ?>
-          <?=$this->escapeHtml($dates[0]);?><?php if (isset($dates[1]) && $dates[1] != $dates[0]): ?>&ndash;<?=$this->escapeHtml($dates[1])?><?php endif; ?>
+          <?=implode('&ndash;', array_map($this->escapeHtml, $dates)) ?>
         <?php endif; ?>
         <?php if (($results = $this->driver->getSubjectDates()) && !isset($dates[0])): ?>
-          <?=implode('<br/>', array_map([$this, 'escapeHtml'], $results))?>
+          <?=implode('<br>', array_map([$this, 'escapeHtml'], $results))?>
         <?php endif; ?>
         </div>
       <?php endif; ?>
@@ -54,7 +54,7 @@ if ($otherTitles):?>
     <?=$this->escapeHtml($this->organisationDisplayName($this->driver)) ?>
   </div>
   <div class="popup-link-buttons">
-    <div class="record-link"><a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getUrl($this->driver)) ?>"><i class="fa fa-arrow-circle-right"></i> <span><?=$this->transEsc('To the record') ?></span></a></div>
+    <div class="record-link"><a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getUrl($this->driver)) ?>"><?=$this->icon('popup-link') ?> <span><?=$this->transEsc('To the record') ?></span></a></div>
   </div>
   <div class="summary loading">
     <div data-rows="6" class="truncate-field">
@@ -79,7 +79,7 @@ if ($otherTitles):?>
             <?php endforeach ?>
           <?php elseif ($summary = $summaries[0] ?? false): ?>
             <div class="truncate-field wide">
-              <p class="summary"><?$this->cleanHtml($summary)?></p>
+              <p class="summary"><?=$this->cleanHtml($summary)?></p>
             </div>
           <?php endif; ?>
         <?php endif; ?>
@@ -98,7 +98,7 @@ if ($otherTitles):?>
   <?php endif; ?>
   <div class="popup-link-buttons">
     <?=$this->record($this->driver)->getOnlineUrls('popup')?>
-    <?php if ($this->userlist()->getMode() !== 'disabled'): ?><div class="save-record-link"><a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getActionUrl($this->driver, 'Save'))?>" class="save-record" data-lightbox data-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>" title="<?=$this->transEsc('Add to favorites')?>"><i class="fa fa-heart"></i> <span><?=$this->transEsc('Add to favorites')?></span></a></div><?php endif; ?>
+    <?php if ($this->userlist()->getMode() !== 'disabled'): ?><div class="save-record-link"><a href="<?=$this->escapeHtmlAttr($this->recordLinker()->getActionUrl($this->driver, 'Save'))?>" class="save-record" data-lightbox data-id="<?=$this->escapeHtmlAttr($this->driver->getUniqueId()) ?>" title="<?=$this->transEsc('Add to favorites')?>"><?=$this->icon('favorite') ?> <span><?=$this->transEsc('Add to favorites')?></span></a></div><?php endif; ?>
     <?= $this->context($this)->renderInContext('RecordDriver/DefaultRecord/image-download.phtml', ['index' => $this->index, 'rights' => $rights, 'image' => $image, 'hiRes' => $image['highResolution'] ?? false]) ?>
     <?= $this->record($this->driver)->renderTemplate('image-information.phtml', ['index' => 'popup', 'image' => $image]); ?>
   </div>
@@ -113,13 +113,13 @@ $this->matomo([
   'context' => 'lightbox',
   'record' => $this->driver,
   'action' => 'imagePopup',
-  'recordUrl' => $this->recordLinker()->getUrl($this->driver)
+  'recordUrl' => $this->recordLinker()->getUrl($this->driver),
 ]);
 ?>
 
 <?php
   $script = <<<JS
-finna.layout.initOrganisationPageLinks();
-JS;
-  echo $this->inlineScript(\Laminas\View\Helper\HeadScript::SCRIPT, $script, 'SET');
+      finna.layout.initOrganisationPageLinks();
+      JS;
+  echo $this->assetManager()->outputInlineScriptString($script);
 ?>

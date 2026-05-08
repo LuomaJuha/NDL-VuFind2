@@ -1,10 +1,11 @@
 <?php
+
 /**
  * OAuth2 token repository base class.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2022.
+ * Copyright (C) The National Library of Finland 2022-2024.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  OAuth2
@@ -25,10 +26,15 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Site
  */
+
 namespace VuFind\OAuth2\Repository;
 
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
-use VuFind\Db\Table\AccessToken;
+use VuFind\Auth\InvalidArgumentException;
+use VuFind\Db\Service\AccessTokenServiceInterface;
+use VuFind\Db\Service\UserServiceInterface;
+
+use function is_callable;
 
 /**
  * OAuth2 token repository base class.
@@ -42,80 +48,63 @@ use VuFind\Db\Table\AccessToken;
 class AbstractTokenRepository
 {
     /**
-     * Token type.
+     * Constructor.
      *
-     * @var string
-     */
-    protected $tokenType;
-
-    /**
-     * Token table
-     *
-     * @var AccessToken
-     */
-    protected $table;
-
-    /**
-     * Entity class
-     *
-     * @var string
-     */
-    protected $entityClass;
-
-    /**
-     * Constructor
-     *
-     * @param string     $tokenType   Token type
-     * @param string     $entityClass Entity class name
-     * @param TokenTable $table       Token table
+     * @param string                      $tokenType          Token type
+     * @param string                      $entityClass        Entity class name
+     * @param array                       $oauth2Config       OAuth2 configuration
+     * @param AccessTokenServiceInterface $accessTokenService Access token service
+     * @param UserServiceInterface        $userService        User service
      */
     public function __construct(
-        string $tokenType,
-        string $entityClass,
-        AccessToken $table
+        protected string $tokenType,
+        protected string $entityClass,
+        protected array $oauth2Config,
+        protected AccessTokenServiceInterface $accessTokenService,
+        protected UserServiceInterface $userService
     ) {
-        $this->tokenType = $tokenType;
-        $this->entityClass = $entityClass;
-        $this->table = $table;
     }
 
     /**
-     * Persist a token in the database
+     * Persist a token in the database.
      *
      * @param Object $token Token
      *
+     * @throws InvalidArgumentException
      * @return void
      */
     public function persistNew($token)
     {
         if (!is_a($token, $this->entityClass)) {
             throw new \InvalidArgumentException(
-                get_class($token) . ' is not ' . $this->entityClass
+                $token::class . ' is not ' . $this->entityClass
             );
         }
 
-        $row = $this->table->getByIdAndType(
+        $row = $this->accessTokenService->getByIdAndType(
             $token->getIdentifier(),
             $this->tokenType
         );
-        $row->data = json_encode($token);
-        $userId = null;
+        $row->setData(json_encode($token));
+        $userIdentifier = null;
         if ($token instanceof RefreshTokenEntityInterface) {
             $accessToken = $token->getAccessToken();
-            $userId = $accessToken->getUserIdentifier();
+            $userIdentifier = $accessToken->getUserIdentifier();
         } elseif (is_callable([$token, 'getUserIdentifier'])) {
-            $userId = $token->getUserIdentifier();
+            $userIdentifier = $token->getUserIdentifier();
         }
-        if ($userId) {
+        if ($userIdentifier) {
             // Drop nonce from user id:
-            [$userId] = explode('|', $userId);
+            [$userIdentifier] = explode('|', $userIdentifier);
         }
-        $row->user_id = $userId;
-        $row->save();
+        $userIdentifierField = $this->oauth2Config['Server']['userIdentifierField'] ?? 'id';
+        $user = $this->userService->getUserByField($userIdentifierField, $userIdentifier);
+        $row->setUser($user);
+        $this->accessTokenService->persistEntity($row);
     }
 
     /**
-     * Revoke a token
+     * Revoke a token.
      *
      * @param string $tokenId Token ID
      *
@@ -123,15 +112,15 @@ class AbstractTokenRepository
      */
     public function revoke($tokenId)
     {
-        $token = $this->table->getByIdAndType($tokenId, $this->tokenType, false);
+        $token = $this->accessTokenService->getByIdAndType($tokenId, $this->tokenType, false);
         if ($token) {
-            $token->revoked = true;
-            $token->save();
+            $token->setRevoked(true);
+            $this->accessTokenService->persistEntity($token);
         }
     }
 
     /**
-     * Check if a token is revoked
+     * Check if a token is revoked.
      *
      * @param string $tokenId Token ID
      *
@@ -139,12 +128,12 @@ class AbstractTokenRepository
      */
     public function isRevoked($tokenId)
     {
-        $token = $this->table->getByIdAndType($tokenId, $this->tokenType, false);
-        return $token ? $token->revoked : true;
+        $token = $this->accessTokenService->getByIdAndType($tokenId, $this->tokenType, false);
+        return $token ? $token->isRevoked() : true;
     }
 
     /**
-     * Get a new token
+     * Get a new token.
      *
      * @return Object
      */

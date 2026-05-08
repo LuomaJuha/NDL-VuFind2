@@ -1,0 +1,45 @@
+.result.compact-list-view {
+  position: relative;
+  padding-left: 0px;
+  background-color: initial;
+
+  .main-content {
+    display: flex;
+    .compact-body {
+      width: 65%;
+    }
+    .compact-links {
+      width: 35%;
+    }
+  }
+  .resultItemFormat {
+      display: inline-block;
+  }
+  .list-view {
+    .publish-year {
+      display: inline-block;
+      margin: 0.2em;
+    }
+  }
+  .available-online-header {
+    display: none;
+  }
+  .record-container .add-to-favorite-col {
+    .qr-box {
+      position: absolute;
+      right: 0px;
+      z-index: $zindex-dropdown;
+    }
+  }
+}
+ @include media-breakpoint-up(sm) {
+  .result.compact-list-view {
+    .record-container {
+      .add-to-favorite-col {
+        position: relative;
+        top: 0px;
+        right: 0px;
+      }
+    }
+  }
+}

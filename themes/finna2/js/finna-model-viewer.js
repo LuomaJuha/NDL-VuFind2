@@ -1,9 +1,9 @@
-/* global THREE, ObjectEditor */
-
+/* global THREE, ObjectEditor, VuFind */
+/** TODO: This file will be removed in future. */
 /**
  * Get tangent
- *
- * @param {Integer} deg 
+ * @param {number} deg Degree
+ * @returns {number} Calculated point
  */
 function getTanDeg(deg) {
   var rad = deg * Math.PI / 180;
@@ -16,7 +16,7 @@ var dracoLoader;
 class ModelViewerClass extends HTMLElement {
 
   static get observedAttributes() {
-    return ['lazyload', 'proxy', 'scripts'];
+    return ['lazyload', 'scripts'];
   }
 
   get scripts() {
@@ -33,14 +33,6 @@ class ModelViewerClass extends HTMLElement {
 
   set src(newValue) {
     this.setAttribute('src', newValue);
-  }
-
-  get proxy() {
-    return this.getAttribute('proxy');
-  }
-
-  set proxy(newValue) {
-    this.setAttribute('proxy', newValue);
   }
 
   get texture() {
@@ -169,7 +161,7 @@ class ModelViewerClass extends HTMLElement {
             name: 'Meshes',
             prefix: 'mesh',
             objects: this.meshes,
-            created: [], 
+            created: [],
             updateFunction: () => this.meshes,
             assignFunction: (e) => this.meshes = e
           },
@@ -429,12 +421,23 @@ class ModelViewerClass extends HTMLElement {
       if (!this.dependenciesLoaded) {
         return;
       }
-      if (!this.src) {
-        console.error('Missing src from model-viewer');
-        return;
-      }
-      this.createElement();
-    });
+      this.changeLoadInfoButtonToStateDisplay();
+      /**
+       * Start to load the model from the provider to cache
+       */
+      this.loadInfo.innerHTML = `<span>${this.translations['loading file'] || 'Model loading.'} ${VuFind.spinner()}</span>`;
+      fetch(this.src)
+        .then(response => response.json())
+        .then(responseJSON => {
+          if (responseJSON.data && responseJSON.data.url) {
+            this.src = responseJSON.data.url;
+            this.createElement();
+            return;
+          }
+          this.loadInfo.textContent = this.translations['An error has occurred'] || 'An error has occurred';
+        });
+    }, {once: true});
+
     this.root.append(this.loadInfo);
     const highlight = () => {
       this.root.classList.add('filedrop');
@@ -463,18 +466,9 @@ class ModelViewerClass extends HTMLElement {
     });
   }
 
-  attributeChangedCallback(name, oldValue, newValue)
+  attributeChangedCallback(name/*, oldValue, newValue*/)
   {
     switch (name) {
-    case 'proxy':
-      if (!this.src) {
-        fetch(newValue)
-          .then(response => response.json())
-          .then(responseJSON => {
-            this.src = responseJSON.data.url;
-          });
-      }
-      break;
     case 'scripts':
       this.load();
       break;
@@ -513,7 +507,7 @@ class ModelViewerClass extends HTMLElement {
     found.forEach((key) => {
       delete this.loadScrips[key];
     });
-    
+
     if (scripts.length) {
       const head = document.querySelector('head');
       head.append(...scripts);
@@ -524,7 +518,6 @@ class ModelViewerClass extends HTMLElement {
 
   createElement()
   {
-    this.loadInfo.remove();
     if (this.preview) {
       this.preview.remove();
       delete this.preview;
@@ -533,10 +526,6 @@ class ModelViewerClass extends HTMLElement {
 
     this.loaded = false;
     this.scene = new THREE.Scene();
-
-    this.loadInfo = document.createElement('div');
-    this.loadInfo.classList.add('state');
-    this.root.append(this.loadInfo);
 
     const optionsArea = document.createElement('div');
     optionsArea.classList.add('options');
@@ -550,20 +539,20 @@ class ModelViewerClass extends HTMLElement {
     info.classList.add('fa');
 
     const srOnly = document.createElement('span');
-    srOnly.classList.add('sr-only');
+    srOnly.classList.add('visually-hidden');
 
     const button = document.createElement('button');
     button.classList.add('collapsed', 'viewer-btn');
     button.type = 'button';
-    button.dataset.toggle = 'collapse';
+    button.dataset.bsToggle = 'collapse';
     button.append(info);
     button.append(srOnly);
 
     const buttons = [
-      {class: 'model-fullscreen', translation: 'asd', info: 'fa-fullscreen'},
-      {class: 'model-statistics', target: '#model-statistics-area', translation: 'asd', info: 'fa-info-circle-hollow'},
-      {class: 'model-help', target: '#model-help-area', translation: 'asd', info: 'fa-question-circle-o'},
-      {class: 'model-settings', target: '#object-editor-settings', translation: 'asd', info: 'fa-cog'},
+      {class: 'model-fullscreen', info: 'model-viewer-fullscreen'},
+      {class: 'model-statistics', target: '#model-statistics-area', info: 'model-viewer-statistics'},
+      {class: 'model-help', target: '#model-help-area', info: 'fa-question-circle-o'},
+      {class: 'model-settings', target: '#object-editor-settings', info: 'fa-cog'},
     ];
 
     buttons.forEach((btn) => {
@@ -572,7 +561,7 @@ class ModelViewerClass extends HTMLElement {
       b.querySelector('span').textContent = btn.translation;
       b.querySelector('i').classList.add(btn.info);
       if (btn.target) {
-        b.dataset.target = btn.target;
+        b.dataset.bsTarget = btn.target;
       }
       buttonsHolder.append(b);
       if (btn.class === 'model-fullscreen') {
@@ -638,13 +627,24 @@ class ModelViewerClass extends HTMLElement {
     );
   }
 
+  /**
+   * Changes the button which is used to start the model download process into a state div
+   */
+  changeLoadInfoButtonToStateDisplay()
+  {
+    this.loadInfo.remove();
+    this.loadInfo = document.createElement('div');
+    this.loadInfo.classList.add('state');
+    this.root.append(this.loadInfo);
+  }
+
   loadGLTF()
   {
-    this.loadInfo.textContent = this.translations['loading file'] || 'Model loading.';
     if (!loader) {
       loader = new THREE.GLTFLoader();
       if (this.decoder) {
         dracoLoader = new THREE.DRACOLoader();
+        dracoLoader.setDecoderConfig({ type: 'js' });
         dracoLoader.setDecoderPath(this.decoder);
         loader.setDRACOLoader(dracoLoader);
       }
@@ -663,7 +663,7 @@ class ModelViewerClass extends HTMLElement {
         this.loaded = true;
       },
       (xhr) => {
-        let loaded = '';
+        let loaded;
         if (xhr.total < 1) {
           loaded = `${(xhr.loaded / 1024 / 1024).toFixed(0)}MB`;
         } else {
@@ -701,6 +701,7 @@ class ModelViewerClass extends HTMLElement {
     }
     this.scene.traverse((obj) => {
       if (obj.type === 'Mesh') {
+        obj.material.vertexColors = false;
         obj.material.envMap = this.background;
         const userData = obj.material.userData;
         if (typeof userData.envMapIntensity !== 'undefined') {
@@ -754,7 +755,7 @@ class ModelViewerClass extends HTMLElement {
       // Set camera and position to center from the newly created object
       const objectHeight = (newBox.max.y - newBox.min.y);
       const objectWidth = (newBox.max.x - newBox.min.x);
-      let result = 0;
+      let result;
       if (objectHeight >= objectWidth) {
         result = objectHeight / getTanDeg(this.viewerPaddingAngle);
       } else {
@@ -836,7 +837,7 @@ class ModelViewerClass extends HTMLElement {
         this.updateScale();
       }
     });
-    
+
     const exitFullscreens = [
       'exitFullscreen',
       'mozCancelFullScreen',
@@ -920,7 +921,7 @@ class ModelViewerClass extends HTMLElement {
     lightBack.userData.name = 'directional_finna_back';
     lightBack.position.set(0, 25, -25);
     lightBack.userData.viewerSet = true;
-  
+
     this.lights.push(lightBack, lightFront, lightLeft, lightRight);
     this.scene.add(lightBack, lightFront, lightLeft, lightRight);
   }
@@ -938,7 +939,7 @@ class ModelViewerClass extends HTMLElement {
     } else if (this.oldSize) {
       this.size = this.oldSize;
       delete this.oldSize;
-    } else {
+    } else if (this.parentElement) {
       const computed = getComputedStyle(this.parentElement);
       this.size = {
         x: this.parentElement.offsetWidth,
@@ -967,7 +968,7 @@ class ModelViewerClass extends HTMLElement {
         this.renderer.render(this.scene, this.camera);
       }
     };
-  
+
     window.setTimeout(this.loop, 1000 / 60);
   }
 }

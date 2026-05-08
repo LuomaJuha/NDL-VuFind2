@@ -1,10 +1,11 @@
 <?php
+
 /**
- * SolrForward Test Class
+ * SolrForward Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2022.
+ * Copyright (C) The National Library of Finland 2022-2026.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,17 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace FinnaTest\RecordDriver;
 
 use Finna\RecordDriver\SolrForward;
+use Finna\Video\Handler\DefaultVideo;
+use Finna\Video\Video;
+
+use function is_callable;
 
 /**
- * SolrForward Record Driver Test Class
+ * SolrForward Record Driver Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -53,21 +59,162 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
         $this->assertEquals(
             [
                 [
-                    "tag" => "elotekija",
-                    "name" => "Juha Kuoma",
-                    "role" => "drt",
-                    "id" => "elonet_henkilo_1",
-                    "type" => "elonet_henkilo",
-                    "roleName" => "",
-                    "description" => "",
-                    "uncredited" => "",
-                    "idx" => 1,
-                    "tehtava" => "ohjaus",
-                    "finna-activity-code" => "D02",
-                    "relator" => "D02"
+                    'tag' => 'elotekija',
+                    'name' => 'Juha Kuoma',
+                    'role' => 'drt',
+                    'id' => 'elonet_henkilo_1',
+                    'type' => 'elonet_henkilo',
+                    'roleName' => '',
+                    'description' => '',
+                    'uncredited' => '',
+                    'idx' => 1,
+                    'tehtava' => 'ohjaus',
+                    'finna-activity-code' => 'D02',
+                    'relator' => 'D02',
                 ],
             ],
             $driver->getNonPresenterPrimaryAuthors()
+        );
+    }
+
+    /**
+     * Test non-presenter authors.
+     *
+     * @return void
+     */
+    public function testGetNonPresenterAuthors()
+    {
+        $driver = $this->getDriver();
+        $expected = [
+            [
+                'tag' => 'elotekija',
+                'name' => 'Juha Kuoma',
+                'role' => 'drt',
+                'id' => 'elonet_henkilo_1',
+                'type' => 'elonet_henkilo',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 1,
+                'tehtava' => 'ohjaus',
+                'finna-activity-code' => 'D02',
+                'relator' => 'D02',
+            ],
+            [
+                'tag' => 'elotekija',
+                'name' => 'Kuha Luoma',
+                'role' => 'aus',
+                'id' => 'elonet_henkilo_2',
+                'type' => 'elonet_henkilo',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 20000,
+                'tehtava' => 'käsikirjoitus',
+                'finna-activity-code' => 'aus',
+                'relator' => 'aus',
+            ],
+            [
+                'tag' => 'elotekijakokoonpano',
+                'name' => 'Joku kuoro',
+                'role' => 'kuoro',
+                'id' => 'elonet_kokoonpano_1480640',
+                'type' => 'elonet_kokoonpano',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 30000,
+                'tehtava' => 'kuoro',
+                'finna-activity-code' => 'A99',
+                'finna-activity-text' => 'kuoro',
+                'elokuva-elotekijakokoonpano-tehtava' => 'kuoro',
+                'relator' => 'A99',
+            ],
+            [
+                'tag' => 'elotekijayhtio',
+                'name' => 'Tekevä Yhtiö Oy',
+                'role' => 'Yhtiön tehtävä',
+                'id' => 'elonet_yhtio_956916',
+                'type' => 'elonet_yhtio',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 40000,
+                'tehtava' => 'Yhtiön tehtävä',
+                'finna-activity-code' => 'A99',
+                'finna-activity-text' => 'Yhtiön tehtävä',
+                'elokuva-elotekijayhtio-tehtava' => 'Yhtiön tehtävä',
+                'relator' => 'A99',
+            ],
+            [
+                'tag' => 'elolevittaja',
+                'name' => 'Levittäjä Oy',
+                'role' => 'fds',
+                'id' => 'elonet_yhtio_210941',
+                'type' => 'elonet_yhtio',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 150000,
+                'finna-activity-code' => 'fds',
+                'relator' => 'fds',
+                'elokuva-elolevittaja-vuosi' => '2001',
+                'elokuva-elolevittaja-levitystapa' => 'teatterilevitys',
+            ],
+            [
+                'tag' => 'elokreditoimatontekija',
+                'name' => 'Valo K. Uvaus',
+                'role' => 'valokuvat',
+                'id' => 'elonet_henkilo_107674',
+                'type' => 'elonet_henkilo',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => true,
+                'idx' => 160000,
+                'tehtava' => 'valokuvat',
+                'finna-activity-code' => 'A99',
+                'finna-activity-text' => 'valokuvat',
+                'elokuva-elokreditoimatontekija-tehtava' => 'valokuvat',
+                'relator' => 'A99',
+                'elokuva-elokreditoimatontekija-nimi' => 'Valo K. Uvaus',
+            ],
+            [
+                'tag' => 'avustajat',
+                'name' => 'Matti, Miia, Mietos, Miro, Maria. (Sulkeet)',
+                'role' => 'avustajat',
+                'id' => '',
+                'type' => '',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 170000,
+                'finna-activity-code' => 'A99',
+                'finna-activity-text' => 'avustajat',
+                'elokuva-avustajat' => 'avustajat',
+                'relator' => 'A99',
+            ],
+            [
+                'tag' => 'muuttekijat',
+                'name' => 'Paavo Pöllö, Martti Mäyrä, Kalle Kissa, Seppo Siili',
+                'role' => '',
+                'id' => '',
+                'type' => '',
+                'roleName' => '',
+                'description' => '',
+                'uncredited' => '',
+                'idx' => 210000,
+                'finna-activity-code' => 'oth',
+                'relator' => 'oth',
+            ],
+        ];
+        // Check twice to test caching too:
+        $this->assertEquals(
+            $expected,
+            $driver->getNonPresenterAuthors()
+        );
+        $this->assertEquals(
+            $expected,
+            $driver->getNonPresenterAuthors()
         );
     }
 
@@ -93,7 +240,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                     'idx' => 70000,
                     'finna-activity-code' => 'E10',
                     'relator' => 'E10',
-                ]
+                ],
             ],
             $driver->getProducers()
         );
@@ -104,7 +251,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      *
      * @return array
      */
-    public function getPresentersData(): array
+    public static function getPresentersData(): array
     {
         return [
             'creditedPresentersTest' => [
@@ -123,8 +270,8 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'idx' => 120000,
                             'finna-activity-code' => 'E01',
                             'relator' => 'E01',
-                            'elokuva-elonayttelija-rooli' => 'Debug Duck'
-                        ]
+                            'elokuva-elonayttelija-rooli' => 'Debug Duck',
+                        ],
                     ],
                 ],
             ],
@@ -148,10 +295,10 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'elokuva-elokreditoimatonnayttelija-nimi'
                                 => 'Kreditoimaton näyttelijä',
                             'elokuva-elokreditoimatonnayttelija-rooli'
-                                => 'vankilavieras'
-                        ]
+                                => 'vankilavieras',
+                        ],
                     ],
-                ]
+                ],
             ],
             'actingEnsemblesTest' => [
                 'actingEnsemble',
@@ -172,10 +319,10 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'finna-activity-text' => 'Esitti yhtyettä',
                             'elokuva-elonayttelijakokoonpano-tehtava'
                                 => 'Esitti yhtyettä',
-                            'relator' => 'A99'
-                        ]
-                    ]
-                ]
+                            'relator' => 'A99',
+                        ],
+                    ],
+                ],
             ],
             'performingEnsemblesTest' => [
                 'performingEnsemble',
@@ -193,10 +340,10 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'idx' => 180000,
                             'tehtava' => 'Esitti yhtyettä',
                             'finna-activity-code' => 'A99',
-                            'relator' => 'A99'
-                        ]
-                    ]
-                ]
+                            'relator' => 'A99',
+                        ],
+                    ],
+                ],
             ],
             'performersTest' => [
                 'performer',
@@ -243,7 +390,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'idx' => 190000,
                             'finna-activity-code' => 'E99',
                             'finna-activity-text' => 'esiintyjä',
-                            'relator' => 'E99'
+                            'relator' => 'E99',
                         ],
                     ],
                 ],
@@ -311,10 +458,10 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'finna-activity-code' => 'A99',
                             'finna-activity-text' => 'avustajat',
                             'elokuva-avustajat' => 'avustajat',
-                            'relator' => 'A99'
-                        ]
-                    ]
-                ]
+                            'relator' => 'A99',
+                        ],
+                    ],
+                ],
             ],
             'othersTest' => [
                 'other',
@@ -332,11 +479,11 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                             'idx' => 200000,
                             'finna-activity-code' => 'E99',
                             'finna-activity-text' => 'dokumentti-muutesiintyjät',
-                            'relator' => 'E99'
-                        ]
-                    ]
-                ]
-            ]
+                            'relator' => 'E99',
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -345,7 +492,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      *
      * @return array
      */
-    public function getNonPresenterSecondaryAuthorsData(): array
+    public static function getNonPresenterSecondaryAuthorsData(): array
     {
         return [
             'creditedTests' =>
@@ -409,7 +556,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                         'finna-activity-code' => 'fds',
                         'relator' => 'fds',
                         'elokuva-elolevittaja-vuosi' => '2001',
-                        'elokuva-elolevittaja-levitystapa' => 'teatterilevitys'
+                        'elokuva-elolevittaja-levitystapa' => 'teatterilevitys',
                     ],
                     [
                         'tag' => 'muuttekijat',
@@ -424,7 +571,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                         'idx' => 210000,
                         'finna-activity-code' => 'oth',
                         'relator' => 'oth',
-                    ]
+                    ],
                 ],
             ],
             'ensemblesTests' =>
@@ -471,7 +618,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                         'elokuva-elokreditoimatontekija-nimi' => 'Valo K. Uvaus',
                     ],
                 ],
-            ]
+            ],
         ];
     }
 
@@ -481,10 +628,9 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      * @param string $key      Key of the array to test.
      * @param array  $expected Result to be expected.
      *
-     * @dataProvider getPresentersData
-     *
      * @return void
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('getPresentersData')]
     public function testGetPresenters(string $key, array $expected): void
     {
         $driver = $this->getDriver();
@@ -547,7 +693,7 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
     }
 
     /**
-     * Test funders.
+     * Test distributors.
      *
      * @return void
      */
@@ -584,10 +730,9 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      * @param string $key      Key of the array to test.
      * @param array  $expected Result to be expected.
      *
-     * @dataProvider getNonPresenterSecondaryAuthorsData
-     *
      * @return void
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('getNonPresenterSecondaryAuthorsData')]
     public function testGetNonPresenterSecondaryAuthors(
         string $key,
         array $expected
@@ -608,32 +753,42 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      *
      * @return array
      */
-    public function getEventsArrayData(): array
+    public static function getEventsArrayData(): array
     {
         return [
             [
                 'getAccessRestrictions',
-                []
+                [
+                    'Luvanvarainen käyttö / ei tiedossa',
+                ],
+            ],
+            [
+                'getAccessRestrictionsType',
+                [
+                    'copyright' => 'Luvanvarainen käyttö / ei tiedossa',
+                    'link' => 'EI EI!',
+                ],
+                ['fi'],
             ],
             [
                 'getDescription',
                 [
-                    'Tämä on sisällön kuvaus.'
-                ]
+                    'Tämä on sisällön kuvaus.',
+                ],
             ],
             [
                 'getGeneralNotes',
                 [
-                    'Tässä on huomautukset.'
-                ]
+                    'Tässä on huomautukset.',
+                ],
             ],
             [
                 'getAllSubjectHeadings',
                 [
                     ['Testi'],
                     ['Unit'],
-                    ['Forward']
-                ]
+                    ['Forward'],
+                ],
             ],
             [
                 'getAlternativeTitles',
@@ -641,29 +796,29 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                     'Zoo (swe)',
                     'Animals (language name)',
                     'Animals Working (working title)',
-                    'Park (test name)'
-                ]
+                    'Park (test name)',
+                ],
             ],
             [
                 'getAwards',
                 [
                     'Paras elokuva.',
                     'Best movie.',
-                    'Good movie.'
-                ]
+                    'Good movie.',
+                ],
             ],
             [
                 'getPlayingTimes',
                 [
-                    '1 min'
-                ]
+                    '1 min',
+                ],
             ],
             [
                 'getPremiereTheaters',
                 [
                     'Leppävaara: Sellosali 1',
-                    'Karjaa: Bio Pallas'
-                ]
+                    'Karjaa: Bio Pallas',
+                ],
             ],
             [
                 'getBroadcastingInfo',
@@ -671,14 +826,14 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                     [
                         'time' => '7.05.1995',
                         'place' => 'Kanava 1',
-                        'viewers' => '1 000 (mediaani)'
+                        'viewers' => '1 000 (mediaani)',
                     ],
                     [
                         'time' => '15.05.2011',
                         'place' => 'Kanava 2',
-                        'viewers' => '5 000'
-                    ]
-                ]
+                        'viewers' => '5 000',
+                    ],
+                ],
             ],
             [
                 'getFestivalInfo',
@@ -686,27 +841,31 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                     [
                         'name' => 'Ensimmäinen festivaaliosallistuminen',
                         'region' => 'Leppävaara, Suomi',
-                        'date' => '1990'
+                        'date' => '1990',
                     ],
                     [
                         'name' => 'Toinen festivaaliosallistuminen',
                         'region' => 'Lahti, Suomi',
-                        'date' => '1991'
-                    ]
-                ]
+                        'date' => '1991',
+                    ],
+                ],
             ],
             [
                 'getForeignDistribution',
                 [
                     [
                         'name' => 'Mat',
-                        'region' => 'Ruotsi'
+                        'region' => 'Ruotsi',
                     ],
                     [
                         'name' => 'Pat',
-                        'region' => 'Norja'
-                    ]
-                ]
+                        'region' => 'Norja',
+                    ],
+                    [
+                        'name' => 'Tanska',
+                        'region' => '',
+                    ],
+                ],
             ],
             [
                 'getOtherScreenings',
@@ -714,9 +873,9 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                     [
                         'name' => 'ennakkoesitys',
                         'region' => 'Mordor, Keskimaa',
-                        'date' => '03.03.2000'
-                    ]
-                ]
+                        'date' => '03.03.2000',
+                    ],
+                ],
             ],
             [
                 'getInspectionDetails',
@@ -730,22 +889,40 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
                         'agerestriction' => 'S',
                         'additional' => 'Tarkastajat: Tarkastajat OY',
                         'office' => 'Finna-filmit Oy',
-                        'date' => '15.02.2001'
-                    ]
-                ]
+                        'date' => '15.02.2001',
+                    ],
+                ],
             ],
             [
                 'getLocationNotes',
                 [
-                    'Tässä on tietoa kuvauspaikkahuomautuksista.'
-                ]
+                    'Tässä on tietoa kuvauspaikkahuomautuksista.',
+                ],
             ],
             [
                 'getMovieThanks',
                 [
-                    'Kiitos, thanks, tack.'
-                ]
-            ]
+                    'Kiitos, thanks, tack.',
+                ],
+            ],
+            [
+                'getExteriors',
+                [
+                    'Tässä on tietoa ulkokuvista.',
+                ],
+            ],
+            [
+                'getInteriors',
+                [
+                    'Tässä on tietoa sisäkuvista.',
+                ],
+            ],
+            [
+                'getStudios',
+                [
+                    'Studion tiedot',
+                ],
+            ],
         ];
     }
 
@@ -754,73 +931,73 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      *
      * @return array
      */
-    public function getEventsStringData(): array
+    public static function getEventsStringData(): array
     {
         return [
             [
                 'getColor',
-                'väri'
+                'väri',
             ],
             [
                 'getColorSystem',
-                'rgb'
+                'rgb',
             ],
             [
                 'getType',
-                'kauhu, draama'
+                'kauhu, draama',
             ],
             [
                 'getAspectRatio',
-                '1,75:1'
+                '1,75:1',
             ],
             [
                 'getMusicInfo',
-                'Tästä musiikki-infosta poistuu br merkki alusta.'
+                'Tästä musiikki-infosta poistuu br merkki alusta.',
             ],
             [
                 'getOriginalWork',
-                'lotr'
+                'lotr',
             ],
             [
                 'getPressReview',
-                'Tässä on lehdistöarvio.'
+                'Tässä on lehdistöarvio.',
             ],
             [
                 'getSound',
-                'ääni'
+                'ääni',
             ],
             [
                 'getSoundSystem',
-                '6+1'
+                '6+1',
             ],
             [
                 'getProductionCost',
-                '5 €'
+                '5 €',
             ],
             [
                 'getPremiereTime',
-                '01.01.2001'
+                '01.01.2001',
             ],
             [
                 'getNumberOfCopies',
-                '1'
+                '1',
             ],
             [
                 'getAmountOfViewers',
-                '1 100'
+                '1 100',
             ],
             [
                 'getAgeLimit',
-                'S'
+                'S',
             ],
             [
                 'getFilmingDate',
-                '10.6.1996 - syksy 2000 (Lähde: ctrl+c 22.2.2010).'
+                '10.6.1996 - syksy 2000 (Lähde: ctrl+c 22.2.2010).',
             ],
             [
                 'getArchiveFilms',
-                'Infoa arkistoaineistosta.'
-            ]
+                'Infoa arkistoaineistosta.',
+            ],
         ];
     }
 
@@ -830,10 +1007,9 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
      * @param string $function Function of the driver to test.
      * @param string $expected Result to be expected.
      *
-     * @dataProvider getEventsStringData
-     *
      * @return void
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('getEventsStringData')]
     public function testEvents(
         string $function,
         string $expected
@@ -849,22 +1025,121 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
     /**
      * Test events with array values as return types.
      *
-     * @param string $function Function of the driver to test.
-     * @param array  $expected Result to be expected.
-     *
-     * @dataProvider getEventsArrayData
+     * @param string $function       Function of the driver to test.
+     * @param array  $expected       Result to be expected.
+     * @param array  $functionParams Parameters for the function to test.
      *
      * @return void
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('getEventsArrayData')]
     public function testEventsWithArrayExpected(
         string $function,
-        array $expected
+        array $expected,
+        array $functionParams = []
     ): void {
         $driver = $this->getDriver();
         $this->assertTrue(is_callable([$driver, $function], true));
         $this->assertEquals(
             $expected,
-            $driver->$function()
+            $driver->$function(...$functionParams)
+        );
+    }
+
+    /**
+     * Test image rights.
+     *
+     * @return void
+     */
+    public function testGetImageRights()
+    {
+        $driver = $this->getDriver();
+        $this->assertSame(
+            'Luvanvarainen käyttö / ei tiedossa',
+            $driver->getImageRights('fi', false)
+        );
+    }
+
+    /**
+     * Test URLs.
+     *
+     * @return void
+     */
+    public function testUrls()
+    {
+        $driver = $this->getDriver();
+        $expected = [
+            [
+                'id' => 'The Zoo',
+                'url' => '',
+                'posterName' => '12345_suoratoisto_esikatselu.jpg',
+                'type' => 'traileri',
+                'description' => 'traileri',
+                'text' => 'traileri',
+                'source' => 'testsrc',
+                'warnings' => [
+                    'content_descriptor_drug_use',
+                    'age_rating_12',
+                ],
+            ],
+        ];
+        $expectedOnline = [
+            ...$expected,
+            [
+                'url' => 'http://localhost/video2',
+            ],
+        ];
+
+        $this->assertSame(
+            $expected,
+            $driver->getURLs()
+        );
+        $this->assertSame(
+            $expectedOnline,
+            $driver->getOnlineURLs()
+        );
+    }
+
+    /**
+     * Test summary.
+     *
+     * @return void
+     */
+    public function testGetSummary()
+    {
+        $driver = $this->getDriver();
+        $this->assertSame(
+            [
+                'Tämä on synopsis.',
+            ],
+            $driver->getSummary()
+        );
+    }
+
+    /**
+     * Test country.
+     *
+     * @return void
+     */
+    public function testGetCountry()
+    {
+        $driver = $this->getDriver();
+        $this->assertSame(
+            'Suomi',
+            $driver->getCountry()
+        );
+    }
+
+    /**
+     * Test getXML.
+     *
+     * @return void
+     */
+    public function testGetXML()
+    {
+        $driver = $this->getDriver();
+        $this->assertSame(
+            $this->getFixture('forward/forward_test.xml', 'Finna'),
+            $driver->getXML('oai_forward')
         );
     }
 
@@ -879,12 +1154,49 @@ class SolrForwardTest extends \PHPUnit\Framework\TestCase
     protected function getDriver($overrides = [], $searchConfig = []): SolrForward
     {
         $fixture = $this->getFixture('forward/forward_test.xml', 'Finna');
+        $mainConfig = new \VuFind\Config\Config([
+            'ImageRights' => [
+                'fi' => [
+                    'LUVANVARAINEN KÄYTTÖ / EI TIEDOSSA' => 'EI EI!',
+                ],
+            ],
+        ]);
         $record = new SolrForward(
+            $mainConfig,
             null,
-            null,
-            new \Laminas\Config\Config($searchConfig)
+            new \VuFind\Config\Config($searchConfig)
         );
-        $record->setRawData(['fullrecord' => $fixture]);
+        $mockHandler = $this->createMock(DefaultVideo::class);
+        $mockHandler
+            ->method('getData')
+            ->willReturnCallback(
+                function (array $params): array {
+                    return $params;
+                }
+            );
+        $mockVideo = $this->createMock(Video::class);
+        $mockVideo
+            ->method('getHandler')
+            ->with('testsrc')
+            ->willReturn($mockHandler);
+        $record->attachVideoHandler($mockVideo);
+        $record->setRawData(
+            [
+                'id' => 'test-id',
+                'fullrecord' => $fixture,
+                'source_str_mv' => [
+                    'testsrc',
+                ],
+                'online_urls_str_mv' => [
+                    json_encode([
+                        'url' => 'http://localhost/video2',
+                    ]),
+                    json_encode([
+                        'url' => 'http://elonet.fi/video/2',
+                    ]),
+                ],
+            ]
+        );
         return $record;
     }
 }

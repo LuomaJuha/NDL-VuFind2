@@ -1,8 +1,9 @@
 <?php
+
 /**
- * SwitchTab Test Class
+ * SwitchTab Test Class.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Tests
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:testing:unit_tests Wiki
  */
+
 namespace VuFindTest\Recommend;
 
 use VuFind\Recommend\SwitchTab;
 
 /**
- * SwitchTab Test Class
+ * SwitchTab Test Class.
  *
  * @category VuFind
  * @package  Tests
@@ -43,60 +45,70 @@ class SwitchTabTest extends \PHPUnit\Framework\TestCase
     /**
      * Data provider for testGetActiveTab.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function tabConfigProvider(): array
+    public static function tabConfigProvider(): \Iterator
     {
-        return ['First tab selected' => [[["id" => "A01",
-                            "class" => "class01",
-                            "label" => "label01",
-                            "permission" => "permission01",
-                            "selected" => true,
-                            "url" => "http://newurl1"
-                            ],
-                            ["id" => "A02",
-                            "class" => "class02",
-                            "label" => "label02",
-                            "permission" => "permission02",
-                            "selected" => false,
-                            "url" => "http://newurl2"
-                            ],],
-                            ["id" => "A01",
-                            "class" => "class01",
-                            "label" => "label01",
-                            "permission" => "permission01",
-                            "selected" => true,
-                            "url" => "http://newurl1"
-                ]],
-                'No tab selected' => [[["id" => "A01",
-                            "class" => "class01",
-                            "label" => "label01",
-                            "permission" => "permission01",
-                            "selected" => false,
-                            "url" => "http://newurl1"
-                            ],
-                            ["id" => "A02",
-                            "class" => "class02",
-                            "label" => "label02",
-                            "permission" => "permission02",
-                            "selected" => false,
-                            "url" => "http://newurl2"
-                            ],],
-                            null
-                            ],
-            ];
+        yield 'First tab selected' => [
+            [
+                [
+                    'id' => 'A01',
+                    'class' => 'class01',
+                    'label' => 'label01',
+                    'permission' => 'permission01',
+                    'selected' => true,
+                    'url' => 'http://newurl1',
+                ],
+                [
+                    'id' => 'A02',
+                    'class' => 'class02',
+                    'label' => 'label02',
+                    'permission' => 'permission02',
+                    'selected' => false,
+                    'url' => 'http://newurl2',
+                ],
+            ],
+            [
+                'id' => 'A01',
+                'class' => 'class01',
+                'label' => 'label01',
+                'permission' => 'permission01',
+                'selected' => true,
+                'url' => 'http://newurl1',
+            ],
+        ];
+        yield 'No tab selected' => [
+            [
+                [
+                    'id' => 'A01',
+                    'class' => 'class01',
+                    'label' => 'label01',
+                    'permission' => 'permission01',
+                    'selected' => false,
+                    'url' => 'http://newurl1',
+                ],
+                [
+                    'id' => 'A02',
+                    'class' => 'class02',
+                    'label' => 'label02',
+                    'permission' => 'permission02',
+                    'selected' => false,
+                    'url' => 'http://newurl2',
+                ],
+            ],
+            null,
+        ];
     }
 
     /**
      * Test getting the active tab.
      *
-     * @param array $tabEnv tabConfig
+     * @param array $tabEnv         tabConfig
      * @param array $expectedResult expected result from getActiveTab
      *
      * @return void
-     *
-     * @dataProvider tabConfigProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('tabConfigProvider')]
     public function testGetActiveTab(array $tabEnv, $expectedResult): void
     {
         $obj = new SwitchTab();
@@ -106,44 +118,51 @@ class SwitchTabTest extends \PHPUnit\Framework\TestCase
     /**
      * Data provider for testGetActiveTab.
      *
-     * @return array
+     * @return \Iterator
      */
-    public function inactiveTabConfigProvider(): array
+    public static function inactiveTabConfigProvider(): \Iterator
     {
-        return ['Test1' => [[["id" => "A01",
-                            "class" => "class01",
-                            "label" => "label01",
-                            "permission" => "permission01",
-                            "selected" => true,
-                            "url" => "http://newurl1"
-                            ],
-                            ["id" => "A02",
-                            "class" => "class02",
-                            "label" => "label02",
-                            "permission" => "permission02",
-                            "selected" => false,
-                            "url" => "http://newurl2"
-                            ],],
-                            [["id" => "A02",
-                            "class" => "class02",
-                            "label" => "label02",
-                            "permission" => "permission02",
-                            "selected" => false,
-                            "url" => "http://newurl2"
-                ]]],
-            ];
+        yield 'Test1' => [
+            [
+                [
+                    'id' => 'A01',
+                    'class' => 'class01',
+                    'label' => 'label01',
+                    'permission' => 'permission01',
+                    'selected' => true,
+                    'url' => 'http://newurl1',
+                ],
+                [
+                    'id' => 'A02',
+                    'class' => 'class02',
+                    'label' => 'label02',
+                    'permission' => 'permission02',
+                    'selected' => false,
+                    'url' => 'http://newurl2',
+                ],
+            ],
+            [
+                [
+                    'id' => 'A02',
+                    'class' => 'class02',
+                    'label' => 'label02',
+                    'permission' => 'permission02',
+                    'selected' => false,
+                    'url' => 'http://newurl2',
+                ],
+            ],
+        ];
     }
 
     /**
      * Test getting the active tab.
      *
-     * @param array $tabEnv tabConfig
+     * @param array $tabEnv         tabConfig
      * @param array $expectedResult expected result from getInactiveTabs
      *
      * @return void
-     *
-     * @dataProvider inactiveTabConfigProvider
      */
+    #[\PHPUnit\Framework\Attributes\DataProvider('inactiveTabConfigProvider')]
     public function testGetInactiveTab(array $tabEnv, array $expectedResult): void
     {
         $obj = new SwitchTab();
@@ -158,7 +177,7 @@ class SwitchTabTest extends \PHPUnit\Framework\TestCase
     public function testSetConfig(): void
     {
         $obj = new SwitchTab();
-        $this->assertNull($obj->setConfig(""));
+        $this->assertNull($obj->setConfig(''));
     }
 
     /**
@@ -169,9 +188,7 @@ class SwitchTabTest extends \PHPUnit\Framework\TestCase
     public function testProcess(): void
     {
         $obj = new SwitchTab();
-        $results = $this->getMockBuilder(\VuFind\Search\Base\Results::class)
-            ->disableOriginalConstructor()
-            ->getMock();
+        $results = $this->createMock(\VuFind\Search\Base\Results::class);
         $this->assertNull($obj->process($results));
     }
 }

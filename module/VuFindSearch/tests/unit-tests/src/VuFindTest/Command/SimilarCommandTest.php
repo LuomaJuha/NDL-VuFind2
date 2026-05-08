@@ -3,7 +3,7 @@
 /**
  * Unit tests for SimilarCommand.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2022.
  *
@@ -17,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search
@@ -26,9 +26,11 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org
  */
+
 namespace VuFindTest\Command;
 
 use PHPUnit\Framework\TestCase;
+use VuFindSearch\Backend\Solr\Backend;
 use VuFindSearch\Command\SimilarCommand;
 use VuFindSearch\ParamBag;
 
@@ -44,7 +46,7 @@ use VuFindSearch\ParamBag;
 class SimilarCommandTest extends TestCase
 {
     /**
-     * Test that the command works as expected
+     * Test that the command works as expected.
      *
      * @return void
      */
@@ -54,12 +56,12 @@ class SimilarCommandTest extends TestCase
         $params = new ParamBag(['foo' => 'bar']);
         $backend = $this->getBackend();
         $backend->expects($this->once())->method('getIdentifier')
-            ->will($this->returnValue($backendId));
+            ->willReturn($backendId);
         $backend->expects($this->once())->method('similar')
             ->with(
-                $this->equalTo("id"),
-                $this->equalTo($params)
-            )->will($this->returnValue('result'));
+                'id',
+                $params
+            )->willReturn('result');
         $command = $this->getCommand();
         $this->assertEquals('result', $command->execute($backend)->getResult());
     }
@@ -109,7 +111,7 @@ class SimilarCommandTest extends TestCase
     }
 
     /**
-     * Test that the command throws an exception results are requested before execute
+     * Test that the command throws an exception results are requested before execute.
      *
      * @return void
      */
@@ -121,7 +123,7 @@ class SimilarCommandTest extends TestCase
     }
 
     /**
-     * Test for getArguments method
+     * Test for getArguments method.
      *
      * @return void
      */
@@ -135,7 +137,7 @@ class SimilarCommandTest extends TestCase
     }
 
     /**
-     * Get test SimilarCommand Object
+     * Get test SimilarCommand Object.
      *
      * @return SimilarCommand
      */
@@ -144,19 +146,18 @@ class SimilarCommandTest extends TestCase
         $params = new ParamBag(['foo' => 'bar']);
         $backendId = 'bar';
 
-        $command = new SimilarCommand($backendId, "id", $params);
+        $command = new SimilarCommand($backendId, 'id', $params);
         return $command;
     }
 
     /**
-     * Get test backend Object
+     * Get test backend Object.
      *
      * @return Backend
      */
     public function getBackend()
     {
-        $backend = $this->getMockBuilder(\VuFindSearch\Backend\Solr\Backend::class)
-            ->disableOriginalConstructor()->getMock();
+        $backend = $this->createMock(Backend::class);
         return $backend;
     }
 }

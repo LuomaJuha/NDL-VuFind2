@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Record formatter for API responses
+ * Record formatter for API responses.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2016.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  API_Formatter
@@ -25,13 +26,16 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace VuFindApi\Formatter;
 
 use Laminas\View\HelperPluginManager;
 use VuFind\I18n\TranslatableString;
 
+use function is_object;
+
 /**
- * Record formatter for API responses
+ * Record formatter for API responses.
  *
  * @category VuFind
  * @package  API_Formatter
@@ -42,21 +46,21 @@ use VuFind\I18n\TranslatableString;
 class RecordFormatter extends BaseFormatter
 {
     /**
-     * Record field definitions
+     * Record field definitions.
      *
      * @var array
      */
     protected $recordFields;
 
     /**
-     * View helper plugin manager
+     * View helper plugin manager.
      *
      * @var HelperPluginManager
      */
     protected $helperManager;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param array               $recordFields  Record field definitions
      * @param HelperPluginManager $helperManager View helper plugin manager
@@ -70,7 +74,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get dedup IDs
+     * Get dedup IDs.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record Record driver
      *
@@ -89,7 +93,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get extended subject headings
+     * Get extended subject headings.
      *
      * @param \VuFind\RecordDriver\SolrDefault $record Record driver
      *
@@ -104,7 +108,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get full record for a record as XML
+     * Get full record for a record as XML.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record Record driver
      *
@@ -120,7 +124,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get raw data for a record as an array
+     * Get raw data for a record as an array.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record Record driver
      *
@@ -137,7 +141,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get (relative) link to record page
+     * Get (relative) link to record page.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record Record driver
      *
@@ -150,7 +154,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get URLs
+     * Get URLs.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record Record driver
      *
@@ -163,7 +167,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Get fields from a record as an array
+     * Get fields from a record as an array.
      *
      * @param \VuFind\RecordDriver\AbstractBase $record Record driver
      * @param array                             $fields Fields to get
@@ -178,23 +182,21 @@ class RecordFormatter extends BaseFormatter
                 continue;
             }
             $method = $this->recordFields[$field]['vufind.method'];
-            if (strncmp($method, 'Formatter::', 11) == 0) {
-                $value = $this->{substr($method, 11)}($record);
-            } else {
-                $value = $record->tryMethod($method);
-            }
+            $value = strncmp($method, 'Formatter::', 11) == 0
+                ? $this->{substr($method, 11)}($record)
+                : $record->tryMethod($method);
             $result[$field] = $value;
         }
         // Convert any translation aware string classes to strings
         $translator = $this->helperManager->get('translate');
         array_walk_recursive(
             $result,
-            function (&$value) use ($translator) {
+            function (&$value) use ($translator): void {
                 if (is_object($value)) {
                     if ($value instanceof TranslatableString) {
                         $value = [
                             'value' => (string)$value,
-                            'translated' => $translator->translate($value)
+                            'translated' => $translator->translate($value),
                         ];
                     } else {
                         $value = (string)$value;
@@ -217,7 +219,7 @@ class RecordFormatter extends BaseFormatter
     }
 
     /**
-     * Return record field specs for the API specification
+     * Return record field specs for the API specification.
      *
      * @return array
      */

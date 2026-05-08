@@ -1,8 +1,9 @@
 <?php
+
 /**
- * QRCode Controller
+ * QRCode Controller.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2011.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Controller
@@ -26,13 +27,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Controller;
 
 use VuFind\QRCode\Loader;
 use VuFind\Session\Settings as SessionSettings;
 
 /**
- * Generates qrcodes
+ * Generates qrcodes.
  *
  * @category VuFind
  * @package  Controller
@@ -44,21 +46,21 @@ use VuFind\Session\Settings as SessionSettings;
 class QRCodeController extends \Laminas\Mvc\Controller\AbstractActionController
 {
     /**
-     * QR Code loader
+     * QR Code loader.
      *
      * @var Loader
      */
     protected $loader = false;
 
     /**
-     * Session settings
+     * Session settings.
      *
      * @var SessionSettings
      */
     protected $sessionSettings = null;
 
     /**
-     * Constructor
+     * Constructor.
      *
      * @param Loader          $loader QR Code Loader
      * @param SessionSettings $ss     Session settings
@@ -70,7 +72,7 @@ class QRCodeController extends \Laminas\Mvc\Controller\AbstractActionController
     }
 
     /**
-     * Send QRCode data for display in the view
+     * Send QRCode data for display in the view.
      *
      * @return \Laminas\Http\Response
      */
@@ -87,7 +89,7 @@ class QRCodeController extends \Laminas\Mvc\Controller\AbstractActionController
     }
 
     /**
-     * Return the default 'qrcode not found' information
+     * Return the default 'qrcode not found' information.
      *
      * @return \Laminas\Http\Response
      */

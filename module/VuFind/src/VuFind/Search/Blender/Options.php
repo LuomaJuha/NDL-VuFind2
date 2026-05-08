@@ -1,8 +1,9 @@
 <?php
+
 /**
- * Blender aspect of the Search Multi-class (Options)
+ * Blender aspect of the Search Multi-class (Options).
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2015-2022.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Blender
@@ -26,10 +27,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace VuFind\Search\Blender;
 
+use VuFind\Config\ConfigManagerInterface;
+
 /**
- * Blender Search Options
+ * Blender Search Options.
  *
  * @category VuFind
  * @package  Search_Blender
@@ -41,23 +45,51 @@ namespace VuFind\Search\Blender;
 class Options extends \VuFind\Search\Solr\Options
 {
     /**
-     * Maximum number of results (400 by default)
+     * Configuration file to read search settings from.
      *
-     * @var int
+     * Note that any change to this must be made before calling the constructor of this class.
+     *
+     * @var string
      */
-    protected $resultLimit = 400;
+    protected $searchIni = 'Blender';
 
     /**
-     * Constructor
+     * Configuration file to read facet settings from.
      *
-     * @param \VuFind\Config\PluginManager $configLoader Config loader
+     * Note that any change to this must be made before calling the constructor of this class.
+     *
+     * @var string
      */
-    public function __construct(\VuFind\Config\PluginManager $configLoader)
+    protected $facetsIni = 'Blender';
+
+    /**
+     * The route name for the search results action.
+     *
+     * @var string
+     */
+    protected $searchAction = 'blender-results';
+
+    /**
+     * The route name for the advanced search action.
+     *
+     * @var string
+     */
+    protected $advancedSearchAction = 'blender-advanced';
+
+    /**
+     * Constructor.
+     *
+     * @param ConfigManagerInterface $configManager Config manager
+     */
+    public function __construct(ConfigManagerInterface $configManager)
     {
-        $this->facetsIni = $this->searchIni = 'Blender';
-        parent::__construct($configLoader);
-        // Make sure first-last navigation is never enabled since we cannot support:
-        $this->firstlastNavigation = false;
+        // Override the default result limit with a value that we can always support:
+        $this->defaultResultLimit = 400;
+
+        parent::__construct($configManager);
+
+        // Make sure first-last navigation is never enabled since we cannot support it:
+        $this->firstLastNavigationSupported = false;
     }
 
     /**
@@ -67,7 +99,7 @@ class Options extends \VuFind\Search\Solr\Options
      */
     public function getSearchAction()
     {
-        return 'search-blended';
+        return $this->searchAction;
     }
 
     /**
@@ -78,7 +110,7 @@ class Options extends \VuFind\Search\Solr\Options
      */
     public function getAdvancedSearchAction()
     {
-        return false;
+        return $this->advancedHandlers ? $this->advancedSearchAction : false;
     }
 
     /**

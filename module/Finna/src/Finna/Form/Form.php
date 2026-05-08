@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Configurable form.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2018-2022.
  *
@@ -26,7 +27,14 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development:plugins:controllers Wiki
  */
+
 namespace Finna\Form;
+
+use Exception;
+use VuFind\Db\Entity\UserEntityInterface;
+use VuFind\RecordDriver\DefaultRecord;
+
+use function in_array;
 
 /**
  * Configurable form.
@@ -55,49 +63,50 @@ class Form extends \VuFind\Form\Form
     public const RECORD_FEEDBACK_FORM = 'FeedbackRecord';
 
     /**
-     * Handlers that are considered safe for transmitting information about the user
+     *  Archive request form id.
+     *
+     * @var        string
+     * @deprecated Logic moved to ReservationList::placeSingleOrder
+     */
+    public const ARCHIVE_MATERIAL_REQUEST = 'ArchiveRequest';
+
+    /**
+     * Handlers that are considered safe for transmitting information about the user.
      *
      * @var array
      */
     protected $secureHandlers = ['api', 'database'];
 
     /**
-     * Form id
-     *
-     * @var string
-     */
-    protected $formId = '';
-
-    /**
-     * Institution name
+     * Institution name.
      *
      * @var string
      */
     protected $institution = '';
 
     /**
-     * Institution email
+     * Institution email.
      *
      * @var string
      */
     protected $institutionEmail = '';
 
     /**
-     * User
+     * User.
      *
-     * @var User
+     * @var ?UserEntityInterface
      */
     protected $user = null;
 
     /**
-     * ILS Patron
+     * ILS Patron.
      *
      * @var array
      */
     protected $ilsPatron = null;
 
     /**
-     * User roles
+     * User roles.
      *
      * @var array
      */
@@ -106,14 +115,14 @@ class Form extends \VuFind\Form\Form
     /**
      * User library card barcode.
      *
-     * @var string|null
+     * @var ?string
      */
     protected $userCatUsername = null;
 
     /**
      * User patron id in library.
      *
-     * @var string|null
+     * @var ?string
      */
     protected $userCatId = null;
 
@@ -126,69 +135,46 @@ class Form extends \VuFind\Form\Form
     protected $recordRequestFormsWithBarcode = [];
 
     /**
-     * Data source configuation
+     * Data source configuation.
      *
      * @var array
      */
     protected $dataSourceConfig = null;
 
     /**
-     * Record driver
+     * Record driver.
      *
-     * @var \VuFind\RecordDriver\DefaultRecord
+     * @var DefaultRecord
      */
     protected $record = null;
 
     /**
-     * Record loader
+     * Record loader.
      *
      * @var \VuFind\Record\Loader
      */
     protected $recordLoader = null;
 
     /**
-     * Form settings (from YAML without parsing)
+     * Set form id.
      *
-     * @var array
-     */
-    protected $formSettings = [];
-
-    /**
-     * Get form id
-     *
-     * @return string
-     */
-    public function getFormId(): string
-    {
-        return $this->formId;
-    }
-
-    /**
-     * Set form id
-     *
-     * @param string $formId Form id
-     * @param array  $params Additional form parameters.
+     * @param string $formId  Form id
+     * @param array  $params  Additional form parameters.
+     * @param array  $prefill Prefill form with these values.
      *
      * @return void
      * @throws Exception
      */
-    public function setFormId($formId, $params = [])
+    public function setFormId($formId, $params = [], $prefill = [])
     {
-        // First set up our customized parameters needed during initialization:
-        if (!$config = $this->getFormConfig($formId)) {
-            throw new \VuFind\Exception\RecordMissing("Form '$formId' not found");
-        }
-        $this->formId = $formId;
-        $this->formSettings = $config;
+        parent::setFormId($formId, $params, $prefill);
 
-        // Call parent's setFormId to initialize form settings now that the above has
-        // been done:
-        parent::setFormId($formId, $params);
-
-        if ($this->reportPatronBarcode()) {
-            if ($this->user && ($catUsername = $this->user->cat_username)) {
-                [, $barcode] = explode('.', $catUsername);
-                $this->userCatUsername = $barcode;
+        if ($this->ilsPatron) {
+            if ($this->reportPatronBarcode()) {
+                $this->userCatUsername = $this->ilsPatron['__local_cat_username'] ?? $this->ilsPatron['cat_username'];
+            }
+            if ($this->reportPatronId()) {
+                $this->userCatId = $this->ilsPatron['__local_id'] ?? $this->ilsPatron['id'];
             }
         }
 
@@ -196,7 +182,7 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Set data to validate and/or populate elements
+     * Set data to validate and/or populate elements.
      *
      * Typically, also passes data on to the composed input filter.
      *
@@ -223,7 +209,32 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Set institution
+     * Sets name and email field values from preferred source.
+     *
+     * @return static
+     */
+    public function setContactInformation(): static
+    {
+        if ($this->preferPatronInformation()) {
+            $this->setData(
+                [
+                    'name' => $this->ilsPatron['firstname'] . ' ' . $this->ilsPatron['lastname'],
+                    'email' => $this->ilsPatron['email'],
+                ]
+            );
+        } elseif ($this->user) {
+            $this->setData(
+                [
+                    'name' => $this->user->getFirstname() . ' ' . $this->user->getLastname(),
+                    'email' => $this->user->getEmail(),
+                ]
+            );
+        }
+        return $this;
+    }
+
+    /**
+     * Set institution.
      *
      * @param string $institution Institution
      *
@@ -235,7 +246,7 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Set institution email
+     * Set institution email.
      *
      * @param string $email Email
      *
@@ -247,15 +258,15 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Set user
+     * Set user.
      *
-     * @param User  $user      User
-     * @param array $roles     User roles
-     * @param array $ilsPatron ILS patron account
+     * @param UserEntityInterface $user      User
+     * @param array               $roles     User roles
+     * @param ?array              $ilsPatron ILS patron account
      *
      * @return void
      */
-    public function setUser($user, $roles, ?array $ilsPatron)
+    public function setUser(UserEntityInterface $user, array $roles, ?array $ilsPatron)
     {
         $this->user = $user;
         $this->userRoles = $roles;
@@ -263,23 +274,23 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Get record driver
+     * Get record driver.
      *
-     * @return ?\VuFind\RecordDriver\DefaultRecord
+     * @return ?DefaultRecord
      */
-    public function getRecord(): ?\VuFind\RecordDriver\DefaultRecord
+    public function getRecord(): ?DefaultRecord
     {
         return $this->record;
     }
 
     /**
-     * Set record driver
+     * Set record driver.
      *
-     * @param \VuFind\RecordDriver\DefaultRecord $record Record
+     * @param DefaultRecord $record Record
      *
      * @return void
      */
-    protected function setRecord(\VuFind\RecordDriver\DefaultRecord $record): void
+    protected function setRecord(DefaultRecord $record): void
     {
         $this->record = $record;
     }
@@ -292,13 +303,13 @@ class Form extends \VuFind\Form\Form
      *
      * @return void
      */
-    public function setRecordRequestFormsWithBarcode(array $formIds) : void
+    public function setRecordRequestFormsWithBarcode(array $formIds): void
     {
         $this->recordRequestFormsWithBarcode = $formIds;
     }
 
     /**
-     * Set data source configuration
+     * Set data source configuration.
      *
      * @param array $config Data source configuration
      *
@@ -310,7 +321,7 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Set record loader
+     * Set record loader.
      *
      * @param \VuFind\Record\Loader $loader Record loader
      *
@@ -322,13 +333,38 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Check if the form should report patron's barcode
+     * Check if the form should report patron's barcode.
      *
      * @return bool
      */
     public function reportPatronBarcode()
     {
         return (bool)($this->formConfig['includeBarcode'] ?? false);
+    }
+
+    /**
+     * Check if the form should report patron's id.
+     *
+     * @return bool
+     */
+    public function reportPatronId(): bool
+    {
+        return (bool)($this->formConfig['includePatronId'] ?? false);
+    }
+
+    /**
+     * Should the form fill user data from patron?
+     *
+     * @return bool
+     */
+    public function preferPatronInformation(): bool
+    {
+        return $this->ilsPatron
+            && (
+                $this->reportPatronBarcode()
+                || $this->reportPatronId()
+                || (bool)($this->formConfig['preferPatronInformation'] ?? false)
+            );
     }
 
     /**
@@ -357,8 +393,8 @@ class Form extends \VuFind\Form\Form
             return [
                 [
                     'name' => '',
-                    'email' => $recipientEmail
-                ]
+                    'email' => $recipientEmail,
+                ],
             ];
         }
 
@@ -398,7 +434,7 @@ class Form extends \VuFind\Form\Form
             if ($recipientField === $param['name']) {
                 return [
                     'email' => $param['value'],
-                    'name' => $this->translate($param['valueLabel'])
+                    'name' => $this->translate($param['valueLabel']),
                 ];
             }
         }
@@ -427,33 +463,37 @@ class Form extends \VuFind\Form\Form
 
         $preParagraphs = [];
         $postParagraphs = [];
+        $datasource = null !== $this->record ? $this->record->tryMethod('getDataSource') : '';
 
         // 'feedback_instructions_html' translation
-        if ($this->formId === self::FEEDBACK_FORM) {
+        if ($this->getFormId() === self::FEEDBACK_FORM) {
             $key = 'feedback_instructions_html';
             $instructions = $this->translate($key);
             if ($instructions !== $key && !$translationEmpty($instructions)) {
                 $preParagraphs[] = $instructions;
             }
         }
+        // 'archive_request_{$datasource}_reserve_material_pre_html' translation
+        if ($this->getFormId() === self::ARCHIVE_MATERIAL_REQUEST) {
+            $text = $this->translateCombinedString('archive_request', $datasource, 'reserve_material_pre_html');
+            if ($text) {
+                $preParagraphs[] = $text;
+            }
+        }
 
         // Help texts from configuration
-        $pre = isset($this->formConfig['help']['pre'])
-            && !$translationEmpty($this->formConfig['help']['pre'])
-            ? $this->translate($this->formConfig['help']['pre'])
-            : null;
-        if ($pre) {
-            $preParagraphs[] = $pre;
+        foreach ((array)($this->formConfig['help']['pre'] ?? []) as $translation) {
+            if (!$translationEmpty($translation)) {
+                $preParagraphs[] = $this->translate($translation);
+            }
         }
-        $post = isset($this->formConfig['help']['post'])
-            && !$translationEmpty($this->formConfig['help']['post'])
-            ? $this->translate($this->formConfig['help']['post'])
-            : null;
-        if ($post) {
-            $postParagraphs[] = $post;
+        foreach ((array)($this->formConfig['help']['post'] ?? []) as $translation) {
+            if (!$translationEmpty($translation)) {
+                $postParagraphs[] = $this->translate($translation);
+            }
         }
 
-        if ($this->formId === self::RECORD_FEEDBACK_FORM && null !== $this->record) {
+        if ($this->getFormId() === self::RECORD_FEEDBACK_FORM && null !== $this->record) {
             // Append receiver info after general record feedback instructions
             // (translation key for this is defined in FeedbackForms.yaml)
             if (!$translationEmpty('feedback_recipient_info_record')) {
@@ -461,7 +501,7 @@ class Form extends \VuFind\Form\Form
                     'feedback_recipient_info_record',
                     [
                         '%%institution%%'
-                            => $organisationDisplayName($this->record, true)
+                            => $organisationDisplayName($this->record, true),
                     ]
                 );
             }
@@ -471,7 +511,17 @@ class Form extends \VuFind\Form\Form
                 $preParagraphs[] = '<span class="datasource-info">'
                     . $this->translate($datasourceKey) . '</span>';
             }
-        } elseif (!($this->formConfig['hideRecipientInfo'] ?? false)
+        }
+        if (
+            $this->getFormId() === self::ARCHIVE_MATERIAL_REQUEST
+            && null !== $this->record
+        ) {
+            $text = $this->translateCombinedString('archive_request', $datasource, 'info');
+            if ($text) {
+                $preParagraphs[] = $escapeHtml($text);
+            }
+        } elseif (
+            !($this->formConfig['hideRecipientInfo'] ?? false)
             && $this->institution
         ) {
             // Receiver info
@@ -483,7 +533,8 @@ class Form extends \VuFind\Form\Form
             );
 
             // Try to handle cases like tritonia-tria
-            if ($institutionName === $institution && strpos($institution, '-') > 0
+            if (
+                $institutionName === $institution && strpos($institution, '-') > 0
             ) {
                 $part = substr($institution, 0, strpos($institution, '-'));
                 $institutionName = $this->translate(
@@ -508,13 +559,27 @@ class Form extends \VuFind\Form\Form
         }
 
         // Append record title
-        if (null !== $this->record
-            && ($this->formId === self::RECORD_FEEDBACK_FORM
+        if (
+            null !== $this->record
+            && ($this->getFormId() === self::RECORD_FEEDBACK_FORM
+            || $this->getFormId() === self::ARCHIVE_MATERIAL_REQUEST
             || $this->isRecordRequestFormWithBarcode())
         ) {
             $preParagraphs[] = '<strong>'
                 . $transEsc('feedback_material') . '</strong>:<br>'
                 . $escapeHtml($this->record->getTitle());
+        }
+
+        if (
+            null !== $this->record
+            && $this->getFormId() === self::ARCHIVE_MATERIAL_REQUEST
+        ) {
+            $identifier = $this->record->tryMethod('getIdentifier');
+            if ($identifier) {
+                $preParagraphs[] = '<strong>'
+                    . $transEsc('Inventory ID') . '</strong>:<br>'
+                    . $escapeHtml($identifier[0]);
+            }
         }
 
         if ($this->userCatUsername) {
@@ -530,6 +595,16 @@ class Form extends \VuFind\Form\Form
             );
         }
 
+        if (
+            null !== $this->record
+            && $this->getFormId() === self::ARCHIVE_MATERIAL_REQUEST
+        ) {
+            $text = $this->translateCombinedString('archive_request', $datasource, 'material_arrival_info_html');
+            if ($text) {
+                $postParagraphs[] = '<div class="alert alert-info">' . $text . '</div>';
+            }
+        }
+
         $pre = implode('</div><div>', $preParagraphs);
         $help['pre'] = $pre ? "<div>$pre</div>" : '';
         $post = implode('</div><div>', $postParagraphs);
@@ -539,7 +614,29 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Map request parameters to field values
+     * Combine a translation key from two or three strings.
+     *
+     * @param string $prefix The prefix/first part of translation key
+     * @param string $middle The second part of translation key
+     * @param string $suffix The suffix for translation key (optional)
+     *
+     * @return string
+     */
+    public function translateCombinedString(string $prefix, string $middle, string $suffix = '')
+    {
+        $translate = $prefix;
+        $translationEmpty = $this->viewHelperManager->get('translationEmpty');
+        if ('' !== $middle) {
+            $translate .= '_' . $middle;
+        }
+        if ('' !== $suffix) {
+            $translate .= '_' . $suffix;
+        }
+        return !$translationEmpty($translate) ? $this->translate($translate) : '';
+    }
+
+    /**
+     * Map request parameters to field values.
      *
      * @param array $requestParams Request parameters
      *
@@ -563,7 +660,7 @@ class Form extends \VuFind\Form\Form
                 'type' => 'text',
                 'name' => 'userCatUsername',
                 'label' => $this->translate('Library Catalog Username'),
-                'value' => $this->userCatUsername
+                'value' => $this->userCatUsername,
             ];
             if ($idx = array_search('email', array_column($params, 'type'))) {
                 array_splice($params, $idx + 1, 0, [$field]);
@@ -578,7 +675,7 @@ class Form extends \VuFind\Form\Form
                 'type' => 'text',
                 'name' => 'userCatId',
                 'label' => $this->translate('Unique patron identifier'),
-                'value' => $this->userCatId
+                'value' => $this->userCatId,
             ];
             if ($idx = array_search('email', array_column($params, 'type'))) {
                 array_splice($params, $idx + 1, 0, [$field]);
@@ -586,14 +683,13 @@ class Form extends \VuFind\Form\Form
                 $params[] = $field;
             }
         }
-
         if (!$this->isRecordRequestFormWithBarcode()) {
             // Append user logged status and permissions
             $loginMethod = $this->user ?
                 $this->translate(
-                    'login_method_' . $this->user->auth_method,
+                    'login_method_' . $this->user->getAuthMethod(),
                     null,
-                    $this->user->auth_method
+                    $this->user->getAuthMethod(),
                 ) : $this->translate('feedback_user_anonymous');
 
             $label = $this->translate('feedback_user_login_method');
@@ -601,7 +697,7 @@ class Form extends \VuFind\Form\Form
                 'name' => 'userLoginMethod',
                 'type' => 'text',
                 'label' => $label,
-                'value' => $loginMethod
+                'value' => $loginMethod,
             ];
 
             if ($this->user) {
@@ -610,16 +706,15 @@ class Form extends \VuFind\Form\Form
                     'name' => 'userRoles',
                     'type' => 'text',
                     'label' => $label,
-                    'value' => implode(', ', $this->userRoles)
+                    'value' => implode(', ', $this->userRoles),
                 ];
             }
         }
-
         return $params;
     }
 
     /**
-     * Return API settings
+     * Return API settings.
      *
      * @return array
      */
@@ -645,7 +740,7 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Get form elements
+     * Get form elements.
      *
      * @param array $config Form configuration
      *
@@ -655,14 +750,18 @@ class Form extends \VuFind\Form\Form
     {
         $elements = parent::getFormElements($config);
 
-        $includeRecordData = $this->formId === self::RECORD_FEEDBACK_FORM
-          || $this->isRecordRequestFormWithBarcode();
+        $includeRecordData = in_array(
+            $this->getFormId(),
+            [
+                self::RECORD_FEEDBACK_FORM,
+                self::ARCHIVE_MATERIAL_REQUEST,
+            ]
+        ) || $this->isRecordRequestFormWithBarcode();
 
         if ($includeRecordData) {
             // Add hidden fields for record data
             foreach (['record_id', 'record', 'record_info'] as $key) {
-                $elements[$key]
-                    = ['type' => 'hidden', 'name' => $key, 'value' => null];
+                $elements[$key] = ['type' => 'hidden', 'name' => $key, 'value' => null];
             }
         }
 
@@ -672,22 +771,24 @@ class Form extends \VuFind\Form\Form
     /**
      * Parse form configuration.
      *
-     * @param string $formId Form id
-     * @param array  $config Configuration
-     * @param array  $params Additional form parameters.
+     * @param string $formId  Form id
+     * @param array  $config  Configuration
+     * @param array  $params  Additional form parameters.
+     * @param array  $prefill Prefill form with these values.
      *
      * @return array
      */
-    protected function parseConfig($formId, $config, $params)
+    protected function parseConfig($formId, $config, $params, $prefill)
     {
-        $elements = parent::parseConfig($formId, $config, $params);
+        $elements = parent::parseConfig($formId, $config, $params, $prefill);
 
         if (!empty($this->formConfig['hideSenderInfo'])) {
             // Remove default sender info fields
             $filtered = [];
             $configFieldNames = array_column($config['fields'] ?? [], 'name');
             foreach ($elements as $el) {
-                if (isset($el['group']) && $el['group'] === '__sender__'
+                if (
+                    isset($el['group']) && $el['group'] === '__sender__'
                     && !in_array($el['name'] ?? '', $configFieldNames)
                 ) {
                     continue;
@@ -707,7 +808,14 @@ class Form extends \VuFind\Form\Form
                 }
             }
         }
-
+        if ($formId === self::ARCHIVE_MATERIAL_REQUEST) {
+            foreach ($elements as &$value) {
+                if ($value['name'] === 'submit') {
+                    $value['label'] = 'request_submit_text';
+                }
+            }
+            unset($value);
+        }
         return $elements;
     }
 
@@ -746,6 +854,9 @@ class Form extends \VuFind\Form\Form
                 'hideSenderInfo',
                 'includeBarcode',
                 'includePatronId',
+                'preferPatronInformation',
+                'readonly',
+                'rows',
                 'senderInfoHelp',
                 'sendMethod',
             ]
@@ -768,7 +879,7 @@ class Form extends \VuFind\Form\Form
     }
 
     /**
-     * Get form configuration
+     * Get form configuration.
      *
      * @param string $formId Form id
      *
@@ -801,7 +912,8 @@ class Form extends \VuFind\Form\Form
         if (empty($config['primaryHandler']) && !empty($config['sendMethod'])) {
             $config['primaryHandler'] = $config['sendMethod'];
         }
-        if (empty($viewConfig['primaryHandler'])
+        if (
+            empty($viewConfig['primaryHandler'])
             && !empty($viewConfig['sendMethod'])
         ) {
             $viewConfig['primaryHandler'] = $viewConfig['sendMethod'];
@@ -811,7 +923,8 @@ class Form extends \VuFind\Form\Form
             return $config;
         }
 
-        if (isset($config['allowLocalOverride'])
+        if (
+            isset($config['allowLocalOverride'])
             && $config['allowLocalOverride'] === false
         ) {
             return $config;
@@ -831,10 +944,10 @@ class Form extends \VuFind\Form\Form
      * Is this form allowed to send user's library card barcode
      * along with the form data?
      *
-     * @return boolean
+     * @return bool
      */
-    protected function isRecordRequestFormWithBarcode() : bool
+    protected function isRecordRequestFormWithBarcode(): bool
     {
-        return in_array($this->formId, $this->recordRequestFormsWithBarcode);
+        return in_array($this->getFormId(), $this->recordRequestFormsWithBarcode);
     }
 }

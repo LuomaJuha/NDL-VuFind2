@@ -1,8 +1,9 @@
 <?php
+
 /**
- * "Get Request Group Pickup Locations" AJAX handler
+ * "Get Request Group Pickup Locations" AJAX handler.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) Villanova University 2018.
  *
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  AJAX
@@ -25,12 +26,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace VuFind\AjaxHandler;
 
 use Laminas\Mvc\Controller\Plugin\Params;
 
 /**
- * "Get Request Group Pickup Locations" AJAX handler
+ * "Get Request Group Pickup Locations" AJAX handler.
  *
  * Get pick up locations for a request group
  *
@@ -53,7 +55,6 @@ class GetRequestGroupPickupLocations extends AbstractIlsAndUserAction
     {
         $this->disableSessionWrites();  // avoid session write timing bug
         $id = $params->fromQuery('id');
-        $itemId = $params->fromQuery('itemId');
         $requestGroupId = $params->fromQuery('requestGroupId');
         if (null === $id || null === $requestGroupId) {
             return $this->formatResponse(
@@ -73,8 +74,7 @@ class GetRequestGroupPickupLocations extends AbstractIlsAndUserAction
             if ($patron = $this->ilsAuthenticator->storedCatalogLogin()) {
                 $details = [
                     'id' => $id,
-                    'item_id' => $itemId,
-                    'requestGroupId' => $requestGroupId
+                    'requestGroupId' => $requestGroupId,
                 ];
                 $results = $this->ils->getPickupLocations($patron, $details);
                 foreach ($results as &$result) {

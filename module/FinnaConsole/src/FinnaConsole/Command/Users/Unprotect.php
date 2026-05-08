@@ -1,8 +1,9 @@
 <?php
+
 /**
  * Console service for unprotecting users.
  *
- * PHP version 7
+ * PHP version 8
  *
  * Copyright (C) The National Library of Finland 2022.
  *
@@ -16,58 +17,66 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Service
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+
 namespace FinnaConsole\Command\Users;
 
-use VuFind\Db\Row\RowGateway;
+use Finna\Db\Entity\UserEntityInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
+use VuFind\Db\Entity\EntityInterface;
+
+use function assert;
 
 /**
- * Console service for unprotecting users
+ * Console service for unprotecting users.
  *
  * @category VuFind
  * @package  Service
  * @author   Ere Maijala <ere.maijala@helsinki.fi>
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
- * @link     http://vufind.org/wiki/vufind2:developer_manual Wiki
+ * @link     https://vufind.org/wiki/development Wiki
  */
+#[AsCommand(
+    name: 'users/unprotect'
+)]
 class Unprotect extends \FinnaConsole\Command\AbstractRecordUpdateCommand
 {
     /**
-     * Table display name
+     * Table display name.
      *
      * @var string
      */
     protected $tableName = 'user';
 
     /**
-     * Command description
+     * Command description.
      *
      * @var string
      */
     protected $description = 'Unprotect users in the database';
 
     /**
-     * Update a record
+     * Update a record.
      *
-     * @param RowGateway $record Record
+     * @param EntityInterface $record Record
      *
      * @return bool Whether changes were made
      */
-    protected function changeRecord(RowGateway $record): bool
+    protected function changeRecord(EntityInterface $record): bool
     {
-        if ($record->finna_protected === 0) {
+        assert($record instanceof UserEntityInterface);
+        if (!$record->getFinnaProtected()) {
             return false;
         }
-        $record->finna_protected = 0;
-        $record->save();
+        $record->setFinnaProtected(false);
         return true;
     }
 }

@@ -1,0 +1,163 @@
+.searchbox {
+  @extend .clearfix;
+  margin: 12px 0px;
+
+  .searchbox-flex {
+    display: flex;
+    align-items: center;
+    .search {
+      flex: 1;
+    }
+    .search-help-icon {
+      font-size: 1.9em;
+    }
+    .btn-advanced {
+      margin-left: 10px;
+    }
+    .btn-link {
+      font-size: 1em;
+      font-weight: 600;
+      color: $finna-search-link-color;
+    }
+    .search-tooltip {
+      button {
+        margin-left: 30px;
+        color: $tooltip-button-color;
+      }
+    }
+  }
+
+  .searchbox-home .tooltip-search-local .search-help-icon {
+    color: #fff;
+  }
+
+  .searchbox-home,
+  .searchbox-authority-search {
+    flex-wrap: wrap;
+    .search-links {
+      flex-basis: 100%;
+      .btn.btn-link {
+        display: inline-flex;
+        padding: 0px 8px 0px 5px;
+        margin-top: 1em;
+        overflow: hidden;
+        font-weight: normal;
+        line-height: 1.5em;
+        color: mix($background-color, contrast($background-color), 5%);
+        background: $background-color;
+        border-radius: $border-radius-small;
+        &:first-child {
+          margin-left: 0px;
+        }
+        &.btn-advanced {
+          gap: 5px;
+        }
+        .icon {
+          font-size: 1.5em;
+        }
+      }
+    }
+  }
+  .search .searchForm .search-query {
+    font-size: $font-size-large;
+  }
+  .pager {
+    li.pager-text {
+      margin: 0px 3px;
+      font-size: 1em;
+      color: mix($finna-search-background, contrast($finna-search-background), 5%);
+    }
+    li > a {
+      padding: 0px 5px;
+      color: $pager-bg;
+      background: transparent;
+      border: none;
+      border-radius: none;
+      .icon {
+        font-size: 2em;
+      }
+    }
+  }
+}
+@include media-breakpoint-down(md) {
+  .searchbox .dropdown.form-control.type-dropdown {
+    display: none;
+  }
+}
+@include media-breakpoint-down(lg) {
+  .searchbox .pager {
+    margin-left: 6px;
+  }
+}
+
+.searchbox-flex {
+  .record-back, .pager {
+    margin: auto 0px;
+  }
+  .pager {
+    display: flex;
+    align-items: center;
+    .disabled {
+      > a,
+      > a:hover,
+      > a:focus {
+        color: $gray-light;
+        cursor: not-allowed;
+        background-color: transparent;
+      }
+    }
+  }
+  .back-to-search {
+    a {
+      display: flex;
+      align-items: center;
+      font-size: 1em;
+      font-weight: 600;
+      color: $finna-search-link-color;
+      .icon {
+        margin-right: 5px;
+        font-size: $font-size-icon-large;
+      }
+      .back-to-search-text {
+        margin-right: 10px;
+      }
+    }
+  }
+}
+@include media-breakpoint-down(sm) {
+  .searchbox-flex .record-back {
+    margin-right: 0px;
+    margin-left: 15px;
+  }
+}
+@include media-breakpoint-down(md) {
+  .searchbox-flex {
+    .pager {
+      min-width: 70px;
+      margin-left: 10px;
+      li:first-child {
+        margin-right: 4px;
+      }
+      .pager-text {
+        display: none;
+      }
+    }
+    .record-back {
+      margin-right: 10px;
+    }
+  }
+}
+@include media-breakpoint-up(md) {
+  .searchbox-flex .search {
+    max-width: 70%;
+  }
+}
+@include media-breakpoint-down(lg) {
+  .searchbox-flex .pager {
+    margin-left: 6px;
+  }
+}
+
+.finna-filters {
+  @extend .checkbox-container;
+}

@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Solr aspect of the Search Multi-class (Options)
+ * Solr aspect of the Search Multi-class (Options).
  *
- * PHP version 7
+ * PHP version 8
  *
- * Copyright (C) The National Library of Finland 2015-2020.
+ * Copyright (C) The National Library of Finland 2015-2025.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2,
@@ -16,8 +17,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ * along with this program; if not, see
+ * <https://www.gnu.org/licenses/>.
  *
  * @category VuFind
  * @package  Search_Solr
@@ -26,10 +27,13 @@
  * @license  http://opensource.org/licenses/gpl-2.0.php GNU General Public License
  * @link     https://vufind.org Main Page
  */
+
 namespace Finna\Search\Solr;
 
+use VuFind\Config\ConfigManagerInterface;
+
 /**
- * Solr Search Options
+ * Solr Search Options.
  *
  * @category VuFind
  * @package  Search_Solr
@@ -44,14 +48,14 @@ class Options extends \VuFind\Search\Solr\Options
     use \Finna\I18n\Translator\TranslatorAwareTrait;
 
     /**
-     * Date range visualization settings
+     * Date range visualization settings.
      *
      * @var string
      */
     protected $dateRangeVis;
 
     /**
-     * Whether to display record versions
+     * Whether to display record versions.
      *
      * Finna: keep it false by default for now
      *
@@ -60,30 +64,48 @@ class Options extends \VuFind\Search\Solr\Options
     protected $displayRecordVersions = false;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param \VuFind\Config\PluginManager $configLoader Config loader
+     * @param ConfigManagerInterface $configManager Config manager
      */
-    public function __construct(\VuFind\Config\PluginManager $configLoader)
+    public function __construct(ConfigManagerInterface $configManager)
     {
-        parent::__construct($configLoader);
+        parent::__construct($configManager);
 
-        $facetSettings = $this->configLoader->get($this->facetsIni);
-        $this->dateRangeVis = $facetSettings->SpecialFacets->dateRangeVis ?? '';
+        $this->dateRangeVis = $this->facetSettings['SpecialFacets']['dateRangeVis'] ?? '';
 
         // Back-compatibility for display_versions setting in config.ini:
-        $searchSettings = $configLoader->get($this->searchIni);
-        if (!isset($searchSettings->General->display_versions)) {
-            $config = $configLoader->get($this->mainIni);
-            if (isset($config->Record->display_versions)) {
-                $this->displayRecordVersions
-                    = (bool)$config->Record->display_versions;
+        if (
+            !isset($this->searchSettings['General']['display_versions'])
+            && (null !== ($setting = $this->mainConfig['Record']['display_versions'] ?? null))
+        ) {
+            $this->displayRecordVersions = (bool)$setting;
+        }
+
+        // Back-compatibility for hierarchical facet filters:
+        $this->hierarchicalExcludeFilters
+            = $this->facetSettings['HierarchicalExcludeFilters']
+            ?? $this->facetSettings['ExcludeFilters']
+            ?? [];
+        $this->hierarchicalFacetFilters
+            = $this->facetSettings['HierarchicalFacetFilters']
+            ?? $this->facetSettings['FacetFilters']
+            ?? [];
+
+        // Back-compatibility for sort options that contain id,asc (and Sorting missing from override_full_sections):
+        $cleanSortOptions = [];
+        foreach ($this->sortOptions as $sort => $label) {
+            $sort = $this->convertLegacySort($sort);
+            if (!isset($cleanSortOptions[$sort])) {
+                $cleanSortOptions[$sort] = $label;
             }
         }
+        $this->sortOptions = $cleanSortOptions;
+        $this->defaultSort = $this->convertLegacySort($this->defaultSort);
     }
 
     /**
-     * Get the field used for date range search
+     * Get the field used for date range search.
      *
      * @return string
      */
@@ -94,7 +116,7 @@ class Options extends \VuFind\Search\Solr\Options
     }
 
     /**
-     * Get the field used for date range visualization
+     * Get the field used for date range visualization.
      *
      * @return string
      */
@@ -119,5 +141,20 @@ class Options extends \VuFind\Search\Solr\Options
             return $result;
         }
         return $this->translate("search_field_$field", null, $field);
+    }
+
+    /**
+     * Convert a legacy sort option to current one that excludes a tie breaker.
+     *
+     * @param string $sort Sort string
+     *
+     * @return string
+     */
+    protected function convertLegacySort(string $sort): string
+    {
+        if (!$this->sortTieBreaker) {
+            return $sort;
+        }
+        return str_replace([',' . $this->sortTieBreaker, ', ' . $this->sortTieBreaker], '', $sort);
     }
 }
