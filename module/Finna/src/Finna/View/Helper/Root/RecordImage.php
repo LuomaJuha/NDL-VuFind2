@@ -285,6 +285,35 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
         return $images;
     }
 
+    public function getPreviewModels(): array
+    {
+        $models = $this->record->getDriver()->tryMethod('getModels', [], []);
+        if (!$models) {
+            return [];
+        }
+        $uniqueID = $this->record->getDriver()->getUniqueID();
+        $source = $this->record->getDriver()->getSourceIdentifier();
+        $bgImage
+            = $this->view->plugin('imageSrc')->getSourceAddress('3d-bg.jpg', true);
+        $result = [];
+        foreach ($models as $index => &$model) {
+            foreach ($model as &$obj) {
+                if ('preview' !== $obj['type']) {
+                    continue;
+                }
+                $obj['params'] = http_build_query([
+                        'method' => 'getModel',
+                        'id' => $uniqueID,
+                        'index' => $index,
+                        'format' => $obj['format'],
+                        'source' => $source,
+                    ]);
+            }
+            unset($obj);
+        }
+        return $models;
+    }
+
     /**
      * Return rendered record image HTML.
      *
@@ -351,13 +380,6 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
             true,
             true
         );
-        // Get plausible model data
-        if (
-            $renderContext === RenderContext::RECORD
-            && $this->record->getDriver()->tryMethod('getModels')
-        ) {
-            $images = $this->mergeModelDataToImages($images);
-        }
         if ($images && $view->layout()->templateDir === 'combined') {
             // Limit combined results to a single image
             $images = [reset($images)];
@@ -378,86 +400,6 @@ class RecordImage extends \Laminas\View\Helper\AbstractHelper
         ];
 
         return $this->record->renderTemplate('record-image.phtml', $context);
-    }
-
-    /**
-     * Return all models in a presentative format.
-     *
-     * @return array
-     */
-    protected function getAllModelsAsRepresentations(): array
-    {
-        $models = $this->record->getDriver()->tryMethod('getModels', [], []);
-        if (!$models) {
-            return [];
-        }
-
-        $result = [];
-        $uniqueID = $this->record->getDriver()->getUniqueID();
-        $source = $this->record->getDriver()->getSourceIdentifier();
-        $bgImage
-            = $this->view->plugin('imageSrc')->getSourceAddress('3d-bg.jpg', true);
-        $template = [
-            // Mimic representation of an image.
-            'urls' => [
-                'small' => null,
-                'medium' => null,
-                'large' => $bgImage,
-                'master' => null,
-            ],
-            // Model only settings
-            'type' => 'model',
-            'scripts' => '/themes/finna2/js/vendor/',
-            'texture' => '/themes/finna2/images/',
-            'models' => [],
-        ];
-        foreach ($models as $index => $object) {
-            foreach ($object['models'] as &$model) {
-                if ('preview' !== $model['type']) {
-                    continue;
-                }
-                $model['params'] = http_build_query([
-                        'method' => 'getModel',
-                        'id' => $uniqueID,
-                        'index' => $index,
-                        'format' => $model['format'],
-                        'source' => $source,
-                    ]);
-            }
-            unset($model);
-            $result[$index] = array_merge($template, $object);
-        }
-        return $result;
-    }
-
-    /**
-     * Function to combine model data with image data.
-     *
-     * @param array $images Images from getAllImagesAsCoverLinks
-     *
-     * @return array
-     */
-    protected function mergeModelDataToImages(array $images): array
-    {
-        $models = $this->getAllModelsAsRepresentations();
-        $modelSettings
-            = $this->record->getDriver()->tryMethod('getModelSettings', [], []);
-        foreach ($models as $ind => $model) {
-            if (!isset($images[$ind])) {
-                $images[$ind] = [
-                    'rights' => [],
-                ];
-            }
-            if ($modelSettings['previewImages'] ?? false) {
-                $images[$ind] = array_merge($model, $images[$ind]);
-            } else {
-                $images[$ind] = array_merge($images[$ind], $model);
-            }
-            $images[$ind]['type'] = 'model';
-        }
-        // Sort the array to ensure correct order:
-        ksort($images);
-        return $images;
     }
 
     /**

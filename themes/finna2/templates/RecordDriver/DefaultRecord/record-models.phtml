@@ -1,0 +1,12 @@
+<?php
+  if (empty($this->models)) {
+    return;
+  }
+  $modelSettings = $this->driver->tryMethod('getModelSettings', [], []);
+  $modelTranslations = $this->partial('Helpers/modeljs-translations.phtml');
+  $viewerDebug = $modelSettings['debug'] ?? false;
+?>
+
+<div>
+  
+</div>

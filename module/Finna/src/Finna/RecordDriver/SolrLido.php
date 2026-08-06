@@ -484,11 +484,48 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
      */
     public function getModels(): array
     {
-        $language = $this->getTranslatorLocale();
-        $representations = $this->getRepresentations($language);
-        // Note: Do not reindex the results e.g. with array_values, the keys are important! See FINNA-3933 and
-        // RecordImage::mergeModelDataToImages.
-        return array_filter(array_column($representations, 'models'));
+        $cacheKey = __FUNCTION__;
+        if (isset($this->cache[$cacheKey])) {
+            return $this->cache[$cacheKey];
+        }
+        $reader = $this->getXmlReader();
+        $modelTypeKeys = array_keys($this->modelTypes);
+
+        $results = [];
+        $index = 0;
+        foreach ($reader->all(path: 'lido/administrativeMetadata/resourceWrap/resourceSet') as $resourceSet) {
+            $result = [];
+            foreach ($reader->all($resourceSet, 'resourceRepresentation') as $representation) {
+                if (!$linkResource = $reader->first($representation, 'linkResource')) {
+                    continue;
+                }
+                if (!($type = $reader->attr($representation, 'type') ?? '')) {
+                    continue;
+                }
+                $url = $reader->value($linkResource);
+                if (!$url || !$this->isUrlLoadable($url, $this->getUniqueID())) {
+                    continue;
+                }
+                $format = $reader->attr($linkResource, 'formatResource') ?? '';
+
+                // Representation is a 3d model
+                if (in_array($type, $modelTypeKeys)) {
+                    if (
+                        $model = $this->getModel(
+                            $url,
+                            $format,
+                            $type,
+                            $reader->all($representation, 'resourceMeasurementsSet')
+                        )
+                    ) {
+                        $result[] = $model;
+                    }
+                    continue;
+                }
+            }
+            $results[$index++] = $result;
+        }
+        return $this->cache[$cacheKey] = $results;
     }
 
     /**
@@ -551,7 +588,6 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
         $defaultRights = $this->getImageRights($language, true);
 
         $imageTypeKeys = array_keys($this->imageTypes);
-        $modelTypeKeys = array_keys($this->modelTypes);
         $audioTypeKeys = array_keys($this->audioTypes);
         $videoTypeKeys = array_keys($this->videoTypes);
         $documentTypeKeys = array_keys($this->documentTypes);
@@ -559,7 +595,6 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
         $results = [];
         $addToResults = function (
             array $images = [],
-            array $models = [],
             array $audios = [],
             array $videos = [],
             array $documents = []
@@ -575,7 +610,6 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
             }
             $results[] = compact(
                 'images',
-                'models',
                 'audios',
                 'videos',
                 'documents'
@@ -591,7 +625,6 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
             }
 
             $imageUrls = [];
-            $modelUrls = [];
             $audioUrls = [];
             $videoUrls = [];
             $documentUrls = [];
@@ -699,20 +732,6 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
                     continue;
                 }
 
-                // Representation is a 3d model
-                if (in_array($type, $modelTypeKeys)) {
-                    if (
-                        $model = $this->getModel(
-                            $url,
-                            $format,
-                            $type,
-                            $reader->all($representation, 'resourceMeasurementsSet')
-                        )
-                    ) {
-                        $modelUrls[] = $model;
-                    }
-                    continue;
-                }
                 // Representation is an audio
                 if (in_array($type, $audioTypeKeys)) {
                     if (
@@ -752,7 +771,7 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
             }
             // Save all the found results here as a new object
             // If current set has no links, continue to next one
-            if (!$imageUrls && !$modelUrls && !$audioUrls && !$videoUrls && !$documentUrls) {
+            if (!$imageUrls && !$audioUrls && !$videoUrls && !$documentUrls) {
                 continue;
             }
             $imageResult = [];
@@ -769,16 +788,9 @@ class SolrLido extends SolrDefault implements \Psr\Log\LoggerAwareInterface
                     $imageResult = array_merge($imageResult, $extraDetails);
                 }
             }
-            $modelResult = [];
-            if ($modelUrls) {
-                $modelResult = [
-                    'models' => $modelUrls,
-                    'rights' => $rights,
-                ];
-            }
+
             $addToResults(
                 $imageResult,
-                $modelResult,
                 $audioUrls,
                 $videoUrls,
                 $documentUrls
